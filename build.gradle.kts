@@ -9,7 +9,7 @@ repositories {
     mavenCentral()
     maven {
         name = "GitHubPackages"
-        url = uri("https://maven.pkg.github.com/Flexpedite/flexpedite")
+        url = uri("https://maven.pkg.github.com/Flexpedite/flexpedite-core")
         credentials {
             username = System.getenv("GITHUB_USERNAME") ?: providers.gradleProperty("githubUsername").get()
             password = System.getenv("GITHUB_ACCESS_TOKEN") ?: providers.gradleProperty("githubAccessToken").get()
@@ -40,8 +40,6 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-web:3.1.4")
 
     implementation("io.jsonwebtoken:jjwt:0.12.2")
-
-    implementation("net.dv8tion:JDA:5.0.0-beta.15")
 }
 
 tasks.test {

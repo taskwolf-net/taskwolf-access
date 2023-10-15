@@ -23,7 +23,8 @@ public final class AccessModule extends Module {
       .verificationSecret().getBytes(StandardCharsets.UTF_8),
       SignatureAlgorithm.HS256.getJcaName());
     springApplication().addInitializers(AccessContextInitializer.create(secretKey,
-      userDatabaseTable()));
+      userDatabaseTable(), triggerDatabaseTable(), actionDatabaseTable(),
+      workflowDatabaseTable()));
   }
 
   @Override

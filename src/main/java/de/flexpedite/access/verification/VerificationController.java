@@ -1,5 +1,6 @@
 package de.flexpedite.access.verification;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import de.flexpedite.core.user.UserDatabaseTable;
 import io.jsonwebtoken.Jwts;
@@ -10,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @CrossOrigin
@@ -43,8 +43,9 @@ public final class VerificationController {
       futureResponse.complete(response);
       return;
     }
-    //TODO: CHECK IF UUID ALREADY EXISTS
-    userDatabaseTable.insertUser(UUID.randomUUID(), name, email, passwordHash);
+    userDatabaseTable.generateAvailableUserId().thenAccept(id ->
+      userDatabaseTable.insertUser(id, name, email, passwordHash,
+        Lists.newArrayList()));
     response.put("success", true);
     futureResponse.complete(response);
   }

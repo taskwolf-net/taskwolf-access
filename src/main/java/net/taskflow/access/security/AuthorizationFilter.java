@@ -1,4 +1,4 @@
-package de.flexpedite.access.security;
+package net.taskflow.access.security;
 
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.FilterChain;

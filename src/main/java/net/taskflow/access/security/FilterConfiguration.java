@@ -1,4 +1,4 @@
-package de.flexpedite.access.security;
+package net.taskflow.access.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;

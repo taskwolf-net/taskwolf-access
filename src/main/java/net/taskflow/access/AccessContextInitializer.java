@@ -1,9 +1,9 @@
-package de.flexpedite.access;
+package net.taskflow.access;
 
-import de.flexpedite.core.action.ActionDatabaseTable;
-import de.flexpedite.core.trigger.TriggerDatabaseTable;
-import de.flexpedite.core.user.UserDatabaseTable;
-import de.flexpedite.core.workflow.WorkflowDatabaseTable;
+import net.taskwolf.core.action.ActionDatabaseTable;
+import net.taskwolf.core.trigger.TriggerDatabaseTable;
+import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.support.GenericApplicationContext;

@@ -1,6 +1,6 @@
-package de.flexpedite.access.verification;
+package net.taskflow.access.verification;
 
-import de.flexpedite.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserDatabaseTable;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
 

@@ -1,12 +1,12 @@
-package de.flexpedite.access.verification;
+package net.taskflow.access.verification;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import de.flexpedite.core.user.UserDatabaseTable;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;

@@ -1,14 +1,14 @@
-package de.flexpedite.access.workflow;
+package net.taskflow.access.workflow;
 
 import com.google.common.collect.Lists;
-import de.flexpedite.core.action.ActionDatabaseTable;
-import de.flexpedite.core.trigger.TriggerDatabaseTable;
-import de.flexpedite.core.trigger.TriggerState;
-import de.flexpedite.core.user.User;
-import de.flexpedite.core.user.UserDatabaseTable;
-import de.flexpedite.core.workflow.WorkflowAffiliation;
-import de.flexpedite.core.workflow.WorkflowDatabaseTable;
-import de.flexpedite.core.workflow.WorkflowEntry;
+import net.taskwolf.core.action.ActionDatabaseTable;
+import net.taskwolf.core.trigger.TriggerDatabaseTable;
+import net.taskwolf.core.trigger.TriggerState;
+import net.taskwolf.core.user.User;
+import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.workflow.WorkflowAffiliation;
+import net.taskwolf.core.workflow.WorkflowDatabaseTable;
+import net.taskwolf.core.workflow.WorkflowEntry;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;

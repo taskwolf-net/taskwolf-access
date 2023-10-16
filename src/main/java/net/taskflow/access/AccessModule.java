@@ -1,10 +1,10 @@
-package de.flexpedite.access;
+package net.taskflow.access;
 
-import de.flexpedite.access.verification.VerificationConfiguration;
-import de.flexpedite.core.CoreModule;
-import de.flexpedite.core.module.Module;
-import de.flexpedite.core.module.ModuleDescription;
-import de.flexpedite.core.module.ModuleLoadPriority;
+import net.taskflow.access.verification.VerificationConfiguration;
+import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.module.Module;
+import net.taskwolf.core.module.ModuleDescription;
+import net.taskwolf.core.module.ModuleLoadPriority;
 import io.jsonwebtoken.SignatureAlgorithm;
 
 import javax.crypto.spec.SecretKeySpec;

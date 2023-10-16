@@ -2,14 +2,14 @@ plugins {
     id("java")
 }
 
-group = "de.flexpedite"
+group = "net.taskwolf"
 version = "1.0.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
     maven {
         name = "GitHubPackages"
-        url = uri("https://maven.pkg.github.com/Flexpedite/flexpedite-core")
+        url = uri("https://maven.pkg.github.com/taskwolfnet/taskwolf-core")
         credentials {
             username = System.getenv("GITHUB_USERNAME") ?: providers.gradleProperty("githubUsername").get()
             password = System.getenv("GITHUB_ACCESS_TOKEN") ?: providers.gradleProperty("githubAccessToken").get()
@@ -21,7 +21,7 @@ dependencies {
     testCompileOnly(platform("org.junit:junit-bom:5.10.0"))
     testCompileOnly("org.junit.jupiter:junit-jupiter:5.10.0")
 
-    compileOnly("de.flexpedite:core:1.0.0-SNAPSHOT")
+    compileOnly("net.taskwolf:core:1.0.0-SNAPSHOT")
 
     compileOnly("com.google.inject:guice:7.0.0")
 

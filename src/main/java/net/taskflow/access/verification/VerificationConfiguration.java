@@ -1,6 +1,6 @@
-package de.flexpedite.access.verification;
+package net.taskflow.access.verification;
 
-import de.flexpedite.core.configuration.Configuration;
+import net.taskwolf.core.configuration.Configuration;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import org.json.JSONObject;

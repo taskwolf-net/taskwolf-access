@@ -9,7 +9,7 @@ repositories {
     mavenCentral()
     maven {
         name = "GitHubPackages"
-        url = uri("https://maven.pkg.github.com/taskwolfnet/taskwolf-core")
+        url = uri("https://maven.pkg.github.com/TaskwolfNET/taskwolf-core")
         credentials {
             username = System.getenv("GITHUB_USERNAME") ?: providers.gradleProperty("githubUsername").get()
             password = System.getenv("GITHUB_ACCESS_TOKEN") ?: providers.gradleProperty("githubAccessToken").get()

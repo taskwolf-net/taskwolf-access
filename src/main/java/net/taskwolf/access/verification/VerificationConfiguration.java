@@ -1,4 +1,4 @@
-package net.taskflow.access.verification;
+package net.taskwolf.access.verification;
 
 import net.taskwolf.core.configuration.Configuration;
 import lombok.Getter;

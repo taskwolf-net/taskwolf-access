@@ -1,6 +1,6 @@
-package net.taskflow.access;
+package net.taskwolf.access;
 
-import net.taskflow.access.verification.VerificationConfiguration;
+import net.taskwolf.access.verification.VerificationConfiguration;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleDescription;

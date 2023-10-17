@@ -1,4 +1,4 @@
-package net.taskflow.access.security;
+package net.taskwolf.access.security;
 
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.FilterChain;

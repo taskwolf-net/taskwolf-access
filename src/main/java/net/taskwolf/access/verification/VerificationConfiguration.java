@@ -1,8 +1,8 @@
 package net.taskwolf.access.verification;
 
-import net.taskwolf.core.configuration.Configuration;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import net.taskwolf.core.configuration.Configuration;
 import org.json.JSONObject;
 
 @Accessors(fluent = true)

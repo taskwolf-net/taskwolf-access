@@ -1,8 +1,8 @@
 package net.taskwolf.access.verification;
 
-import net.taskwolf.core.user.UserDatabaseTable;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.user.UserDatabaseTable;
 
 import java.security.Key;
 import java.util.Date;

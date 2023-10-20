@@ -1,10 +1,8 @@
 package net.taskwolf.access.workflow;
 
 import com.google.common.collect.Lists;
-import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerState;
@@ -23,13 +21,21 @@ import java.util.concurrent.CompletableFuture;
 
 @CrossOrigin
 @RestController
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public final class WorkflowModificationController {
-  private final Key secretKey;;
-  private final UserDatabaseTable userDatabaseTable;
+public final class WorkflowModificationController extends TaskwolfRestController {
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
+
+  private WorkflowModificationController(
+    Key secretKey, UserDatabaseTable userDatabaseTable,
+    TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
+    WorkflowDatabaseTable workflowDatabaseTable
+  ) {
+    super(secretKey, userDatabaseTable);
+    this.triggerDatabaseTable = triggerDatabaseTable;
+    this.actionDatabaseTable = actionDatabaseTable;
+    this.workflowDatabaseTable = workflowDatabaseTable;
+  }
 
   @RequestMapping(path = "/workflow/add/", method = RequestMethod.POST)
   public void addWorkflow(
@@ -131,14 +137,5 @@ public final class WorkflowModificationController {
   private boolean checkWorkflowAuthorization(User user, UUID workflowOwnerId) {
     return workflowOwnerId.equals(user.id()) ||
       user.organizations().contains(workflowOwnerId);
-  }
-
-  private static final String API_KEY_IDENTIFIER = "API-KEY";
-
-  private CompletableFuture<User> findUser(HttpServletRequest request) {
-    var apiKey = request.getHeader(API_KEY_IDENTIFIER);
-    var email = Jwts.parser().setSigningKey(secretKey).build()
-      .parseClaimsJws(apiKey).getPayload().get("email", String.class);
-    return userDatabaseTable.findUser(email);
   }
 }

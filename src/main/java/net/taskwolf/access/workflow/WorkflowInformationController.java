@@ -2,10 +2,8 @@ package net.taskwolf.access.workflow;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.action.ActionEntry;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
@@ -27,13 +25,21 @@ import java.util.stream.Stream;
 
 @CrossOrigin
 @RestController
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public final class WorkflowInformationController {
-  private final Key secretKey;;
-  private final UserDatabaseTable userDatabaseTable;
+public final class WorkflowInformationController extends TaskwolfRestController {
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
+
+  private WorkflowInformationController(
+    Key secretKey, UserDatabaseTable userDatabaseTable,
+    TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
+    WorkflowDatabaseTable workflowDatabaseTable
+  ) {
+    super(secretKey, userDatabaseTable);
+    this.triggerDatabaseTable = triggerDatabaseTable;
+    this.actionDatabaseTable = actionDatabaseTable;
+    this.workflowDatabaseTable = workflowDatabaseTable;
+  }
 
   @RequestMapping(path = "/workflow/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findWorkflow(
@@ -81,9 +87,9 @@ public final class WorkflowInformationController {
     return futureResponse;
   }
 
-  @RequestMapping(path = "/workflows/all/", method = RequestMethod.POST)
+  @RequestMapping(path = "/workflows/all/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> allWorkflows(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenApply(user -> collectWorkflows(Stream.concat(
@@ -114,7 +120,7 @@ public final class WorkflowInformationController {
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var information = Lists.<Map<String, Object>>newArrayList();
-    for (WorkflowEntry workflow : workflows) {
+    for (var workflow : workflows) {
       gatherWorkflowInformation(workflow).thenAccept(information::add)
         .thenApply(value -> information.size() == workflows.size() &&
           futureResponse.complete(Map.of("workflows", information)));
@@ -126,7 +132,7 @@ public final class WorkflowInformationController {
     WorkflowEntry workflow
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userDatabaseTable.findUser(workflow.creatorId()).thenAccept(creator ->
+    userDatabaseTable().findUser(workflow.creatorId()).thenAccept(creator ->
       triggerDatabaseTable.findTrigger(workflow.triggerId()).thenAccept(trigger ->
         actionDatabaseTable.findActionsByWorkflow(workflow.id())
           .thenAccept(actions -> futureResponse.complete(
@@ -146,7 +152,7 @@ public final class WorkflowInformationController {
     information.put("triggerType", trigger.type());
     information.put("triggerContent", trigger.content());
     var actionsInformation = Lists.<Map<String, Object>>newArrayList();
-    for (ActionEntry action : actions) {
+    for (var action : actions) {
       var actionInformation = Maps.<String, Object>newHashMap();
       actionInformation.put("actionModule", action.module());
       actionInformation.put("actionType", action.type());
@@ -164,14 +170,5 @@ public final class WorkflowInformationController {
   private boolean checkWorkflowAuthorization(User user, UUID workflowOwnerId) {
     return workflowOwnerId.equals(user.id()) ||
       user.organizations().contains(workflowOwnerId);
-  }
-
-  private static final String API_KEY_IDENTIFIER = "API-KEY";
-
-  private CompletableFuture<User> findUser(HttpServletRequest request) {
-    var apiKey = request.getHeader(API_KEY_IDENTIFIER);
-    var email = Jwts.parser().setSigningKey(secretKey).build()
-      .parseClaimsJws(apiKey).getPayload().get("email", String.class);
-    return userDatabaseTable.findUser(email);
   }
 }

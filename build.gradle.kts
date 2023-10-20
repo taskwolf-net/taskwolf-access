@@ -39,7 +39,7 @@ dependencies {
 
     compileOnly("org.springframework.boot:spring-boot-starter-web:3.1.4")
 
-    implementation("io.jsonwebtoken:jjwt:0.12.2")
+    implementation("io.jsonwebtoken:jjwt:0.12.3")
 }
 
 tasks.test {

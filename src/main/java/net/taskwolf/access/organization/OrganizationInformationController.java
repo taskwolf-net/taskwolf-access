@@ -39,9 +39,8 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     HttpServletRequest request
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> invitationDatabaseTable
-      .findInvitations(user.id()).thenAccept(invitations ->
-        futureResponse.complete(Map.of("invitations", invitations))));
+    invitationDatabaseTable.findInvitations(findUserId(request)).thenAccept(
+      invitations -> futureResponse.complete(Map.of("invitations", invitations)));
     return futureResponse;
   }
 

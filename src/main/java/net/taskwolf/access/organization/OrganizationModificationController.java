@@ -36,9 +36,8 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var name = (String) input.get("name");
-    findUser(request).thenAccept(user -> organizationDatabaseTable
-      .generateAvailableOrganizationId().thenAccept(id ->
-        createOrganization(id, name, user.id())));
+    organizationDatabaseTable.generateAvailableOrganizationId().thenAccept(id ->
+        createOrganization(id, name, findUserId(request)));
   }
 
   private void createOrganization(UUID organizationId, String name, UUID userId) {
@@ -81,20 +80,20 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var organizationId = UUID.fromString((String) input.get("organization"));
-    findUser(request).thenAccept(user ->
-      invitationDatabaseTable.findInvitations(user.id()).thenAccept(invitations ->
-        acceptInvitation(user, invitations, organizationId)));
+    var userId = findUserId(request);
+    invitationDatabaseTable.findInvitations(userId).thenAccept(invitations ->
+        acceptInvitation(userId, invitations, organizationId));
   }
 
   private void acceptInvitation(
-    User user, List<UUID> invitations, UUID organizationId
+    UUID userId, List<UUID> invitations, UUID organizationId
   ) {
     if (!invitations.contains(organizationId)) {
       return;
     }
-    invitationDatabaseTable.removeInvitation(user.id(), organizationId);
-    userDatabaseTable().addUserOrganization(user.id(), organizationId);
-    organizationDatabaseTable.addOrganizationMember(organizationId, user.id());
+    invitationDatabaseTable.removeInvitation(userId, organizationId);
+    userDatabaseTable().addUserOrganization(userId, organizationId);
+    organizationDatabaseTable.addOrganizationMember(organizationId, userId);
   }
 
   @RequestMapping(path = "/organization/kick/", method = RequestMethod.POST)

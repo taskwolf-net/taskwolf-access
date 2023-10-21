@@ -66,14 +66,13 @@ public final class VerificationController {
     HttpServletResponse servletResponse, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse, boolean isAuthenticated
   ) {
-    if (isAuthenticated) {
-      var response = Maps.<String, Object>newHashMap();
-      response.put("apiKey", verification.generateApiKey());
-      futureResponse.complete(response);
-    } else {
+    if (!isAuthenticated) {
       servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
       futureResponse.complete(Maps.newHashMap());
+      return;
     }
+    userDatabaseTable.findUser(verification.email()).thenAccept(user ->
+      futureResponse.complete(Map.of("apiKey", verification.generateApiKey(user.id()))));
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)

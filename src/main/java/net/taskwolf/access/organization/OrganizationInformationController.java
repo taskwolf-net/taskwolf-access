@@ -1,9 +1,9 @@
 package net.taskwolf.access.organization;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.InvitationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
@@ -59,12 +59,9 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     List<UUID> organizations
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var information = Lists.<Map<String, Object>>newArrayList();
-    for (var organization : organizations) {
-      gatherOrganizationInformation(organization).thenAccept(information::add)
-        .thenApply(value -> information.size() == organizations.size() &&
-          futureResponse.complete(Map.of("organizations", information)));
-    }
+    AsyncIterator.execute(organizations, this::gatherOrganizationInformation,
+      organizations.size(), information -> futureResponse.complete(
+        Map.of("organizations", information)));
     return futureResponse;
   }
 
@@ -84,12 +81,8 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     List<UUID> memberIds
   ) {
     var futureResponse = new CompletableFuture<List<User>>();
-    var members = Lists.<User>newArrayList();
-    for (var memberId : memberIds) {
-      userDatabaseTable().findUser(memberId).thenAccept(members::add)
-        .thenApply(value -> members.size() == memberIds.size() &&
-          futureResponse.complete(members));
-    }
+    AsyncIterator.execute(memberIds, member -> userDatabaseTable().findUser(member),
+      memberIds.size(), futureResponse::complete);
     return futureResponse;
   }
 

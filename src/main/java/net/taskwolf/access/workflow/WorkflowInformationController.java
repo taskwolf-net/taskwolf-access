@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.action.ActionEntry;
+import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.iterator.AsyncListIterator;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
 import net.taskwolf.core.user.User;
@@ -19,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -103,28 +104,21 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     List<UUID> ownerIds
   ) {
     var futureResponse = new CompletableFuture<List<WorkflowEntry>>();
-    var workflows = Lists.<WorkflowEntry>newArrayList();
-    var counter = new AtomicInteger();
-    for (var ownerId : ownerIds) {
-      workflowDatabaseTable.findWorkflowsOfOwner(ownerId).thenAccept(workflows::addAll)
-        .thenAccept(value -> counter.incrementAndGet())
-        .thenApply(value -> counter.get() == ownerIds.size() &&
-          futureResponse.complete(workflows));
-    }
+    AsyncListIterator.execute(ownerIds, workflowDatabaseTable::findWorkflowsOfOwner,
+      ownerIds.size(), futureResponse::complete);
     return futureResponse;
   }
-
 
   private CompletableFuture<Map<String, Object>> collectWorkflowInformation(
     List<WorkflowEntry> workflows
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var information = Lists.<Map<String, Object>>newArrayList();
-    for (var workflow : workflows) {
-      gatherWorkflowInformation(workflow).thenAccept(information::add)
-        .thenApply(value -> information.size() == workflows.size() &&
-          futureResponse.complete(Map.of("workflows", information)));
+    if (workflows.isEmpty()) {
+      return CompletableFuture.completedFuture(Map.of("workflows",
+        Lists.newArrayList()));
     }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    AsyncIterator.execute(workflows, this::gatherWorkflowInformation, workflows.size(),
+      information -> futureResponse.complete(Map.of("workflows", information)));
     return futureResponse;
   }
 

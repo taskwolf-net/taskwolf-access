@@ -5,6 +5,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -13,9 +14,9 @@ import java.io.IOException;
 import java.security.Key;
 
 @Component
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class AuthorizationFilter extends OncePerRequestFilter {
-  private Key secretKey;
+  private final Key secretKey;
 
   private static final String API_KEY_IDENTIFIER = "API-KEY";
 
@@ -36,6 +37,12 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     filterChain.doFilter(request, response);
   }
 
+  @Override
+  protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+    return request.getRequestURI().contains("/verification/") ||
+      request.getRequestURI().contains("/discord/guild/add/");
+  }
+
   private void prepareResponseHeaders(HttpServletResponse response) {
     response.setHeader("Access-Control-Allow-Origin", "*");
     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -54,11 +61,5 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     } catch (Exception exception) {
       return false;
     }
-  }
-
-  @Override
-  protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
-    return request.getRequestURI().contains("/verification/") ||
-      request.getRequestURI().contains("/discord/guild/add/");
   }
 }

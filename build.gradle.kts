@@ -4,6 +4,8 @@ plugins {
 
 group = "net.taskwolf"
 version = "1.0.0-SNAPSHOT"
+java.sourceCompatibility = JavaVersion.VERSION_20
+java.targetCompatibility = JavaVersion.VERSION_20
 
 repositories {
   mavenCentral()

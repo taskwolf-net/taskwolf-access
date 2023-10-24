@@ -3,6 +3,7 @@ package net.taskwolf.access.organization;
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.organization.InvitationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
@@ -20,15 +21,17 @@ import java.util.UUID;
 public final class OrganizationModificationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final InvitationDatabaseTable invitationDatabaseTable;
+  private final Distribution distribution;
 
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
-    InvitationDatabaseTable invitationDatabaseTable
+    InvitationDatabaseTable invitationDatabaseTable, Distribution distribution
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.invitationDatabaseTable = invitationDatabaseTable;
+    this.distribution = distribution;
   }
 
   @RequestMapping(path = "/organization/create/", method = RequestMethod.POST)
@@ -44,6 +47,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     organizationDatabaseTable.insertOrganization(organizationId, name, userId,
       Lists.newArrayList());
     userDatabaseTable().addUserOrganization(userId, organizationId);
+    distribution.addNewUser(organizationId);
   }
 
   @RequestMapping(path = "/organization/invite/", method = RequestMethod.POST)

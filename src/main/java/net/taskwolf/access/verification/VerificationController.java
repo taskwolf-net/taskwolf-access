@@ -6,11 +6,13 @@ import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @CrossOrigin
@@ -19,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 public final class VerificationController {
   private final Key secretKey;
   private final UserDatabaseTable userDatabaseTable;
+  private final Distribution distribution;
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> register(
@@ -44,10 +47,17 @@ public final class VerificationController {
       return;
     }
     userDatabaseTable.generateAvailableUserId().thenAccept(id ->
-      userDatabaseTable.insertUser(id, name, email, passwordHash,
-        Lists.newArrayList()));
+      insertNewUser(id, name, email, passwordHash));
     response.put("success", true);
     futureResponse.complete(response);
+  }
+
+  private void insertNewUser(
+    UUID userId, String name, String email, String passwordHash
+  ) {
+    userDatabaseTable.insertUser(userId, name, email, passwordHash,
+      Lists.newArrayList());
+    distribution.addNewUser(userId);
   }
 
   @RequestMapping(path = "/verification/login/", method = RequestMethod.POST)

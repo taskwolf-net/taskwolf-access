@@ -15,7 +15,12 @@ public final class AccessModule extends Module {
 
   @Override
   public void enable() throws Exception {
-
+    coreModule().springApplication().addInitializers(AccessContextInitializer.create(
+      coreModule().databaseConnection(), coreModule().databaseKeyspace(),
+      coreModule().userDatabaseTable(), coreModule().organizationDatabaseTable(),
+      coreModule().invitationDatabaseTable(), coreModule().triggerDatabaseTable(),
+      coreModule().actionDatabaseTable(), coreModule().workflowDatabaseTable(),
+      coreModule().templateDatabaseTable(), coreModule().distribution(), coreModule()));
   }
 
   @Override

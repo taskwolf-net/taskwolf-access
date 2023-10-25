@@ -1,0 +1,47 @@
+package net.taskwolf.access;
+
+import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.action.ActionDatabaseTable;
+import net.taskwolf.core.database.DatabaseConnection;
+import net.taskwolf.core.database.DatabaseKeyspace;
+import net.taskwolf.core.distribution.Distribution;
+import net.taskwolf.core.organization.InvitationDatabaseTable;
+import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.template.TemplateDatabaseTable;
+import net.taskwolf.core.trigger.TriggerDatabaseTable;
+import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.workflow.WorkflowDatabaseTable;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
+
+@RequiredArgsConstructor(staticName = "create")
+public class AccessContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+  private final DatabaseConnection databaseConnection;
+  private final DatabaseKeyspace databaseKeyspace;
+  private final UserDatabaseTable userDatabaseTable;
+  private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final InvitationDatabaseTable invitationDatabaseTable;
+  private final TriggerDatabaseTable triggerDatabaseTable;
+  private final ActionDatabaseTable actionDatabaseTable;
+  private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final TemplateDatabaseTable templateDatabaseTable;
+  private final Distribution distribution;
+  private final CoreModule coreModule;
+
+  @Override
+  public void initialize(ConfigurableApplicationContext applicationContext) {
+    var beanFactory = applicationContext.getBeanFactory();
+    beanFactory.registerSingleton("databaseConnection", databaseConnection);
+    beanFactory.registerSingleton("databaseKeyspace", databaseKeyspace);
+    beanFactory.registerSingleton("userDatabaseTable", userDatabaseTable);
+    beanFactory.registerSingleton("organizationDatabaseTable", organizationDatabaseTable);
+    beanFactory.registerSingleton("invitationDatabaseTable", invitationDatabaseTable);
+    beanFactory.registerSingleton("triggerDatabaseTable", triggerDatabaseTable);
+    beanFactory.registerSingleton("actionDatabaseTable", actionDatabaseTable);
+    beanFactory.registerSingleton("workflowDatabaseTable", workflowDatabaseTable);
+    beanFactory.registerSingleton("templateDatabaseTable", templateDatabaseTable);
+    beanFactory.registerSingleton("distribution", distribution);
+    beanFactory.registerSingleton("coreModule", coreModule);
+  }
+}

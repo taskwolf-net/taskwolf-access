@@ -84,7 +84,7 @@ public final class VerificationController {
       return;
     }
     userDatabaseTable.findUser(verification.email()).thenAccept(user ->
-      futureResponse.complete(Map.of("apiKey", verification.generateApiKey(user.id()))));
+      futureResponse.complete(Map.of("apiKey", verification.generateApiKey(user.id(), user.name()))));
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)

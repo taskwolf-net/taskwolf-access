@@ -45,7 +45,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
 
   private void createOrganization(UUID organizationId, String name, UUID userId) {
     organizationDatabaseTable.insertOrganization(organizationId, name, userId,
-      Lists.newArrayList());
+      Lists.newArrayList(), Lists.newArrayList());
     userDatabaseTable().addUserOrganization(userId, organizationId);
     distribution.addNewUser(organizationId);
   }
@@ -77,6 +77,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
       return;
     }
     invitationDatabaseTable.addInvitation(targetId, organization.id());
+    organizationDatabaseTable.addOrganizationInvitation(organization.id(), targetId);
   }
 
   @RequestMapping(path = "/organization/invitation/accept/", method = RequestMethod.POST)
@@ -98,6 +99,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     invitationDatabaseTable.removeInvitation(userId, organizationId);
     userDatabaseTable().addUserOrganization(userId, organizationId);
     organizationDatabaseTable.addOrganizationMember(organizationId, userId);
+    organizationDatabaseTable.removeOrganizationInvitation(organizationId, userId);
   }
 
   @RequestMapping(path = "/organization/kick/", method = RequestMethod.POST)

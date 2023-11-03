@@ -12,6 +12,7 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -34,13 +35,71 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     this.invitationDatabaseTable = invitationDatabaseTable;
   }
 
-  @RequestMapping(path = "/organization/invitations/all/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findAllInvitations(
+  @RequestMapping(path = "/organization/invitations/personal/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findPersonalInvitations(
     HttpServletRequest request
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     invitationDatabaseTable.findInvitations(findUserId(request)).thenAccept(
-      invitations -> futureResponse.complete(Map.of("invitations", invitations)));
+      invitations -> collectPersonalInvitations(invitations)
+        .thenAccept(futureResponse::complete));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> collectPersonalInvitations(
+    List<UUID> invitations
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    AsyncIterator.execute(invitations, organizationId ->
+        organizationDatabaseTable.findOrganization(organizationId)
+          .thenApply(organization -> new AbstractMap.SimpleEntry(organizationId,
+            organization.name())), invitations.size(), organizations ->
+      futureResponse.complete(Map.of("invitations", organizations)));
+    return futureResponse;
+  }
+
+  @RequestMapping(path = "/organization/selected/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findSelectedOrganization(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var id = UUID.fromString((String) input.get("id"));
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    findUser(request).thenAccept(user -> gatherOrganizationInformation(
+      id, user.id()).thenAccept(futureResponse::complete));
+    return futureResponse;
+  }
+
+  @RequestMapping(path = "/organization/invitations/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findOrganizationInvitations(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var id = UUID.fromString((String) input.get("id"));
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    findUser(request).thenAccept(user -> findOrganizationInvitations(user, id)
+      .thenAccept(futureResponse::complete));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> findOrganizationInvitations(
+    User user, UUID organizationId
+  ) {
+    if (!user.organizations().contains(organizationId)) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    organizationDatabaseTable.findOrganization(organizationId).thenAccept(organization ->
+      collectOrganizationInvitations(organization).thenAccept(futureResponse::complete));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> collectOrganizationInvitations(
+    Organization organization
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    AsyncIterator.execute(organization.invitations(), invited ->
+      userDatabaseTable().findUser(invited), organization.invitations().size(),
+      users -> futureResponse.complete(Map.of("invitations",
+        users.stream().map(User::name).collect(Collectors.toList()))));
     return futureResponse;
   }
 

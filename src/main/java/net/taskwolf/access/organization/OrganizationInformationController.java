@@ -50,29 +50,30 @@ public final class OrganizationInformationController extends TaskwolfRestControl
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user -> collectOrganizationsInformation(
-      user.organizations()).thenAccept(futureResponse::complete));
+      user.organizations(), user.id()).thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> collectOrganizationsInformation(
-    List<UUID> organizations
+    List<UUID> organizations, UUID applicantId
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(organizations, this::gatherOrganizationInformation,
+    AsyncIterator.execute(organizations, organization ->
+        gatherOrganizationInformation(organization, applicantId),
       organizations.size(), information -> futureResponse.complete(
         Map.of("organizations", information)));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> gatherOrganizationInformation(
-    UUID organizationId
+    UUID organizationId, UUID applicantId
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     organizationDatabaseTable.findOrganization(organizationId).thenAccept(
       organization -> userDatabaseTable().findUser(organization.owner()).thenAccept(
         owner -> findOrganizationMembers(organization.members()).thenAccept(
           members -> futureResponse.complete(
-            assemblyOrganizationInformation(organization, owner, members)))));
+            assemblyOrganizationInformation(organization, owner, members, applicantId)))));
     return futureResponse;
   }
 
@@ -86,11 +87,13 @@ public final class OrganizationInformationController extends TaskwolfRestControl
   }
 
   private Map<String, Object> assemblyOrganizationInformation(
-    Organization organization, User owner, List<User> members
+    Organization organization, User owner, List<User> members, UUID applicantId
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("id", organization.id());
     information.put("name", organization.name());
     information.put("owner", owner.name());
+    information.put("isOwner", applicantId.equals(owner.id()));
     information.put("members", members.stream().map(User::name)
       .collect(Collectors.toList()));
     return information;

@@ -15,6 +15,7 @@ import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @CrossOrigin
 @RestController
@@ -51,33 +52,64 @@ public final class OrganizationModificationController extends TaskwolfRestContro
   }
 
   @RequestMapping(path = "/organization/invite/", method = RequestMethod.POST)
-  public void inviteToOrganization(
+  public CompletableFuture<Map<String, Object>> inviteToOrganization(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var organizationId = UUID.fromString((String) input.get("organization"));
     var targetId = UUID.fromString((String) input.get("target"));
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user ->
-      inviteToOrganization(user, organizationId, targetId));
-  }
-
-  private void inviteToOrganization(User user, UUID organizationId, UUID targetId) {
-    if (!user.organizations().contains(organizationId)) {
-      return;
-    }
-    organizationDatabaseTable.findOrganization(organizationId)
-      .thenAccept(organization -> inviteToOrganization(user, organization, targetId));
+      inviteToOrganization(user, organizationId, targetId, futureResponse));
+    return futureResponse;
   }
 
   private void inviteToOrganization(
-    User user, Organization organization, UUID targetId
+    User user, UUID organizationId, UUID targetId,
+    CompletableFuture<Map<String, Object>> response
   ) {
-    if (!organization.owner().equals(user.id()) ||
-      organization.members().contains(targetId) || targetId.equals(user.id())
-    ) {
+    if (!user.organizations().contains(organizationId)) {
+      response.complete(Map.of("success", false, "errorCode", 1000));
+      return;
+    }
+    organizationDatabaseTable.findOrganization(organizationId).thenAccept(organization ->
+      inviteToOrganization(user, organization, targetId, response));
+  }
+
+  private void inviteToOrganization(
+    User user, Organization organization, UUID targetId,
+    CompletableFuture<Map<String, Object>> response
+  ) {
+    if (!organization.owner().equals(user.id())) {
+      response.complete(Map.of("success", false, "errorCode", 1001));
+      return;
+    }
+    if (organization.invitations().contains(targetId)) {
+      response.complete(Map.of("success", false, "errorCode", 1002));
+      return;
+    }
+    if (organization.members().contains(targetId)) {
+      response.complete(Map.of("success", false, "errorCode", 1003));
+      return;
+    }
+    if (targetId.equals(user.id())) {
+      response.complete(Map.of("success", false, "errorCode", 1004));
+      return;
+    }
+    userDatabaseTable().userExists(targetId).thenAccept(exists ->
+      inviteToOrganization(organization, targetId, exists, response));
+  }
+
+  private void inviteToOrganization(
+    Organization organization, UUID targetId, boolean targetExists,
+    CompletableFuture<Map<String, Object>> response
+  ) {
+    if (!targetExists) {
+      response.complete(Map.of("success", false, "errorCode", 1005));
       return;
     }
     invitationDatabaseTable.addInvitation(targetId, organization.id());
     organizationDatabaseTable.addOrganizationInvitation(organization.id(), targetId);
+    response.complete(Map.of("success", true));
   }
 
   @RequestMapping(path = "/organization/invitation/accept/", method = RequestMethod.POST)

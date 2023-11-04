@@ -1,5 +1,6 @@
 package net.taskwolf.access.organization;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
@@ -40,7 +41,21 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     HttpServletRequest request
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    invitationDatabaseTable.findInvitations(findUserId(request)).thenAccept(
+    var userId = findUserId(request);
+    invitationDatabaseTable.invitationsExists(userId).thenAccept(exists ->
+      collectPersonalInvitations(userId, exists).thenAccept(futureResponse::complete));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> collectPersonalInvitations(
+    UUID userId, boolean exists
+  ) {
+    if (!exists) {
+      return CompletableFuture.completedFuture(Map.of("invitations",
+        Lists.newArrayList()));
+    }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    invitationDatabaseTable.findInvitations(userId).thenAccept(
       invitations -> collectPersonalInvitations(invitations)
         .thenAccept(futureResponse::complete));
     return futureResponse;

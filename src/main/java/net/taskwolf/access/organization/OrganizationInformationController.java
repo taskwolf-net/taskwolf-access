@@ -50,12 +50,21 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     List<UUID> invitations
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(invitations, organizationId ->
-        organizationDatabaseTable.findOrganization(organizationId)
-          .thenApply(organization -> new AbstractMap.SimpleEntry(organizationId,
-            organization.name())), invitations.size(), organizations ->
-      futureResponse.complete(Map.of("invitations", organizations)));
+    AsyncIterator.execute(invitations, organizationDatabaseTable::findOrganization,
+      invitations.size(), organizations ->  AsyncIterator.execute(organizations,
+        organization -> userDatabaseTable().findUser(organization.owner()).thenApply(owner ->
+          new AbstractMap.SimpleEntry(organization, owner)), organizations.size(),
+        entries -> futureResponse.complete(Map.of("invitations",
+          entries.stream().map(this::transformPersonalInvitation).collect(Collectors.toList())))));
     return futureResponse;
+  }
+
+  private Map<String, Object> transformPersonalInvitation(Map.Entry<Organization, User> entry) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("id", entry.getKey().id());
+    information.put("name", entry.getKey().name());
+    information.put("owner", entry.getValue().name());
+    return information;
   }
 
   @RequestMapping(path = "/organization/selected/", method = RequestMethod.POST)

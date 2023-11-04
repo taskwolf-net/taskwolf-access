@@ -130,8 +130,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     }
     invitationDatabaseTable.removeInvitation(userId, organizationId);
     userDatabaseTable().addUserOrganization(userId, organizationId);
-    organizationDatabaseTable.addOrganizationMember(organizationId, userId);
-    organizationDatabaseTable.removeOrganizationInvitation(organizationId, userId);
+    organizationDatabaseTable.acceptOrganizationInvitation(organizationId, userId);
   }
 
   @RequestMapping(path = "/organization/kick/", method = RequestMethod.POST)

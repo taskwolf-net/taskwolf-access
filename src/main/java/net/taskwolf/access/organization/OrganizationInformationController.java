@@ -179,6 +179,8 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     information.put("isOwner", applicantId.equals(owner.id()));
     information.put("members", members.stream().map(User::name)
       .collect(Collectors.toList()));
+    information.put("memberIds", members.stream().map(User::id)
+      .collect(Collectors.toList()));
     return information;
   }
 }

@@ -134,6 +134,26 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     organizationDatabaseTable.acceptOrganizationInvitation(organizationId, userId);
   }
 
+  @RequestMapping(path = "/organization/invitation/dismiss/", method = RequestMethod.POST)
+  public void dismissInvitation(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var organizationId = UUID.fromString((String) input.get("organization"));
+    var userId = findUserId(request);
+    invitationDatabaseTable.findInvitations(userId).thenAccept(invitations ->
+      dismissInvitation(userId, invitations, organizationId));
+  }
+
+  private void dismissInvitation(
+    UUID userId, List<UUID> invitations, UUID organizationId
+  ) {
+    if (!invitations.contains(organizationId)) {
+      return;
+    }
+    invitationDatabaseTable.removeInvitation(userId, organizationId);
+    organizationDatabaseTable.removeOrganizationInvitation(organizationId, userId);
+  }
+
   @RequestMapping(path = "/organization/kick/", method = RequestMethod.POST)
   public void kickFromOrganization(
     HttpServletRequest request, @RequestBody Map<String, Object> input

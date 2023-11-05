@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Key;
 import java.util.Map;
 
-@CrossOrigin
 @RestController
 public final class ModuleController extends TaskwolfRestController {
   private final CoreModule coreModule;

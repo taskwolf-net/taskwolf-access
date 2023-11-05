@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 import java.net.http.HttpClient;
 import java.util.concurrent.CompletableFuture;
 
-@CrossOrigin
 @RestController
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class WebController {

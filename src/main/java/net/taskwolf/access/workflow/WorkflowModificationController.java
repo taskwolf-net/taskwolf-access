@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-@CrossOrigin
 @RestController
 public final class WorkflowModificationController extends TaskwolfRestController {
   private final TriggerDatabaseTable triggerDatabaseTable;

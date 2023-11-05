@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@CrossOrigin
 @RestController
 public final class WorkflowInformationController extends TaskwolfRestController {
   private final TriggerDatabaseTable triggerDatabaseTable;

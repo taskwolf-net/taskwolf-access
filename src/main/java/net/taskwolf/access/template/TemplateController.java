@@ -12,7 +12,6 @@ import java.security.Key;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-@CrossOrigin
 @RestController
 public final class TemplateController extends TaskwolfRestController {
   private final TemplateDatabaseTable templateDatabaseTable;

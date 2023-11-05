@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-@CrossOrigin
 @RestController
 public final class OrganizationModificationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;

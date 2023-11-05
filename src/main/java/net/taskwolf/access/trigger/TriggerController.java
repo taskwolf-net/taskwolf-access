@@ -13,7 +13,6 @@ import java.security.Key;
 import java.util.List;
 import java.util.Map;
 
-@CrossOrigin
 @RestController
 public final class TriggerController extends TaskwolfRestController {
   private final CoreModule coreModule;

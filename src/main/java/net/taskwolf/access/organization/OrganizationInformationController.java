@@ -20,7 +20,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-@CrossOrigin
 @RestController
 public final class OrganizationInformationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;

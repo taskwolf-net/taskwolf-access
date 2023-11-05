@@ -40,8 +40,9 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var name = (String) input.get("name");
+    var userId = findUserId(request);
     organizationDatabaseTable.generateAvailableOrganizationId().thenAccept(id ->
-        createOrganization(id, name, findUserId(request)));
+        createOrganization(id, name, userId));
   }
 
   private void createOrganization(UUID organizationId, String name, UUID userId) {
@@ -163,6 +164,22 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     organizationDatabaseTable.removeOrganizationMember(organization.id(), targetId);
   }
 
+  @RequestMapping(path = "/organization/leave/", method = RequestMethod.POST)
+  public void leaveOrganization(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var organizationId = UUID.fromString((String) input.get("organization"));
+    findUser(request).thenAccept(user -> leaveOrganization(user, organizationId));
+  }
+
+  private void leaveOrganization(User user, UUID organizationId) {
+    if (!user.organizations().contains(organizationId)) {
+      return;
+    }
+    organizationDatabaseTable.removeOrganizationMember(organizationId, user.id());
+    userDatabaseTable().removeUserOrganization(user.id(), organizationId);
+  }
+
   @RequestMapping(path = "/organization/delete/", method = RequestMethod.POST)
   public void deleteOrganization(
     HttpServletRequest request, @RequestBody Map<String, Object> input
@@ -185,6 +202,9 @@ public final class OrganizationModificationController extends TaskwolfRestContro
       organization.id());
     for (var member : organization.members()) {
       userDatabaseTable().removeUserOrganization(member, organization.id());
+    }
+    for (var invited : organization.invitations()) {
+      invitationDatabaseTable.removeInvitation(invited, organization.id());
     }
   }
 }

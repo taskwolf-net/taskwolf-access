@@ -15,6 +15,8 @@ public final class AccessModule extends Module {
 
   @Override
   public void enable() throws Exception {
+    System.setProperty("jdk.httpclient.allowRestrictedHeaders",
+      "host,connection,content-length,upgrade");
     coreModule().springApplication().addInitializers(AccessContextInitializer.create(
       coreModule().databaseConnection(), coreModule().databaseKeyspace(),
       coreModule().userDatabaseTable(), coreModule().organizationDatabaseTable(),

@@ -1,5 +1,6 @@
 package net.taskwolf.access.security;
 
+import com.google.common.collect.Lists;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -9,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.io.IOException;
 import java.security.Key;
@@ -17,6 +19,7 @@ import java.security.Key;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class AuthorizationFilter extends OncePerRequestFilter {
   private final Key secretKey;
+  private final RequestMappingHandlerMapping requestHandlerMapping;
 
   private static final String API_KEY_IDENTIFIER = "API-KEY";
 
@@ -39,8 +42,15 @@ public class AuthorizationFilter extends OncePerRequestFilter {
 
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
-    return request.getRequestURI().contains("/verification/") ||
-      request.getRequestURI().contains("/discord/guild/add/");
+    var controllers = Lists.<String>newArrayList();
+    requestHandlerMapping.getHandlerMethods().forEach((key, value) ->
+      controllers.addAll(key.getDirectPaths()));
+    controllers.remove("/");
+    controllers.remove("/verification/register/");
+    controllers.remove("/verification/login/");
+    controllers.remove("/verification/isValid/");
+    controllers.remove("/discord/guild/add/");
+    return !(controllers.contains(request.getRequestURI()));
   }
 
   private void prepareResponseHeaders(HttpServletResponse response) {

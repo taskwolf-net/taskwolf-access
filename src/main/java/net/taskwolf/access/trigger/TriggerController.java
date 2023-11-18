@@ -2,16 +2,19 @@ package net.taskwolf.access.trigger;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.trigger.TriggerInformation;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.workflow.component.ComponentType;
 import net.taskwolf.core.workflow.component.ComponentVariable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class TriggerController extends TaskwolfRestController {
@@ -84,5 +87,28 @@ public final class TriggerController extends TaskwolfRestController {
       variablesInformation.add(variableInformation);
     }
     return variablesInformation;
+  }
+
+  @RequestMapping(path = "/trigger/select/items/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findSelectItems(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var module = (String) input.get("module");
+    var type = (String) input.get("type");
+    var previousInputs = (Map<String, String>) input.get("previousInputs");
+    var selectIdentifier = (String) input.get("select");
+    var trigger = coreModule.findTriggerInformation(module, type);
+    if (trigger.isEmpty()) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    var select = trigger.get().inputVariables().stream()
+      .filter(variable -> variable.type().equals(ComponentType.SELECT))
+      .filter(variable -> variable.identifier().equals(selectIdentifier))
+      .findFirst();
+    if (select.isEmpty()) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return select.get().select().compile(findUserId(request), previousInputs)
+      .thenApply(items -> Map.of("items", items));
   }
 }

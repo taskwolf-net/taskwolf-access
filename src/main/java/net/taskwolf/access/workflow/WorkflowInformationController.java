@@ -8,6 +8,7 @@ import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.action.ActionEntry;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.iterator.AsyncListIterator;
+import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
 import net.taskwolf.core.user.User;
@@ -29,16 +30,56 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final OrganizationDatabaseTable organizationDatabaseTable;
 
   private WorkflowInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
-    WorkflowDatabaseTable workflowDatabaseTable
+    WorkflowDatabaseTable workflowDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
+    this.organizationDatabaseTable = organizationDatabaseTable;
+  }
+
+  @RequestMapping(path = "/workflow/owners/all/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> allWorkflowOwners(
+    HttpServletRequest request
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    findUser(request).thenAccept(user -> collectOwnersInformation(
+      user.organizations(), user.id()).thenAccept(futureResponse::complete));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> collectOwnersInformation(
+    List<UUID> organizations, UUID applicantId
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    AsyncIterator.execute(organizations, this::gatherOrganizationInformation,
+      organizations.size(), information -> futureResponse.complete(
+        finishOwnersInformation(information, applicantId)));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> gatherOrganizationInformation(
+    UUID organizationId
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
+      organization -> futureResponse.complete(Map.of("id", organization.id(),
+        "name", organization.name())));
+    return futureResponse;
+  }
+
+  private Map<String, Object> finishOwnersInformation(
+    List<Map<String, Object>> organizations, UUID applicantId
+  ) {
+    organizations.addFirst(Map.of("id", applicantId, "name", "You / Personal"));
+    return Map.of("owners", organizations);
   }
 
   @RequestMapping(path = "/workflow/find/", method = RequestMethod.POST)
@@ -70,7 +111,8 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var ownerId = UUID.fromString((String) input.get("owner"));
-    findUser(request).thenApply(user -> findSelectedWorkflows(user, ownerId));
+    findUser(request).thenApply(user -> findSelectedWorkflows(user, ownerId)
+      .thenApply(futureResponse::complete));
     return futureResponse;
   }
 

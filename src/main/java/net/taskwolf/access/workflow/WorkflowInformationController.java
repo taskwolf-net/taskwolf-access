@@ -78,7 +78,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   private Map<String, Object> finishOwnersInformation(
     List<Map<String, Object>> organizations, UUID applicantId
   ) {
-    organizations.addFirst(Map.of("id", applicantId, "name", "You / Personal"));
+    organizations.addFirst(Map.<String, Object>of("id", applicantId, "name", "You / Personal"));
     return Map.of("owners", organizations);
   }
 

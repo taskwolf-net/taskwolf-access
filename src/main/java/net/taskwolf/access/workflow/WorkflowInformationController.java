@@ -78,8 +78,10 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   private Map<String, Object> finishOwnersInformation(
     List<Map<String, Object>> organizations, UUID applicantId
   ) {
-    organizations.addFirst(Map.<String, Object>of("id", applicantId, "name", "You / Personal"));
-    return Map.of("owners", organizations);
+    var owners = Lists.<Map<String, Object>>newArrayList();
+    owners.add(Map.of("id", applicantId, "name", "You / Personal"));
+    owners.addAll(organizations);
+    return Map.of("owners", owners);
   }
 
   @RequestMapping(path = "/workflow/find/", method = RequestMethod.POST)

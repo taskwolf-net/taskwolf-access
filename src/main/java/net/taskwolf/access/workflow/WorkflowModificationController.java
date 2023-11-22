@@ -14,6 +14,8 @@ import net.taskwolf.core.workflow.WorkflowEntry;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,6 +26,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private WorkflowModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -45,10 +48,10 @@ public final class WorkflowModificationController extends TaskwolfRestController
     var description = (String) input.get("description");
     var triggerData = (Map<String, Object>) input.get("trigger");
     var actionData = (List<Map<String, Object>>) input.get("actions");
+    var created = dateFormat.format(Calendar.getInstance().getTime());
     findUser(request).thenAccept(user -> createWorkflow(user, ownerId,
-      triggerData, actionData, name, description, true));
+      triggerData, actionData, created, name, description, true));
   }
-
 
   @RequestMapping(path = "/workflow/update/", method = RequestMethod.POST)
   public void updateWorkflow(
@@ -74,12 +77,12 @@ public final class WorkflowModificationController extends TaskwolfRestController
     deleteWorkflow(user, entry);
     userDatabaseTable().findUser(entry.creatorId()).thenAccept(creator ->
       createWorkflow(creator, entry.ownerId(), triggerData, actionData,
-        name, description, false));
+        entry.created(), name, description, false));
   }
 
   private void createWorkflow(
     User creator, UUID ownerId, Map<String, Object> triggerData,
-    List<Map<String, Object>> actionData, String name, String description,
+    List<Map<String, Object>> actionData, String created, String name, String description,
     boolean checkAuthorization
   ) {
     if (checkAuthorization && !checkWorkflowAuthorization(creator, ownerId)) {
@@ -89,7 +92,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
       triggerDatabaseTable.generateAvailableTriggerId().thenAccept(triggerId ->
         generateActionIds(actionData.size()).thenAccept(actionIds ->
           createWorkflow(workflowId, creator.id(), ownerId, triggerId, triggerData,
-            actionIds, actionData, name, description))));
+            actionIds, actionData, created, name, description))));
   }
 
   private CompletableFuture<List<UUID>> generateActionIds(int number) {
@@ -106,7 +109,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
   private void createWorkflow(
     UUID workflowId, UUID creatorId, UUID ownerId,
     UUID triggerId, Map<String, Object> triggerData, List<UUID> actionIds,
-    List<Map<String, Object>> actionData, String name, String description
+    List<Map<String, Object>> actionData, String created, String name, String description
   ) {
     createTrigger(triggerId, ownerId, workflowId, triggerData);
     for (int i = 0; i < actionData.size(); i++) {
@@ -114,7 +117,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
     }
     workflowDatabaseTable.insertWorkflow(workflowId, creatorId,
       findAffiliation(creatorId, ownerId).toString(), ownerId, triggerId,
-      actionIds, name, description);
+      actionIds, created, name, description);
   }
 
   private WorkflowAffiliation findAffiliation(UUID creatorId, UUID ownerId) {
@@ -140,6 +143,15 @@ public final class WorkflowModificationController extends TaskwolfRestController
     var content = (String) actionData.get("content");
     actionDatabaseTable.insertAction(actionId, ownerId, workflowId,
       module, type, content);
+  }
+
+  @RequestMapping(path = "/workflow/state/change/", method = RequestMethod.POST)
+  public void changeWorkflowState(@RequestBody Map<String, Object> input) {
+    var workflowId = UUID.fromString((String) input.get("workflow"));
+    var isArmed = (boolean) input.get("armed") ? TriggerState.ARMED :
+      TriggerState.DISABLED;
+    workflowDatabaseTable.findWorkflow(workflowId).thenAccept(workflow ->
+      triggerDatabaseTable.changeState(workflow.triggerId(), isArmed));
   }
 
   @RequestMapping(path = "/workflow/remove/", method = RequestMethod.POST)

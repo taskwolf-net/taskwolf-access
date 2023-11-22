@@ -12,6 +12,7 @@ import net.taskwolf.core.iterator.AsyncListIterator;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
+import net.taskwolf.core.trigger.TriggerState;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
@@ -188,7 +189,9 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     information.put("id", workflow.id());
     information.put("name", workflow.name());
     information.put("description", workflow.description());
+    information.put("created", workflow.created());
     information.put("creator", creator.name());
+    information.put("armed", trigger.state() == TriggerState.ARMED);
     information.put("triggerModule", trigger.module());
     information.put("triggerModuleLogo",
       coreModule.findModuleInformation(trigger.module()).get().logo());

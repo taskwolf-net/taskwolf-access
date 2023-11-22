@@ -46,14 +46,43 @@ public final class WorkflowModificationController extends TaskwolfRestController
     var triggerData = (Map<String, Object>) input.get("trigger");
     var actionData = (List<Map<String, Object>>) input.get("actions");
     findUser(request).thenAccept(user -> createWorkflow(user, ownerId,
-      triggerData, actionData, name, description));
+      triggerData, actionData, name, description, true));
+  }
+
+
+  @RequestMapping(path = "/workflow/update/", method = RequestMethod.POST)
+  public void updateWorkflow(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var workflowId = UUID.fromString((String) input.get("workflow"));
+    var name = (String) input.get("name");
+    var description = (String) input.get("description");
+    var triggerData = (Map<String, Object>) input.get("trigger");
+    var actionData = (List<Map<String, Object>>) input.get("actions");
+    findUser(request).thenAccept(user -> workflowDatabaseTable.findWorkflow(workflowId)
+      .thenAccept(workflow -> updateWorkflow(user, workflow, triggerData,
+        actionData, name, description)));
+  }
+
+  private void updateWorkflow(
+    User user, WorkflowEntry entry, Map<String, Object> triggerData,
+    List<Map<String, Object>> actionData, String name, String description
+  ) {
+    if (!checkWorkflowAuthorization(user, entry)) {
+      return;
+    }
+    deleteWorkflow(user, entry);
+    userDatabaseTable().findUser(entry.creatorId()).thenAccept(creator ->
+      createWorkflow(creator, entry.ownerId(), triggerData, actionData,
+        name, description, false));
   }
 
   private void createWorkflow(
     User creator, UUID ownerId, Map<String, Object> triggerData,
-    List<Map<String, Object>> actionData, String name, String description
+    List<Map<String, Object>> actionData, String name, String description,
+    boolean checkAuthorization
   ) {
-    if (!checkWorkflowAuthorization(creator, ownerId)) {
+    if (checkAuthorization && !checkWorkflowAuthorization(creator, ownerId)) {
       return;
     }
     workflowDatabaseTable.generateAvailableWorkflowId().thenAccept(workflowId ->

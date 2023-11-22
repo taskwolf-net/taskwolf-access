@@ -3,6 +3,7 @@ package net.taskwolf.access.workflow;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.action.ActionEntry;
@@ -27,18 +28,20 @@ import java.util.stream.Stream;
 
 @RestController
 public final class WorkflowInformationController extends TaskwolfRestController {
+  private final CoreModule coreModule;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
 
   private WorkflowInformationController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
+    this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
@@ -182,17 +185,26 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     List<ActionEntry> actions
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("id", workflow.id());
     information.put("name", workflow.name());
     information.put("description", workflow.description());
     information.put("creator", creator.name());
     information.put("triggerModule", trigger.module());
+    information.put("triggerModuleLogo",
+      coreModule.findModuleInformation(trigger.module()).get().logo());
     information.put("triggerType", trigger.type());
+    information.put("triggerTypeDescription",
+      coreModule.findTriggerInformation(trigger.module(), trigger.type()).get().description());
     information.put("triggerContent", trigger.content());
     var actionsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var action : actions) {
       var actionInformation = Maps.<String, Object>newHashMap();
       actionInformation.put("actionModule", action.module());
+      actionInformation.put("actionModuleLogo",
+        coreModule.findModuleInformation(action.module()).get().logo());
       actionInformation.put("actionType", action.type());
+      actionInformation.put("actionTypeDescription",
+        coreModule.findActionInformation(action.module(), action.type()).get().description());
       actionInformation.put("actionContent", action.content());
       actionsInformation.add(actionInformation);
     }

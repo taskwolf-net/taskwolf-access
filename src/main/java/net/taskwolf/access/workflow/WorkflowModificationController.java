@@ -168,6 +168,10 @@ public final class WorkflowModificationController extends TaskwolfRestController
       return;
     }
     workflowDatabaseTable.deleteWorkflow(workflow.id());
+    triggerDatabaseTable.deleteTrigger(workflow.triggerId());
+    for (var action : workflow.actionIds()) {
+      actionDatabaseTable.deleteAction(action);
+    }
   }
 
   private boolean checkWorkflowAuthorization(User user, WorkflowEntry workflow) {

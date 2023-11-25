@@ -50,6 +50,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     controllers.remove("/verification/login/");
     controllers.remove("/verification/isValid/");
     controllers.remove("/discord/guild/add/");
+    controllers.remove("/google/account/add/");
     return !(controllers.contains(request.getRequestURI()));
   }
 

@@ -5,15 +5,19 @@ import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.account.AccountLink;
+import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.user.UserDatabaseTable;
+import org.json.JSONObject;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.AbstractMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @RestController
 public final class AccountController extends TaskwolfRestController {
@@ -24,6 +28,52 @@ public final class AccountController extends TaskwolfRestController {
   ) {
     super(secretKey, userDatabaseTable);
     this.coreModule = coreModule;
+  }
+
+  @RequestMapping(path = "/account/apps/", method = RequestMethod.GET)
+  public CompletableFuture<String> findAccountApps(
+    HttpServletRequest request
+  ) {
+    var userId = findUserId(request);
+    var modules = coreModule.moduleLoader().allRegisteredModules().stream()
+      .filter(module -> module.module().accountLink() != null).toList();
+    var futureResponse = new CompletableFuture<String>();
+    AsyncIterator.execute(modules, module -> module.module().accountLink()
+        .accountExists(userId).thenApply(exists -> new AbstractMap.SimpleEntry<>(module, exists)),
+      modules.size(), entries -> futureResponse.complete(new JSONObject(Map.of("apps",
+        entries.stream().filter(AbstractMap.SimpleEntry::getValue).map(entry ->
+          entry.getKey().module().moduleInformation()).map(entry ->
+          new JSONObject(Map.of("logo", entry.logo(), "name", entry.name()))).toList())).toString()));
+    return futureResponse;
+  }
+
+  @RequestMapping(path = "/accounts/", method = RequestMethod.POST)
+  public CompletableFuture<String> findAccounts(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var module = (String) input.get("module");
+    var userId = findUserId(request);
+    var registeredModule = coreModule.moduleLoader().findModule(module);
+    if (registeredModule.isEmpty()) {
+      return CompletableFuture.completedFuture("");
+    }
+    return registeredModule.get().accountLink().findAccounts(userId)
+      .thenApply(accounts -> new JSONObject(Map.of("accounts", accounts.stream()
+        .map(JSONObject::new).collect(Collectors.toList()))).toString());
+  }
+
+  @RequestMapping(path = "/account/remove/", method = RequestMethod.POST)
+  public void removeAccount(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var module = (String) input.get("module");
+    var identifier = (String) input.get("identifier");
+    var userId = findUserId(request);
+    var registeredModule = coreModule.moduleLoader().findModule(module);
+    if (registeredModule.isEmpty()) {
+      return;
+    }
+    registeredModule.get().accountLink().removeAccount(userId, identifier);
   }
 
   @RequestMapping(path = "/account/information/", method = RequestMethod.POST)

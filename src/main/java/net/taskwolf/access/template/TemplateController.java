@@ -49,17 +49,16 @@ public final class TemplateController extends TaskwolfRestController {
     var information = Maps.<String, Object>newHashMap();
     information.put("name", template.name());
     information.put("description", template.description());
+    information.put("modules", template.modules());
     var triggerInformation = Maps.<String, Object>newHashMap();
     triggerInformation.put("module", template.trigger().module());
     triggerInformation.put("type", template.trigger().type());
-    triggerInformation.put("content", template.trigger().content());
     information.put("trigger", triggerInformation);
     var actionsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var action : template.actions()) {
       var actionInformation = Maps.<String, Object>newHashMap();
       actionInformation.put("module", action.module());
       actionInformation.put("type", action.type());
-      actionInformation.put("content", action.content());
       actionsInformation.add(actionInformation);
     }
     information.put("actions", actionsInformation);

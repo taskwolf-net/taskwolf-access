@@ -36,7 +36,8 @@ public final class AccountController extends TaskwolfRestController {
   ) {
     var userId = findUserId(request);
     var modules = coreModule.moduleLoader().allRegisteredModules().stream()
-      .filter(module -> module.module().accountLink() != null).toList();
+      .filter(module -> module.module().accountLink() != null)
+      .filter(module -> !module.module().accountLink().registrationUrl("").isEmpty()).toList();
     var futureResponse = new CompletableFuture<String>();
     AsyncIterator.execute(modules, module -> module.module().accountLink()
         .accountExists(userId).thenApply(exists -> new AbstractMap.SimpleEntry<>(module, exists)),

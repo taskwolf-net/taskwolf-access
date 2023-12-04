@@ -46,38 +46,47 @@ public final class StatisticsController extends TaskwolfRestController {
   ) {
     var targetId = UUID.fromString((String) input.get("target"));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> findStatistics(user, targetId)
-      .thenAccept(futureResponse::complete));
+    findUser(request).thenAccept(user -> findOrganizationsData(user, targetId,
+      futureResponse));
     return futureResponse;
   }
 
-  private CompletableFuture<Map<String, Object>> findStatistics(User user, UUID targetId) {
+  private void findOrganizationsData(
+    User user, UUID targetId, CompletableFuture<Map<String, Object>> response
+  ) {
     if (!user.id().equals(targetId) && !user.organizations().contains(targetId)) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
+      response.complete(Maps.newHashMap());
+      return;
     }
     if (user.id().equals(targetId)) {
-      return findStatistics(user, targetId, 1, 1);
+      findLinkedAccountsData(targetId, 1, 1, response);
     }
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
     organizationDatabaseTable.findOrganization(targetId).thenAccept(organization ->
-      findStatistics(user, targetId, organization.members().size() + 1,
-        MAX_ORGANIZATION_MEMBERS).thenAccept(futureResponse::complete));
-    return futureResponse;
+      findLinkedAccountsData(targetId, organization.members().size() + 1,
+        MAX_ORGANIZATION_MEMBERS, response));
   }
 
-  private CompletableFuture<Map<String, Object>> findStatistics(
-    User user, UUID targetId, int organizationMembers, int maxOrganizationMembers
+  private void findLinkedAccountsData(
+    UUID targetId, int organizationMembers, int maxOrganizationMembers,
+    CompletableFuture<Map<String, Object>> response
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
     var modules = coreModule.moduleLoader().allRegisteredModules().stream()
       .filter(module -> module.module().accountLink() != null)
       .filter(module -> !module.module().accountLink().registrationUrl("").isEmpty()).toList();
     AsyncIterator.execute(modules.stream().map(module -> module.module().accountLink()).toList(),
       link -> link.accountExists(targetId), modules.size(), existingAccounts ->
-        workflowDatabaseTable.findWorkflowsOfOwner(targetId).thenAccept(workflows ->
-          futureResponse.complete(assemblyStatistics(workflows.size(), MAX_WORKFLOWS,
-            organizationMembers, maxOrganizationMembers, existingAccounts.size(), modules.size()))));
-    return futureResponse;
+        findWorkflowsData(targetId, organizationMembers, maxOrganizationMembers,
+          existingAccounts.size(), modules.size(), response));
+  }
+
+  private void findWorkflowsData(
+    UUID targetId, int organizationMembers, int maxOrganizationMembers,
+    int linkedAccounts, int maxLinkedAccounts,
+    CompletableFuture<Map<String, Object>> response
+  ) {
+    workflowDatabaseTable.findWorkflowsOfOwner(targetId).thenAccept(workflows ->
+      response.complete(assemblyStatistics(workflows.size(), MAX_WORKFLOWS,
+        organizationMembers, maxOrganizationMembers, linkedAccounts, maxLinkedAccounts)));
   }
 
   private Map<String, Object> assemblyStatistics(

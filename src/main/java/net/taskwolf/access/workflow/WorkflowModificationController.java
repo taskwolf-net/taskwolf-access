@@ -11,6 +11,7 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowAffiliation;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
+import net.taskwolf.core.workflow.WorkflowExecutionDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
@@ -26,17 +27,20 @@ public final class WorkflowModificationController extends TaskwolfRestController
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private WorkflowModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
-    WorkflowDatabaseTable workflowDatabaseTable
+    WorkflowDatabaseTable workflowDatabaseTable,
+    WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
+    this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
   }
 
   @RequestMapping(path = "/workflow/add/", method = RequestMethod.POST)
@@ -50,7 +54,8 @@ public final class WorkflowModificationController extends TaskwolfRestController
     var actionData = (List<Map<String, Object>>) input.get("actions");
     var created = dateFormat.format(Calendar.getInstance().getTime());
     findUser(request).thenAccept(user -> createWorkflow(user, ownerId,
-      triggerData, actionData, created, name, description, true));
+      triggerData, actionData, created, name, description, Lists.newArrayList(),
+      true));
   }
 
   @RequestMapping(path = "/workflow/update/", method = RequestMethod.POST)
@@ -63,13 +68,15 @@ public final class WorkflowModificationController extends TaskwolfRestController
     var triggerData = (Map<String, Object>) input.get("trigger");
     var actionData = (List<Map<String, Object>>) input.get("actions");
     findUser(request).thenAccept(user -> workflowDatabaseTable.findWorkflow(workflowId)
-      .thenAccept(workflow -> updateWorkflow(user, workflow, triggerData,
-        actionData, name, description)));
+      .thenAccept(workflow -> workflowExecutionDatabaseTable.findWorkflowExecutions(workflowId)
+        .thenAccept(executions -> updateWorkflow(user, workflow, triggerData, actionData,
+          name, description, executions))));
   }
 
   private void updateWorkflow(
     User user, WorkflowEntry entry, Map<String, Object> triggerData,
-    List<Map<String, Object>> actionData, String name, String description
+    List<Map<String, Object>> actionData, String name, String description,
+    List<Long> executions
   ) {
     if (!checkWorkflowAuthorization(user, entry)) {
       return;
@@ -77,13 +84,13 @@ public final class WorkflowModificationController extends TaskwolfRestController
     deleteWorkflow(user, entry);
     userDatabaseTable().findUser(entry.creatorId()).thenAccept(creator ->
       createWorkflow(creator, entry.ownerId(), triggerData, actionData,
-        entry.created(), name, description, false));
+        entry.created(), name, description, executions, false));
   }
 
   private void createWorkflow(
     User creator, UUID ownerId, Map<String, Object> triggerData,
-    List<Map<String, Object>> actionData, String created, String name, String description,
-    boolean checkAuthorization
+    List<Map<String, Object>> actionData, String created, String name,
+    String description, List<Long> executions, boolean checkAuthorization
   ) {
     if (checkAuthorization && !checkWorkflowAuthorization(creator, ownerId)) {
       return;
@@ -92,7 +99,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
       triggerDatabaseTable.generateAvailableTriggerId().thenAccept(triggerId ->
         generateActionIds(actionData.size()).thenAccept(actionIds ->
           createWorkflow(workflowId, creator.id(), ownerId, triggerId, triggerData,
-            actionIds, actionData, created, name, description))));
+            actionIds, actionData, created, name, description, executions))));
   }
 
   private CompletableFuture<List<UUID>> generateActionIds(int number) {
@@ -109,15 +116,20 @@ public final class WorkflowModificationController extends TaskwolfRestController
   private void createWorkflow(
     UUID workflowId, UUID creatorId, UUID ownerId,
     UUID triggerId, Map<String, Object> triggerData, List<UUID> actionIds,
-    List<Map<String, Object>> actionData, String created, String name, String description
+    List<Map<String, Object>> actionData, String created, String name,
+    String description, List<Long> executions
   ) {
+    var modules = Lists.<String>newArrayList();
     createTrigger(triggerId, ownerId, workflowId, triggerData);
+    modules.add((String) triggerData.get("module"));
     for (int i = 0; i < actionData.size(); i++) {
       createAction(actionIds.get(i), ownerId, workflowId, actionData.get(i));
+      modules.add((String) actionData.get(i).get("module"));
     }
     workflowDatabaseTable.insertWorkflow(workflowId, creatorId,
       findAffiliation(creatorId, ownerId).toString(), ownerId, triggerId,
-      actionIds, created, name, description);
+      actionIds, modules, created, name, description);
+    workflowExecutionDatabaseTable.insertWorkflowExecution(workflowId, executions);
   }
 
   private WorkflowAffiliation findAffiliation(UUID creatorId, UUID ownerId) {
@@ -172,6 +184,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
     for (var action : workflow.actionIds()) {
       actionDatabaseTable.deleteAction(action);
     }
+    workflowExecutionDatabaseTable.deleteWorkflowExecutions(workflow.id());
   }
 
   private boolean checkWorkflowAuthorization(User user, WorkflowEntry workflow) {

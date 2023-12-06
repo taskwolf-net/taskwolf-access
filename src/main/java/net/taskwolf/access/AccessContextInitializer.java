@@ -12,6 +12,7 @@ import net.taskwolf.core.template.TemplateDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
+import net.taskwolf.core.workflow.WorkflowExecutionDatabaseTable;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 
@@ -25,6 +26,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final TemplateDatabaseTable templateDatabaseTable;
   private final Distribution distribution;
   private final CoreModule coreModule;
@@ -40,6 +42,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("triggerDatabaseTable", triggerDatabaseTable);
     beanFactory.registerSingleton("actionDatabaseTable", actionDatabaseTable);
     beanFactory.registerSingleton("workflowDatabaseTable", workflowDatabaseTable);
+    beanFactory.registerSingleton("workflowExecutionDatabaseTable", workflowExecutionDatabaseTable);
     beanFactory.registerSingleton("templateDatabaseTable", templateDatabaseTable);
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("coreModule", coreModule);

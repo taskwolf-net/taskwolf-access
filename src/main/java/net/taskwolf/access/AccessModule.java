@@ -22,6 +22,7 @@ public final class AccessModule extends Module {
       coreModule().userDatabaseTable(), coreModule().organizationDatabaseTable(),
       coreModule().invitationDatabaseTable(), coreModule().triggerDatabaseTable(),
       coreModule().actionDatabaseTable(), coreModule().workflowDatabaseTable(),
+      coreModule().workflowExecutionDatabaseTable(),
       coreModule().templateDatabaseTable(), coreModule().distribution(), coreModule()));
   }
 

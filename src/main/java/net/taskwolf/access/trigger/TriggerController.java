@@ -85,6 +85,7 @@ public final class TriggerController extends TaskwolfRestController {
       variableInformation.put("identifier", variable.identifier());
       variableInformation.put("name", variable.displayName());
       if (variable instanceof InputComponentVariable inputVariable) {
+        variableInformation.put("description", inputVariable.description());
         variableInformation.put("type", inputVariable.type());
         variableInformation.put("dataType", inputVariable.dataType());
         variablesInformation.add(variableInformation);

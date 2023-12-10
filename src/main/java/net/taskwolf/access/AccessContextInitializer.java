@@ -3,6 +3,8 @@ package net.taskwolf.access;
 import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.action.ActionDatabaseTable;
+import net.taskwolf.core.condition.ConditionDatabaseTable;
+import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.distribution.Distribution;
@@ -25,10 +27,12 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final InvitationDatabaseTable invitationDatabaseTable;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
+  private final ConditionDatabaseTable conditionDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final TemplateDatabaseTable templateDatabaseTable;
   private final Distribution distribution;
+  private final ConditionInformationRepository conditionRepository;
   private final CoreModule coreModule;
 
   @Override
@@ -41,10 +45,12 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("invitationDatabaseTable", invitationDatabaseTable);
     beanFactory.registerSingleton("triggerDatabaseTable", triggerDatabaseTable);
     beanFactory.registerSingleton("actionDatabaseTable", actionDatabaseTable);
+    beanFactory.registerSingleton("conditionDatabaseTable", conditionDatabaseTable);
     beanFactory.registerSingleton("workflowDatabaseTable", workflowDatabaseTable);
     beanFactory.registerSingleton("workflowExecutionDatabaseTable", workflowExecutionDatabaseTable);
     beanFactory.registerSingleton("templateDatabaseTable", templateDatabaseTable);
     beanFactory.registerSingleton("distribution", distribution);
+    beanFactory.registerSingleton("conditionRepository", conditionRepository);
     beanFactory.registerSingleton("coreModule", coreModule);
   }
 }

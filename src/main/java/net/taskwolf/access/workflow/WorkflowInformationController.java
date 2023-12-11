@@ -7,6 +7,9 @@ import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.action.ActionEntry;
+import net.taskwolf.core.condition.ConditionDatabaseTable;
+import net.taskwolf.core.condition.ConditionEntry;
+import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.iterator.AsyncListIterator;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
@@ -32,12 +35,16 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   private final CoreModule coreModule;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
+  private final ConditionDatabaseTable conditionDatabaseTable;
+  private final ConditionInformationRepository conditionRepository;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
 
   private WorkflowInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
+    ConditionDatabaseTable conditionDatabaseTable,
+    ConditionInformationRepository conditionRepository,
     WorkflowDatabaseTable workflowDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable
   ) {
@@ -45,6 +52,8 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
+    this.conditionDatabaseTable = conditionDatabaseTable;
+    this.conditionRepository = conditionRepository;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
   }
@@ -175,15 +184,16 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     userDatabaseTable().findUser(workflow.creatorId()).thenAccept(creator ->
       triggerDatabaseTable.findTrigger(workflow.triggerId()).thenAccept(trigger ->
-        actionDatabaseTable.findActionsByWorkflow(workflow.id())
-          .thenAccept(actions -> futureResponse.complete(
-            assemblyWorkflowInformation(workflow, creator, trigger, actions)))));
+        actionDatabaseTable.findActionsByWorkflow(workflow.id()).thenAccept(actions ->
+          conditionDatabaseTable.findConditionsByWorkflow(workflow.id()).thenAccept(conditions ->
+            futureResponse.complete(assemblyWorkflowInformation(workflow, creator,
+              trigger, actions, conditions))))));
     return futureResponse;
   }
 
   private Map<String, Object> assemblyWorkflowInformation(
     WorkflowEntry workflow, User creator, TriggerEntry trigger,
-    List<ActionEntry> actions
+    List<ActionEntry> actions, List<ConditionEntry> conditions
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", workflow.id());
@@ -192,13 +202,26 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     information.put("created", workflow.created());
     information.put("creator", creator.name());
     information.put("armed", trigger.state() == TriggerState.ARMED);
+    information.putAll(assemblyTriggerInformation(trigger));
+    information.putAll(assemblyActionsInformation(actions));
+    information.putAll(assemblyConditionsInformation(conditions));
+    return information;
+  }
+
+  private Map<String, Object> assemblyTriggerInformation(TriggerEntry trigger) {
+    var information = Maps.<String, Object>newHashMap();
     information.put("triggerModule", trigger.module());
     information.put("triggerModuleLogo",
       coreModule.findModuleInformation(trigger.module()).get().logo());
     information.put("triggerType", trigger.type());
-    information.put("triggerTypeDescription",
-      coreModule.findTriggerInformation(trigger.module(), trigger.type()).get().description());
+    information.put("triggerTypeDescription", coreModule.findTriggerInformation(
+      trigger.module(), trigger.type()).get().description());
     information.put("triggerContent", trigger.content());
+    return information;
+  }
+
+  private Map<String, Object> assemblyActionsInformation(List<ActionEntry> actions) {
+    var information = Maps.<String, Object>newHashMap();
     var actionsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var action : actions) {
       var actionInformation = Maps.<String, Object>newHashMap();
@@ -212,6 +235,21 @@ public final class WorkflowInformationController extends TaskwolfRestController 
       actionsInformation.add(actionInformation);
     }
     information.put("actions", actionsInformation);
+    return information;
+  }
+
+  private Map<String, Object> assemblyConditionsInformation(List<ConditionEntry> conditions) {
+    var information = Maps.<String, Object>newHashMap();
+    var conditionsInformation = Lists.<Map<String, Object>>newArrayList();
+    for (var condition : conditions) {
+      var conditionInformation = Maps.<String, Object>newHashMap();
+      conditionInformation.put("conditionType", condition.type());
+      conditionInformation.put("conditionTypeName",
+        conditionRepository.findByIdentifier(condition.type()).get().name());
+      conditionInformation.put("conditionContent", condition.content());
+      conditionsInformation.add(conditionInformation);
+    }
+    information.put("conditions", conditionsInformation);
     return information;
   }
 

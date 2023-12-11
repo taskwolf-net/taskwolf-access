@@ -88,8 +88,8 @@ public final class TriggerController extends TaskwolfRestController {
         variableInformation.put("description", inputVariable.description());
         variableInformation.put("type", inputVariable.type());
         variableInformation.put("dataType", inputVariable.dataType());
-        variablesInformation.add(variableInformation);
       }
+      variablesInformation.add(variableInformation);
     }
     return variablesInformation;
   }

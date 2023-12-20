@@ -24,9 +24,7 @@ public final class ConditionController extends TaskwolfRestController {
   }
 
   @RequestMapping(path = "/conditions/find/", method = RequestMethod.GET)
-  public Map<String, Object> findConditions(
-    @RequestBody Map<String, Object> input
-  ) {
+  public Map<String, Object> findConditions() {
     var conditions = conditionRepository.findAll();
     var information = Lists.<Map<String, Object>>newArrayList();
     for (var condition : conditions) {

@@ -123,12 +123,16 @@ public final class WorkflowModificationController extends TaskwolfRestController
     int number, Callable<CompletableFuture<UUID>> generator
   ) {
     var futureResponse = new CompletableFuture<List<UUID>>();
-    var actionIds = Lists.<UUID>newArrayList();
+    var ids = Lists.<UUID>newArrayList();
+    if (number == 0) {
+      futureResponse.complete(ids);
+      return futureResponse;
+    }
     for (int i = 0; i < number; i++) {
       try {
-        generator.call().thenAccept(actionIds::add)
-          .thenApply(value -> actionIds.size() == number &&
-            futureResponse.complete(actionIds));
+        generator.call().thenAccept(ids::add)
+          .thenApply(value -> ids.size() == number &&
+            futureResponse.complete(ids));
       } catch (Exception exception) {
         exception.printStackTrace();
       }
@@ -187,10 +191,11 @@ public final class WorkflowModificationController extends TaskwolfRestController
   private void createCondition(
     UUID conditionId, UUID ownerId, UUID workflowId, Map<String, Object> conditionData
   ) {
+    var index = (Integer) conditionData.get("index");
     var type = (String) conditionData.get("type");
     var content = (String) conditionData.get("content");
     conditionDatabaseTable.insertCondition(conditionId, ownerId, workflowId,
-      type, content);
+      index, type, content);
   }
 
   @RequestMapping(path = "/workflow/state/change/", method = RequestMethod.POST)

@@ -243,6 +243,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     var conditionsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var condition : conditions) {
       var conditionInformation = Maps.<String, Object>newHashMap();
+      conditionInformation.put("conditionIndex", condition.actionIndex());
       conditionInformation.put("conditionType", condition.type());
       conditionInformation.put("conditionTypeName",
         conditionRepository.findByIdentifier(condition.type()).get().name());

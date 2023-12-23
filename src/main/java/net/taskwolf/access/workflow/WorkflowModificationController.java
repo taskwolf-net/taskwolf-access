@@ -181,10 +181,11 @@ public final class WorkflowModificationController extends TaskwolfRestController
   private void createAction(
     UUID actionId, UUID ownerId, UUID workflowId, Map<String, Object> actionData
   ) {
+    var index = (Integer) actionData.get("index");
     var module = (String) actionData.get("module");
     var type = (String) actionData.get("type");
     var content = (String) actionData.get("content");
-    actionDatabaseTable.insertAction(actionId, ownerId, workflowId,
+    actionDatabaseTable.insertAction(actionId, ownerId, workflowId, index,
       module, type, content);
   }
 

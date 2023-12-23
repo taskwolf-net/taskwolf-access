@@ -225,6 +225,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     var actionsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var action : actions) {
       var actionInformation = Maps.<String, Object>newHashMap();
+      actionInformation.put("actionIndex", action.actionIndex());
       actionInformation.put("actionModule", action.module());
       actionInformation.put("actionModuleLogo",
         coreModule.findModuleInformation(action.module()).get().logo());

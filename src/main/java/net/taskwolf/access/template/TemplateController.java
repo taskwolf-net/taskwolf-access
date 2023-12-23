@@ -70,6 +70,7 @@ public final class TemplateController extends TaskwolfRestController {
     for (var action : template.actions()) {
       var actionInformation = Maps.<String, Object>newHashMap();
       var actionModule = action.module();
+      actionInformation.put("actionIndex", action.actionIndex());
       actionInformation.put("module", action.module());
       actionInformation.put("moduleLogo", coreModule.findModuleInformation(actionModule)
         .map(ModuleInformation::logo).orElse(""));

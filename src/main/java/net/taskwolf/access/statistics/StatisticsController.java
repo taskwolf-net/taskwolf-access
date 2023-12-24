@@ -184,12 +184,12 @@ public final class StatisticsController extends TaskwolfRestController {
 
   private Map<Integer, Integer> classifyWorkflowNumbers(List<WorkflowEntry> workflowEntries) {
     return classifyDatesInMonthlyOccurrence(workflowEntries.stream()
-      .map(WorkflowEntry::created).toList(), true);
+      .map(WorkflowEntry::created).map(this::timeMillisecondsToDate).toList(), true);
   }
 
   private Map<Integer, Integer> classifyWorkflowNumbersGrowth(List<WorkflowEntry> workflowEntries) {
     return classifyDatesInMonthlyOccurrence(workflowEntries.stream()
-      .map(WorkflowEntry::created).toList(), false);
+      .map(WorkflowEntry::created).map(this::timeMillisecondsToDate).toList(), false);
   }
 
   private Map<Integer, Integer> classifyWorkflowExecutions(List<Long> executionDates) {

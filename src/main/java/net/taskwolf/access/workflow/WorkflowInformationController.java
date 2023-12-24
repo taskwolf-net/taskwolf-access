@@ -23,6 +23,8 @@ import net.taskwolf.core.workflow.WorkflowEntry;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,6 +41,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   private final ConditionInformationRepository conditionRepository;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private WorkflowInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
@@ -199,7 +202,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     information.put("id", workflow.id());
     information.put("name", workflow.name());
     information.put("description", workflow.description());
-    information.put("created", workflow.created());
+    information.put("created", timeMillisecondsToDate(workflow.created()));
     information.put("creator", creator.name());
     information.put("armed", trigger.state() == TriggerState.ARMED);
     information.putAll(assemblyTriggerInformation(trigger));
@@ -253,6 +256,12 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     }
     information.put("conditions", conditionsInformation);
     return information;
+  }
+
+  private String timeMillisecondsToDate(long milliseconds) {
+    Calendar calendar = Calendar.getInstance();
+    calendar.setTimeInMillis(milliseconds);
+    return simpleDateFormat.format(calendar.getTime());
   }
 
   private boolean checkWorkflowAuthorization(User user, WorkflowEntry workflow) {

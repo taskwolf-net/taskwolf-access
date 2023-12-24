@@ -57,7 +57,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
     var triggerData = (Map<String, Object>) input.get("trigger");
     var actionData = (List<Map<String, Object>>) input.get("actions");
     var conditionData = (List<Map<String, Object>>) input.get("conditions");
-    var created = dateFormat.format(Calendar.getInstance().getTime());
+    var created = System.currentTimeMillis();
     findUser(request).thenAccept(user -> createWorkflow(user, ownerId,
       triggerData, actionData, conditionData, created, name, description,
       Lists.newArrayList(), true));
@@ -96,7 +96,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
   private void createWorkflow(
     User creator, UUID ownerId, Map<String, Object> triggerData,
     List<Map<String, Object>> actionData,  List<Map<String, Object>> conditionData,
-    String created, String name, String description, List<Long> executions,
+    long created, String name, String description, List<Long> executions,
     boolean checkAuthorization
   ) {
     if (checkAuthorization && !checkWorkflowAuthorization(creator, ownerId)) {
@@ -144,7 +144,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
     UUID workflowId, UUID creatorId, UUID ownerId,
     UUID triggerId, Map<String, Object> triggerData, List<UUID> actionIds,
     List<Map<String, Object>> actionData, List<UUID> conditionIds,
-    List<Map<String, Object>> conditionData, String created, String name,
+    List<Map<String, Object>> conditionData, long created, String name,
     String description, List<Long> executions
   ) {
     var modules = Lists.<String>newArrayList();

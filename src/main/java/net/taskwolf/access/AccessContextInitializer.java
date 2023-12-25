@@ -15,6 +15,7 @@ import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowExecutionDatabaseTable;
+import net.taskwolf.core.workflow.timeline.TimelineDatabaseTable;
 import net.taskwolf.core.workflow.timeline.TimelineFactory;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -32,6 +33,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final TemplateDatabaseTable templateDatabaseTable;
+  private final TimelineDatabaseTable timelineDatabaseTable;
   private final Distribution distribution;
   private final ConditionInformationRepository conditionRepository;
   private final TimelineFactory timelineFactory;
@@ -51,6 +53,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("workflowDatabaseTable", workflowDatabaseTable);
     beanFactory.registerSingleton("workflowExecutionDatabaseTable", workflowExecutionDatabaseTable);
     beanFactory.registerSingleton("templateDatabaseTable", templateDatabaseTable);
+    beanFactory.registerSingleton("timelineDatabaseTable", timelineDatabaseTable);
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("conditionRepository", conditionRepository);
     beanFactory.registerSingleton("timelineFactory", timelineFactory);

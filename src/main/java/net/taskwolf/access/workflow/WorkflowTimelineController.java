@@ -10,12 +10,14 @@ import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
 import net.taskwolf.core.workflow.timeline.Timeline;
 import net.taskwolf.core.workflow.timeline.TimelineFactory;
+import net.taskwolf.core.workflow.timeline.entry.TimelineEntry;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -59,12 +61,14 @@ public final class WorkflowTimelineController extends TaskwolfRestController {
   }
 
   private Map<String, Object> assemblyTimelineInformation(Timeline timeline) {
-    var information = Lists.newArrayList(Maps.<String, Object>newHashMap());
-    for (var entry : timeline.findAllEntries()) {
+    var information = Lists.newArrayList();
+    var entries = timeline.findAllEntries().stream()
+      .sorted(Comparator.comparing(TimelineEntry::rawTime)).toList();
+    for (var entry : entries) {
       var entryInformation = Maps.<String, Object>newHashMap();
       entryInformation.put("title", entry.title());
       entryInformation.put("description", entry.description());
-      entryInformation.put("time", entry.time());
+      entryInformation.put("time", entry.formattedTime());
       information.add(entryInformation);
     }
     return Map.of("timeline", information);

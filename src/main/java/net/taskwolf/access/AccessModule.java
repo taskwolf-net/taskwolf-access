@@ -23,8 +23,9 @@ public final class AccessModule extends Module {
       coreModule().invitationDatabaseTable(), coreModule().triggerDatabaseTable(),
       coreModule().actionDatabaseTable(), coreModule().conditionDatabaseTable(),
       coreModule().workflowDatabaseTable(), coreModule().workflowExecutionDatabaseTable(),
-      coreModule().templateDatabaseTable(), coreModule().distribution(),
-      coreModule().conditionRepository(), coreModule().timelineFactory(), coreModule()));
+      coreModule().templateDatabaseTable(), coreModule().timelineDatabaseTable(),
+      coreModule().distribution(), coreModule().conditionRepository(),
+      coreModule().timelineFactory(), coreModule()));
   }
 
   @Override

@@ -19,13 +19,13 @@ public final class AccessModule extends Module {
       "host,connection,content-length,upgrade");
     coreModule().springApplication().addInitializers(AccessContextInitializer.create(
       coreModule().databaseConnection(), coreModule().databaseKeyspace(),
-      coreModule().userDatabaseTable(), coreModule().organizationDatabaseTable(),
-      coreModule().invitationDatabaseTable(), coreModule().triggerDatabaseTable(),
-      coreModule().actionDatabaseTable(), coreModule().conditionDatabaseTable(),
-      coreModule().workflowDatabaseTable(), coreModule().workflowExecutionDatabaseTable(),
-      coreModule().templateDatabaseTable(), coreModule().timelineDatabaseTable(),
-      coreModule().distribution(), coreModule().conditionRepository(),
-      coreModule().timelineFactory(), coreModule()));
+      coreModule().userDatabaseTable(), coreModule().userVerificationDatabaseTable(),
+      coreModule().organizationDatabaseTable(), coreModule().invitationDatabaseTable(),
+      coreModule().triggerDatabaseTable(), coreModule().actionDatabaseTable(),
+      coreModule().conditionDatabaseTable(), coreModule().workflowDatabaseTable(),
+      coreModule().workflowExecutionDatabaseTable(), coreModule().templateDatabaseTable(),
+      coreModule().timelineDatabaseTable(), coreModule().distribution(),
+      coreModule().conditionRepository(), coreModule().timelineFactory(), coreModule()));
   }
 
   @Override

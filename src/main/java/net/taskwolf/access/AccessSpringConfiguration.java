@@ -2,6 +2,7 @@ package net.taskwolf.access;
 
 import io.jsonwebtoken.SignatureAlgorithm;
 import jakarta.annotation.PostConstruct;
+import lombok.Getter;
 import net.taskwolf.access.verification.VerificationConfiguration;
 import net.taskwolf.core.distribution.DistributionConfiguration;
 import net.taskwolf.core.distribution.Node;
@@ -17,6 +18,9 @@ import java.security.Key;
 @Configuration
 public class AccessSpringConfiguration {
   private Key secretKey;
+  private String verificationMailHost;
+  private String verificationMail;
+  private String verificationMailPassword;
   private String proxyToken;
   private ProxyStatus proxyStatus;
   private HttpClient httpClient;
@@ -25,6 +29,24 @@ public class AccessSpringConfiguration {
   @Bean
   Key provideSecretKey() {
     return secretKey;
+  }
+
+  @Bean
+  @Qualifier("verificationMailHost")
+  String provideVerificationMailHost() {
+    return verificationMailHost;
+  }
+
+  @Bean
+  @Qualifier("verificationMail")
+  String provideVerificationMail() {
+    return verificationMail;
+  }
+
+  @Bean
+  @Qualifier("verificationMailPassword")
+  String provideVerificationMailPassword() {
+    return verificationMailPassword;
   }
 
   @Bean
@@ -50,9 +72,12 @@ public class AccessSpringConfiguration {
 
   @PostConstruct
   private void initializeSecretKey() throws Exception {
-    secretKey = new SecretKeySpec(VerificationConfiguration.createAndLoad()
-      .verificationSecret().getBytes(StandardCharsets.UTF_8),
-      SignatureAlgorithm.HS256.getJcaName());
+    var verificationConfiguration = VerificationConfiguration.createAndLoad();
+    secretKey = new SecretKeySpec(verificationConfiguration.verificationSecret()
+      .getBytes(StandardCharsets.UTF_8), SignatureAlgorithm.HS256.getJcaName());
+    verificationMailHost = verificationConfiguration.verificationMailHost();
+    verificationMail = verificationConfiguration.verificationMail();
+    verificationMailPassword = verificationConfiguration.verificationMailPassword();
     var proxyConfiguration = ProxyConfiguration.createAndLoad();
     proxyToken = proxyConfiguration.proxyToken();
     proxyStatus = proxyConfiguration.proxyEnabled() ? ProxyStatus.ENABLED :

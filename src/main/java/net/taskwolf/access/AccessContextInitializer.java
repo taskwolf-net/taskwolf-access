@@ -13,6 +13,7 @@ import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.template.TemplateDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserVerificationDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowExecutionDatabaseTable;
 import net.taskwolf.core.workflow.timeline.TimelineDatabaseTable;
@@ -25,6 +26,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final DatabaseConnection databaseConnection;
   private final DatabaseKeyspace databaseKeyspace;
   private final UserDatabaseTable userDatabaseTable;
+  private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final InvitationDatabaseTable invitationDatabaseTable;
   private final TriggerDatabaseTable triggerDatabaseTable;
@@ -45,6 +47,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("databaseConnection", databaseConnection);
     beanFactory.registerSingleton("databaseKeyspace", databaseKeyspace);
     beanFactory.registerSingleton("userDatabaseTable", userDatabaseTable);
+    beanFactory.registerSingleton("userVerificationDatabaseTable", userVerificationDatabaseTable);
     beanFactory.registerSingleton("organizationDatabaseTable", organizationDatabaseTable);
     beanFactory.registerSingleton("invitationDatabaseTable", invitationDatabaseTable);
     beanFactory.registerSingleton("triggerDatabaseTable", triggerDatabaseTable);

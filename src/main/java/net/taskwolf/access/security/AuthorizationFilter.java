@@ -47,6 +47,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
       controllers.addAll(key.getDirectPaths()));
     controllers.remove("/");
     controllers.remove("/verification/register/");
+    controllers.remove("/verification/complete/");
     controllers.remove("/verification/login/");
     controllers.remove("/verification/isValid/");
     controllers.remove("/discord/guild/add/");

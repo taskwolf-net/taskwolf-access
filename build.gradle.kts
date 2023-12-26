@@ -44,6 +44,8 @@ dependencies {
   compileOnly("org.springframework.boot:spring-boot-starter-web:3.2.1")
 
   compileOnly("io.jsonwebtoken:jjwt:0.12.3")
+
+  implementation("com.sun.mail:javax.mail:1.5.5")
 }
 
 tasks.test {

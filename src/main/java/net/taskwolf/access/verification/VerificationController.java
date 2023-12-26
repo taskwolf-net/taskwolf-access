@@ -8,7 +8,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.distribution.Distribution;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserVerificationDatabaseTable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
@@ -18,11 +21,31 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class VerificationController {
   private final Key secretKey;
+  private final String verificationMailHost;
+  private final String verificationMail;
+  private final String verificationMailPassword;
   private final UserDatabaseTable userDatabaseTable;
+  private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final Distribution distribution;
+
+  private VerificationController(
+    Key secretKey, @Qualifier("verificationMailHost") String verificationMailHost,
+    @Qualifier("verificationMail") String verificationMail,
+    @Qualifier("verificationMailPassword") String verificationMailPassword,
+    UserDatabaseTable userDatabaseTable,
+    UserVerificationDatabaseTable userVerificationDatabaseTable,
+    Distribution distribution
+  ) {
+    this.secretKey = secretKey;
+    this.verificationMailHost = verificationMailHost;
+    this.verificationMail = verificationMail;
+    this.verificationMailPassword = verificationMailPassword;
+    this.userDatabaseTable = userDatabaseTable;
+    this.userVerificationDatabaseTable = userVerificationDatabaseTable;
+    this.distribution = distribution;
+  }
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> register(
@@ -58,7 +81,45 @@ public final class VerificationController {
   ) {
     userDatabaseTable.insertUser(userId, name, email, passwordHash,
       Lists.newArrayList());
+    var token = UUID.randomUUID().toString();
+    userVerificationDatabaseTable.insertVerification(userId, token);
+    VerificationMail.create(verificationMailHost, verificationMail,
+      verificationMailPassword, email, name, userId, token).send();
     distribution.addNewUser(userId);
+  }
+
+  @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> complete(
+    @RequestBody Map<String, Object> input
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    var userId = UUID.fromString((String) input.get("user"));
+    var token = (String) input.get("token");
+    userVerificationDatabaseTable.verificationExists(userId).thenApply(exists ->
+      complete(userId, token, exists));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> complete(
+    UUID userId, String submittedToken, boolean tokenExists
+  ) {
+    if (!tokenExists) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    userVerificationDatabaseTable.findVerification(userId)
+      .thenApply(originalToken -> complete(userId, submittedToken, originalToken));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> complete(
+    UUID userId, String submittedToken, String originalToken
+  ) {
+    if (!submittedToken.equals(originalToken)) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+    userVerificationDatabaseTable.deleteVerification(userId);
+    return CompletableFuture.completedFuture(Map.of("success", true));
   }
 
   @RequestMapping(path = "/verification/login/", method = RequestMethod.POST)
@@ -69,11 +130,11 @@ public final class VerificationController {
       (String) input.get("email"), hashPassword((String) input.get("password")));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
-      completeLogin(servletResponse, verification, futureResponse, isAuthenticated));
+      checkAuthorization(servletResponse, verification, futureResponse, isAuthenticated));
     return futureResponse;
   }
 
-  private void completeLogin(
+  private void checkAuthorization(
     HttpServletResponse servletResponse, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse, boolean isAuthenticated
   ) {
@@ -83,7 +144,23 @@ public final class VerificationController {
       return;
     }
     userDatabaseTable.findUser(verification.email()).thenAccept(user ->
-      futureResponse.complete(Map.of("apiKey", verification.generateApiKey(user.id(), user.name()))));
+      userVerificationDatabaseTable.verificationExists(user.id())
+        .thenAccept(completionPending -> completeLogin(servletResponse, verification,
+          futureResponse, user, completionPending)));
+  }
+
+  private void completeLogin(
+    HttpServletResponse servletResponse, Verification verification,
+    CompletableFuture<Map<String, Object>> futureResponse, User user,
+    boolean completionPending
+  ) {
+    if (completionPending) {
+      servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      futureResponse.complete(Maps.newHashMap());
+      return;
+    }
+    futureResponse.complete(Map.of("apiKey", verification.generateApiKey(
+      user.id(), user.name())));
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)

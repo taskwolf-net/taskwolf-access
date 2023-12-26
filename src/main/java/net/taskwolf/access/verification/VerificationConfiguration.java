@@ -17,6 +17,12 @@ public final class VerificationConfiguration extends Configuration {
 
   @Getter
   private String verificationSecret;
+  @Getter
+  private String verificationMailHost;
+  @Getter
+  private String verificationMail;
+  @Getter
+  private String verificationMailPassword;
 
   private VerificationConfiguration(String path) {
     super(path);
@@ -25,5 +31,8 @@ public final class VerificationConfiguration extends Configuration {
   @Override
   protected void deserialize(JSONObject json) {
     verificationSecret = json.getString("verificationSecret");
+    verificationMailHost = json.getString("verificationMailHost");
+    verificationMail = json.getString("verificationMail");
+    verificationMailPassword = json.getString("verificationMailPassword");
   }
 }

@@ -98,18 +98,19 @@ public final class StatisticsController extends TaskwolfRestController {
     CompletableFuture<Map<String, Object>> response
   ) {
     workflowDatabaseTable.findWorkflowsOfOwner(targetId).thenAccept(workflows ->
-      findModuleUsageData(workflows.size(), MAX_WORKFLOWS, organizationMembers,
+      findModuleUsageData(workflows.size(), MAX_WORKFLOWS, (int) workflows.stream()
+          .filter(workflow -> workflow.state().isFailing()).count(), organizationMembers,
         maxOrganizationMembers, linkedAccounts, maxLinkedAccounts, workflows, response));
   }
 
   private void findModuleUsageData(
-    int workflows, int maxWorkflows, int organizationMembers,
+    int workflows, int maxWorkflows, int failingWorkflows, int organizationMembers,
     int maxOrganizationMembers, int linkedAccounts, int maxLinkedAccounts,
     List<WorkflowEntry> workflowEntries, CompletableFuture<Map<String, Object>> response
   ) {
     findStaffModuleUsages(workflowEntries).thenAccept(staffModuleUsages ->
-      findWorkflowTimeDependentData(workflows, maxWorkflows, organizationMembers,
-        maxOrganizationMembers, linkedAccounts, maxLinkedAccounts,
+      findWorkflowTimeDependentData(workflows, maxWorkflows, failingWorkflows,
+        organizationMembers, maxOrganizationMembers, linkedAccounts, maxLinkedAccounts,
         findModuleUsage(workflowEntries), staffModuleUsages, workflowEntries, response));
   }
 
@@ -167,7 +168,7 @@ public final class StatisticsController extends TaskwolfRestController {
   }
 
   private void findWorkflowTimeDependentData(
-    int workflows, int maxWorkflows, int organizationMembers,
+    int workflows, int maxWorkflows, int failingWorkflows, int organizationMembers,
     int maxOrganizationMembers, int linkedAccounts, int maxLinkedAccounts,
     Map<String, Long> moduleUsage, Map<String, Object> staffModuleUsages,
     List<WorkflowEntry> workflowEntries, CompletableFuture<Map<String, Object>> response
@@ -175,9 +176,9 @@ public final class StatisticsController extends TaskwolfRestController {
     AsyncListIterator.execute(workflowEntries, workflow ->
         workflowExecutionDatabaseTable.findWorkflowExecutions(workflow.id()),
       workflowEntries.size(), executionDates -> response.complete(assemblyStatistics(
-        workflows, maxWorkflows, organizationMembers, maxOrganizationMembers,
-        linkedAccounts, maxLinkedAccounts, moduleUsage, staffModuleUsages,
-        classifyWorkflowNumbers(workflowEntries),
+        workflows, maxWorkflows, failingWorkflows, organizationMembers,
+        maxOrganizationMembers, linkedAccounts, maxLinkedAccounts, moduleUsage,
+        staffModuleUsages, classifyWorkflowNumbers(workflowEntries),
         classifyWorkflowNumbersGrowth(workflowEntries),
         classifyWorkflowExecutions(executionDates))));
   }
@@ -237,7 +238,7 @@ public final class StatisticsController extends TaskwolfRestController {
   }
 
   private Map<String, Object> assemblyStatistics(
-    int workflows, int maxWorkflows, int organizationMembers,
+    int workflows, int maxWorkflows, int failingWorkflows, int organizationMembers,
     int maxOrganizationMembers, int linkedAccounts, int maxLinkedAccounts,
     Map<String, Long> moduleUsage, Map<String, Object> staffModuleUsages,
     Map<Integer, Integer> workflowNumberOccurrence,
@@ -247,6 +248,7 @@ public final class StatisticsController extends TaskwolfRestController {
     var information = Maps.<String, Object>newHashMap();
     information.put("workflows", workflows);
     information.put("maxWorkflows", maxWorkflows);
+    information.put("failingWorkflows", failingWorkflows);
     information.put("organizationMembers", organizationMembers);
     information.put("maxOrganizationMembers", maxOrganizationMembers);
     information.put("linkedAccounts", linkedAccounts);

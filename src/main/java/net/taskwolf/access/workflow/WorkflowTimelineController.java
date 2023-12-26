@@ -68,6 +68,7 @@ public final class WorkflowTimelineController extends TaskwolfRestController {
       var entryInformation = Maps.<String, Object>newHashMap();
       entryInformation.put("title", entry.title());
       entryInformation.put("description", entry.description());
+      entryInformation.put("level", entry.level());
       entryInformation.put("time", entry.formattedTime());
       information.add(entryInformation);
     }

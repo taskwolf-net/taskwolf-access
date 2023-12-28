@@ -21,18 +21,17 @@ public class AuthorizationFilter extends OncePerRequestFilter {
   private final Key secretKey;
   private final RequestMappingHandlerMapping requestHandlerMapping;
 
-  private static final String API_KEY_IDENTIFIER = "API-KEY";
-
   @Override
   protected void doFilterInternal(
     HttpServletRequest request, HttpServletResponse response,
     FilterChain filterChain
   ) throws ServletException, IOException {
     prepareResponseHeaders(response);
-    var apiKey = request.getHeader(API_KEY_IDENTIFIER);
+    var apiKey = request.getHeader("Authorization");
     if (apiKey == null) {
       return;
     }
+    apiKey = apiKey.replace("Bearer ", "");
     if (!validateApiKey(apiKey)) {
       response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       return;
@@ -59,8 +58,8 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     response.setHeader("Access-Control-Allow-Origin", "*");
     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     response.setHeader("Access-Control-Max-Age", "3600");
-    response.setHeader("Access-Control-Allow-Headers", "content-type, " + API_KEY_IDENTIFIER);
-    response.addHeader("Access-Control-Expose-Headers", API_KEY_IDENTIFIER);
+    response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    response.addHeader("Access-Control-Expose-Headers", "Authorization");
   }
 
   private boolean validateApiKey(String apiKey) {

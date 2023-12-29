@@ -20,12 +20,12 @@ public final class AccessModule extends Module {
     coreModule().springApplication().addInitializers(AccessContextInitializer.create(
       coreModule().databaseConnection(), coreModule().databaseKeyspace(),
       coreModule().userDatabaseTable(), coreModule().userVerificationDatabaseTable(),
-      coreModule().organizationDatabaseTable(), coreModule().invitationDatabaseTable(),
-      coreModule().triggerDatabaseTable(), coreModule().actionDatabaseTable(),
-      coreModule().conditionDatabaseTable(), coreModule().workflowDatabaseTable(),
-      coreModule().workflowExecutionDatabaseTable(), coreModule().templateDatabaseTable(),
-      coreModule().timelineDatabaseTable(), coreModule().distribution(),
-      coreModule().conditionRepository(), coreModule().timelineFactory(), coreModule()));
+      coreModule().organizationDatabaseTable(), coreModule().triggerDatabaseTable(),
+      coreModule().actionDatabaseTable(), coreModule().conditionDatabaseTable(),
+      coreModule().workflowDatabaseTable(), coreModule().workflowExecutionDatabaseTable(),
+      coreModule().templateDatabaseTable(), coreModule().timelineDatabaseTable(),
+      coreModule().distribution(), coreModule().conditionRepository(),
+      coreModule().timelineFactory(), coreModule()));
   }
 
   @Override

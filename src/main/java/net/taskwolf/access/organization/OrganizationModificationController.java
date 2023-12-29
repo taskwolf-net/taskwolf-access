@@ -4,7 +4,6 @@ import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.distribution.Distribution;
-import net.taskwolf.core.organization.InvitationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
@@ -12,7 +11,6 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -20,17 +18,14 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class OrganizationModificationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
-  private final InvitationDatabaseTable invitationDatabaseTable;
   private final Distribution distribution;
 
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable,
-    InvitationDatabaseTable invitationDatabaseTable, Distribution distribution
+    OrganizationDatabaseTable organizationDatabaseTable, Distribution distribution
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
-    this.invitationDatabaseTable = invitationDatabaseTable;
     this.distribution = distribution;
   }
 
@@ -46,111 +41,81 @@ public final class OrganizationModificationController extends TaskwolfRestContro
 
   private void createOrganization(UUID organizationId, String name, UUID userId) {
     organizationDatabaseTable.insertOrganization(organizationId, name, userId,
-      Lists.newArrayList(), Lists.newArrayList());
+      Lists.newArrayList(), UUID.randomUUID().toString());
     userDatabaseTable().addUserOrganization(userId, organizationId);
     distribution.addNewUser(organizationId);
   }
 
-  @RequestMapping(path = "/organization/invite/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> inviteToOrganization(
+  @RequestMapping(path = "/organization/link/regenerate/", method = RequestMethod.POST)
+  public void regenerateLink(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var organizationId = UUID.fromString((String) input.get("organization"));
-    var targetId = UUID.fromString((String) input.get("target"));
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user ->
-      inviteToOrganization(user, organizationId, targetId, futureResponse));
+      organizationDatabaseTable.organizationExists(organizationId).thenAccept(
+        exists -> regenerateLink(user, organizationId, exists)));
+  }
+
+  private void regenerateLink(
+    User user, UUID organizationId, boolean organizationExists
+  ) {
+    if (!organizationExists) {
+      return;
+    }
+    if (!user.organizations().contains(organizationId)) {
+      return;
+    }
+    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
+      organization -> regenerateLink(user, organization));
+  }
+
+  private void regenerateLink(User user, Organization organization) {
+    if (!organization.owner().equals(user.id())) {
+      return;
+    }
+    organizationDatabaseTable.changeOrganizationInvitationToken(organization.id(),
+      UUID.randomUUID().toString());
+  }
+
+  @RequestMapping(path = "/organization/join/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> joinOrganization(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    var organizationId = UUID.fromString((String) input.get("organization"));
+    var invitationToken = (String) input.get("token");
+    findUser(request).thenAccept(user ->
+      organizationDatabaseTable.organizationExists(organizationId).thenAccept(
+        exists -> joinOrganization(user, organizationId, exists, invitationToken)
+          .thenAccept(futureResponse::complete)));
     return futureResponse;
   }
 
-  private void inviteToOrganization(
-    User user, UUID organizationId, UUID targetId,
-    CompletableFuture<Map<String, Object>> response
+  private CompletableFuture<Map<String, Object>> joinOrganization(
+    User user, UUID organizationId, boolean organizationExists, String token
   ) {
-    if (!user.organizations().contains(organizationId)) {
-      response.complete(Map.of("success", false, "errorCode", 1000));
-      return;
+    if (!organizationExists) {
+      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
     }
-    organizationDatabaseTable.findOrganization(organizationId).thenAccept(organization ->
-      inviteToOrganization(user, organization, targetId, response));
+    if (user.organizations().contains(organizationId)){
+      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
+    }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
+      organization -> futureResponse.complete(joinOrganization(user,
+        organization, token)));
+    return futureResponse;
   }
 
-  private void inviteToOrganization(
-    User user, Organization organization, UUID targetId,
-    CompletableFuture<Map<String, Object>> response
+  private Map<String, Object> joinOrganization(
+    User user, Organization organization, String token
   ) {
-    if (!organization.owner().equals(user.id())) {
-      response.complete(Map.of("success", false, "errorCode", 1001));
-      return;
+    if (!organization.invitationToken().equals(token)) {
+      return Map.of("success", false, "errorCode", 1002);
     }
-    if (organization.invitations().contains(targetId)) {
-      response.complete(Map.of("success", false, "errorCode", 1002));
-      return;
-    }
-    if (organization.members().contains(targetId)) {
-      response.complete(Map.of("success", false, "errorCode", 1003));
-      return;
-    }
-    if (targetId.equals(user.id())) {
-      response.complete(Map.of("success", false, "errorCode", 1004));
-      return;
-    }
-    userDatabaseTable().userExists(targetId).thenAccept(exists ->
-      inviteToOrganization(organization, targetId, exists, response));
-  }
-
-  private void inviteToOrganization(
-    Organization organization, UUID targetId, boolean targetExists,
-    CompletableFuture<Map<String, Object>> response
-  ) {
-    if (!targetExists) {
-      response.complete(Map.of("success", false, "errorCode", 1005));
-      return;
-    }
-    invitationDatabaseTable.addInvitation(targetId, organization.id());
-    organizationDatabaseTable.addOrganizationInvitation(organization.id(), targetId);
-    response.complete(Map.of("success", true));
-  }
-
-  @RequestMapping(path = "/organization/invitation/accept/", method = RequestMethod.POST)
-  public void acceptInvitation(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
-  ) {
-    var organizationId = UUID.fromString((String) input.get("organization"));
-    var userId = findUserId(request);
-    invitationDatabaseTable.findInvitations(userId).thenAccept(invitations ->
-        acceptInvitation(userId, invitations, organizationId));
-  }
-
-  private void acceptInvitation(
-    UUID userId, List<UUID> invitations, UUID organizationId
-  ) {
-    if (!invitations.contains(organizationId)) {
-      return;
-    }
-    invitationDatabaseTable.removeInvitation(userId, organizationId);
-    userDatabaseTable().addUserOrganization(userId, organizationId);
-    organizationDatabaseTable.acceptOrganizationInvitation(organizationId, userId);
-  }
-
-  @RequestMapping(path = "/organization/invitation/dismiss/", method = RequestMethod.POST)
-  public void dismissInvitation(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
-  ) {
-    var organizationId = UUID.fromString((String) input.get("organization"));
-    var userId = findUserId(request);
-    invitationDatabaseTable.findInvitations(userId).thenAccept(invitations ->
-      dismissInvitation(userId, invitations, organizationId));
-  }
-
-  private void dismissInvitation(
-    UUID userId, List<UUID> invitations, UUID organizationId
-  ) {
-    if (!invitations.contains(organizationId)) {
-      return;
-    }
-    invitationDatabaseTable.removeInvitation(userId, organizationId);
-    organizationDatabaseTable.removeOrganizationInvitation(organizationId, userId);
+    organizationDatabaseTable.addOrganizationMember(organization.id(), user.id());
+    userDatabaseTable().addUserOrganization(user.id(), organization.id());
+    return Map.of("success", true);
   }
 
   @RequestMapping(path = "/organization/kick/", method = RequestMethod.POST)
@@ -221,9 +186,6 @@ public final class OrganizationModificationController extends TaskwolfRestContro
       organization.id());
     for (var member : organization.members()) {
       userDatabaseTable().removeUserOrganization(member, organization.id());
-    }
-    for (var invited : organization.invitations()) {
-      invitationDatabaseTable.removeInvitation(invited, organization.id());
     }
   }
 }

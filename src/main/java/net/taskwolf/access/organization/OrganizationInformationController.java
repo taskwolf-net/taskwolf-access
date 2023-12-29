@@ -1,11 +1,9 @@
 package net.taskwolf.access.organization;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.iterator.AsyncIterator;
-import net.taskwolf.core.organization.InvitationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
@@ -13,7 +11,6 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
-import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,62 +20,13 @@ import java.util.stream.Collectors;
 @RestController
 public final class OrganizationInformationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
-  private final InvitationDatabaseTable invitationDatabaseTable;
 
   private OrganizationInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable,
-    InvitationDatabaseTable invitationDatabaseTable
+    OrganizationDatabaseTable organizationDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
-    this.invitationDatabaseTable = invitationDatabaseTable;
-  }
-
-  @RequestMapping(path = "/organization/invitations/personal/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findPersonalInvitations(
-    HttpServletRequest request
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var userId = findUserId(request);
-    invitationDatabaseTable.invitationsExists(userId).thenAccept(exists ->
-      collectPersonalInvitations(userId, exists).thenAccept(futureResponse::complete));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> collectPersonalInvitations(
-    UUID userId, boolean exists
-  ) {
-    if (!exists) {
-      return CompletableFuture.completedFuture(Map.of("invitations",
-        Lists.newArrayList()));
-    }
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    invitationDatabaseTable.findInvitations(userId).thenAccept(
-      invitations -> collectPersonalInvitations(invitations)
-        .thenAccept(futureResponse::complete));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> collectPersonalInvitations(
-    List<UUID> invitations
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(invitations, organizationDatabaseTable::findOrganization,
-      invitations.size(), organizations ->  AsyncIterator.execute(organizations,
-        organization -> userDatabaseTable().findUser(organization.owner()).thenApply(owner ->
-          new AbstractMap.SimpleEntry(organization, owner)), organizations.size(),
-        entries -> futureResponse.complete(Map.of("invitations",
-          entries.stream().map(this::transformPersonalInvitation).collect(Collectors.toList())))));
-    return futureResponse;
-  }
-
-  private Map<String, Object> transformPersonalInvitation(Map.Entry<Organization, User> entry) {
-    var information = Maps.<String, Object>newHashMap();
-    information.put("id", entry.getKey().id());
-    information.put("name", entry.getKey().name());
-    information.put("owner", entry.getValue().name());
-    return information;
   }
 
   @RequestMapping(path = "/organization/selected/", method = RequestMethod.POST)
@@ -89,40 +37,6 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user -> gatherOrganizationInformation(
       id, user.id()).thenAccept(futureResponse::complete));
-    return futureResponse;
-  }
-
-  @RequestMapping(path = "/organization/invitations/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> findOrganizationInvitations(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
-  ) {
-    var id = UUID.fromString((String) input.get("id"));
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> findOrganizationInvitations(user, id)
-      .thenAccept(futureResponse::complete));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> findOrganizationInvitations(
-    User user, UUID organizationId
-  ) {
-    if (!user.organizations().contains(organizationId)) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    organizationDatabaseTable.findOrganization(organizationId).thenAccept(organization ->
-      collectOrganizationInvitations(organization).thenAccept(futureResponse::complete));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> collectOrganizationInvitations(
-    Organization organization
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(organization.invitations(), invited ->
-      userDatabaseTable().findUser(invited), organization.invitations().size(),
-      users -> futureResponse.complete(Map.of("invitations",
-        users.stream().map(User::name).collect(Collectors.toList()))));
     return futureResponse;
   }
 
@@ -181,5 +95,43 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     information.put("memberIds", members.stream().map(User::id)
       .collect(Collectors.toList()));
     return information;
+  }
+
+  @RequestMapping(path = "/organization/link/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findLink(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    var organizationId = UUID.fromString((String) input.get("organization"));
+    findUser(request).thenAccept(user ->
+      organizationDatabaseTable.organizationExists(organizationId).thenAccept(
+        exists -> findLink(user, organizationId, exists)
+          .thenAccept(futureResponse::complete)));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> findLink(
+    User user, UUID organizationId, boolean organizationExists
+  ) {
+    if (!organizationExists) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    if (!user.organizations().contains(organizationId)) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
+      organization -> futureResponse.complete(findLink(user, organization)));
+    return futureResponse;
+  }
+
+  private static final String LINK_FORMAT = "https://taskwolf.net/organization/join/%s/%s/";
+
+  private Map<String, Object> findLink(User user, Organization organization) {
+    if (!organization.owner().equals(user.id())) {
+      return Maps.newHashMap();
+    }
+    return Map.of("link", String.format(LINK_FORMAT, organization.id(),
+      organization.invitationToken()));
   }
 }

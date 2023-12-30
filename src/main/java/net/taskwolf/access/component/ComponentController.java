@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.security.Key;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -109,6 +110,7 @@ public final class ComponentController extends TaskwolfRestController {
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var componentType = (String) input.get("componentType");
+    var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
     var type = (String) input.get("type");
     var previousInputs = (Map<String, String>) input.get("previousInputs");
@@ -126,7 +128,7 @@ public final class ComponentController extends TaskwolfRestController {
     if (select.isEmpty()) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
-    return select.get().select().compile(findUserId(request), previousInputs)
+    return select.get().select().compile(target, previousInputs)
       .thenApply(items -> Map.of("items", items));
   }
 }

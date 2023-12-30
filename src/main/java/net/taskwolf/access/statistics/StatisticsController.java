@@ -84,7 +84,7 @@ public final class StatisticsController extends TaskwolfRestController {
   ) {
     var modules = coreModule.moduleLoader().allRegisteredModules().stream()
       .filter(module -> module.module().accountLink() != null)
-      .filter(module -> !module.module().accountLink().registrationUrl("").isEmpty()).toList();
+      .filter(module -> !module.module().accountLink().registrationUrl(targetId, "").isEmpty()).toList();
     AsyncIterator.execute(modules.stream().map(module -> module.module().accountLink()).toList(),
       link -> link.accountExists(targetId), modules.size(), existingAccounts ->
         findWorkflowsData(targetId, organizationMembers, maxOrganizationMembers,

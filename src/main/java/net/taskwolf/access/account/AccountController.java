@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.security.Key;
 import java.util.AbstractMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -30,17 +31,18 @@ public final class AccountController extends TaskwolfRestController {
     this.coreModule = coreModule;
   }
 
-  @RequestMapping(path = "/account/apps/", method = RequestMethod.GET)
+  @RequestMapping(path = "/account/apps/", method = RequestMethod.POST)
   public CompletableFuture<String> findAccountApps(
-    HttpServletRequest request
+    @RequestBody Map<String, Object> input
   ) {
-    var userId = findUserId(request);
+    var target = UUID.fromString((String) input.get("target"));
     var modules = coreModule.moduleLoader().allRegisteredModules().stream()
       .filter(module -> module.module().accountLink() != null)
-      .filter(module -> !module.module().accountLink().registrationUrl("").isEmpty()).toList();
+      .filter(module -> !module.module().accountLink().registrationUrl(target,
+        "").isEmpty()).toList();
     var futureResponse = new CompletableFuture<String>();
     AsyncIterator.execute(modules, module -> module.module().accountLink()
-        .accountExists(userId).thenApply(exists -> new AbstractMap.SimpleEntry<>(module, exists)),
+        .accountExists(target).thenApply(exists -> new AbstractMap.SimpleEntry<>(module, exists)),
       modules.size(), entries -> futureResponse.complete(new JSONObject(Map.of("apps",
         entries.stream().filter(AbstractMap.SimpleEntry::getValue).map(entry ->
           entry.getKey().module().moduleInformation()).map(entry ->
@@ -52,13 +54,13 @@ public final class AccountController extends TaskwolfRestController {
   public CompletableFuture<String> findAccounts(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
+    var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
-    var userId = findUserId(request);
     var registeredModule = coreModule.moduleLoader().findModule(module);
     if (registeredModule.isEmpty()) {
       return CompletableFuture.completedFuture("");
     }
-    return registeredModule.get().accountLink().findAccounts(userId)
+    return registeredModule.get().accountLink().findAccounts(target)
       .thenApply(accounts -> new JSONObject(Map.of("accounts", accounts.stream()
         .map(JSONObject::new).collect(Collectors.toList()))).toString());
   }
@@ -67,20 +69,21 @@ public final class AccountController extends TaskwolfRestController {
   public void removeAccount(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
+    var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
     var identifier = (String) input.get("identifier");
-    var userId = findUserId(request);
     var registeredModule = coreModule.moduleLoader().findModule(module);
     if (registeredModule.isEmpty()) {
       return;
     }
-    registeredModule.get().accountLink().removeAccount(userId, identifier);
+    registeredModule.get().accountLink().removeAccount(target, identifier);
   }
 
   @RequestMapping(path = "/account/information/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findAccountInformation(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
+    var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
     var registeredModule = coreModule.moduleLoader().findModule(module);
     if (registeredModule.isEmpty()) {
@@ -88,19 +91,19 @@ public final class AccountController extends TaskwolfRestController {
     }
     var accountLink = registeredModule.get().accountLink();
     var apiKey = findApiKey(request);
-    var userId = findUserId(request);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    accountLink.accountExists(userId).thenAccept(exists ->
-      futureResponse.complete(assemblyAccountInformation(accountLink, apiKey, exists)));
+    accountLink.accountExists(target).thenAccept(exists ->
+      futureResponse.complete(assemblyAccountInformation(accountLink, apiKey,
+        target, exists)));
     return futureResponse;
   }
 
   private Map<String, Object> assemblyAccountInformation(
-    AccountLink accountLink, String apiKey, boolean accountExists
+    AccountLink accountLink, String apiKey, UUID target, boolean accountExists
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("accountExists", accountExists);
-    information.put("registrationUrl", accountLink.registrationUrl(apiKey));
+    information.put("registrationUrl", accountLink.registrationUrl(target, apiKey));
     information.put("linkDescription", accountLink.description());
     return information;
   }

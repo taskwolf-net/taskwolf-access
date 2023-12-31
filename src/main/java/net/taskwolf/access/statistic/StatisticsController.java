@@ -1,4 +1,4 @@
-package net.taskwolf.access.statistics;
+package net.taskwolf.access.statistic;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;

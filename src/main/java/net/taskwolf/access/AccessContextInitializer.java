@@ -11,6 +11,7 @@ import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.template.TemplateDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
+import net.taskwolf.core.user.ProfilePictureDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserPasswordResetDatabaseTable;
 import net.taskwolf.core.user.UserVerificationDatabaseTable;
@@ -28,6 +29,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
+  private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
@@ -49,6 +51,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("userDatabaseTable", userDatabaseTable);
     beanFactory.registerSingleton("userVerificationDatabaseTable", userVerificationDatabaseTable);
     beanFactory.registerSingleton("userPasswordResetDatabaseTable", userPasswordResetDatabaseTable);
+    beanFactory.registerSingleton("profilePictureDatabaseTable", profilePictureDatabaseTable);
     beanFactory.registerSingleton("organizationDatabaseTable", organizationDatabaseTable);
     beanFactory.registerSingleton("triggerDatabaseTable", triggerDatabaseTable);
     beanFactory.registerSingleton("actionDatabaseTable", actionDatabaseTable);

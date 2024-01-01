@@ -2,15 +2,22 @@ package net.taskwolf.access.organization;
 
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
+import net.taskwolf.access.account.AccountController;
+import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.account.AccountLink;
 import net.taskwolf.core.distribution.Distribution;
+import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
+import java.util.AbstractMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -19,14 +26,23 @@ import java.util.concurrent.CompletableFuture;
 public final class OrganizationModificationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final Distribution distribution;
+  private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final WorkflowModificationController workflowModificationController;
+  private final AccountController accountController;
 
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable, Distribution distribution
+    OrganizationDatabaseTable organizationDatabaseTable, Distribution distribution,
+    WorkflowDatabaseTable workflowDatabaseTable,
+    WorkflowModificationController workflowModificationController,
+    AccountController accountController
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.distribution = distribution;
+    this.workflowDatabaseTable = workflowDatabaseTable;
+    this.workflowModificationController = workflowModificationController;
+    this.accountController = accountController;
   }
 
   @RequestMapping(path = "/organization/create/", method = RequestMethod.POST)
@@ -156,7 +172,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     findUser(request).thenAccept(user -> leaveOrganization(user, organizationId));
   }
 
-  private void leaveOrganization(User user, UUID organizationId) {
+  public void leaveOrganization(User user, UUID organizationId) {
     if (!user.organizations().contains(organizationId)) {
       return;
     }
@@ -172,7 +188,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     findUser(request).thenAccept(user -> deleteOrganization(user, organizationId));
   }
 
-  private void deleteOrganization(User user, UUID organizationId) {
+  public void deleteOrganization(User user, UUID organizationId) {
     if (!user.organizations().contains(organizationId)) {
       return;
     }
@@ -180,12 +196,15 @@ public final class OrganizationModificationController extends TaskwolfRestContro
       .thenAccept(this::deleteOrganization);
   }
 
-  private void deleteOrganization(Organization organization) {
+  public void deleteOrganization(Organization organization) {
     organizationDatabaseTable.deleteOrganization(organization.id());
     userDatabaseTable().removeUserOrganization(organization.owner(),
       organization.id());
     for (var member : organization.members()) {
       userDatabaseTable().removeUserOrganization(member, organization.id());
     }
+    workflowDatabaseTable.findWorkflowsOfOwner(organization.id()).thenAccept(
+      workflows -> workflows.forEach(workflowModificationController::deleteWorkflow));
+    accountController.deleteAllAccounts(organization.id());
   }
 }

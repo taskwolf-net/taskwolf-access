@@ -1,7 +1,6 @@
 package net.taskwolf.access.password;
 
 import com.google.common.hash.Hashing;
-import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -110,28 +109,6 @@ public final class PasswordController extends TaskwolfRestController {
     userPasswordResetDatabaseTable.deleteResetToken(userId);
     userDatabaseTable().changeUserPassword(userId, hashPassword(newPassword));
     return CompletableFuture.completedFuture(Map.of("success", true));
-  }
-
-  @RequestMapping(path = "/password/change/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> changePassword(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var currentPassword = (String) input.get("currentPassword");
-    var newPassword = (String) input.get("newPassword");
-    findUser(request).thenAccept(user -> futureResponse.complete(
-      changePassword(user, currentPassword, newPassword)));
-    return futureResponse;
-  }
-
-  private Map<String, Object> changePassword(
-    User user, String currentPassword, String newPassword
-  ) {
-    if (!user.passwordHash().equals(hashPassword(currentPassword))) {
-      return Map.of("success", false);
-    }
-    userDatabaseTable().changeUserPassword(user.id(), newPassword);
-    return Map.of("success", true);
   }
 
   private String hashPassword(String password) {

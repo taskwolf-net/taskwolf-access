@@ -100,7 +100,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
     if (!checkWorkflowAuthorization(user, entry)) {
       return;
     }
-    deleteWorkflow(user, entry);
+    deleteWorkflow(user, entry.id());
     userDatabaseTable().findUser(entry.creatorId()).thenAccept(creator ->
       workflowDatabaseTable.generateAvailableWorkflowId().thenAccept(workflowId ->
         updateWorkflow(workflowId, user, creator, entry, triggerData, actionData,
@@ -255,14 +255,17 @@ public final class WorkflowModificationController extends TaskwolfRestController
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var workflowId = UUID.fromString((String) input.get("workflow"));
-    findUser(request).thenAccept(user -> workflowDatabaseTable.findWorkflow(workflowId)
-      .thenAccept(workflow -> deleteWorkflow(user, workflow)));
+    findUser(request).thenAccept(user -> deleteWorkflow(user, workflowId));
   }
 
-  private void deleteWorkflow(User user, WorkflowEntry workflow) {
-    if (!checkWorkflowAuthorization(user, workflow)) {
+  private void deleteWorkflow(User user, UUID workflowId) {
+    if (!checkWorkflowAuthorization(user, workflowId)) {
       return;
     }
+    workflowDatabaseTable.findWorkflow(workflowId).thenAccept(this::deleteWorkflow);
+  }
+
+  public void deleteWorkflow(WorkflowEntry workflow) {
     workflowDatabaseTable.deleteWorkflow(workflow.id());
     triggerDatabaseTable.deleteTrigger(workflow.triggerId());
     for (var action : workflow.actionIds()) {

@@ -201,8 +201,11 @@ public final class StatisticsController extends TaskwolfRestController {
     List<String> dates, boolean totalValues
   ) {
     var currentYear = String.valueOf(Year.now().getValue());
-    var monthlyNumber = Maps.<Integer, Integer>newHashMapWithExpectedSize(12);
-    for (var i = 0; i < 12; i++) {
+    var calendar = Calendar.getInstance();
+    calendar.setTime(new Date());
+    int currentMonth = calendar.get(Calendar.MONTH) + 1;
+    var monthlyNumber = Maps.<Integer, Integer>newHashMapWithExpectedSize(currentMonth);
+    for (var i = 0; i < currentMonth; i++) {
       monthlyNumber.put(i, 0);
     }
     var previousDates = 0;
@@ -221,10 +224,10 @@ public final class StatisticsController extends TaskwolfRestController {
   private Map<Integer, Integer> calculateTotalOccurrenceValues(
     Map<Integer, Integer> monthlyNumber, int previousDates
   ) {
-    for (var i = 1; i < 12; i++) {
+    for (var i = 1; i < monthlyNumber.size(); i++) {
       monthlyNumber.put(i, monthlyNumber.get(i) + monthlyNumber.get(i - 1));
     }
-    for (var i = 1; i < 12; i++) {
+    for (var i = 1; i < monthlyNumber.size(); i++) {
       monthlyNumber.put(i, monthlyNumber.get(i) + previousDates);
     }
     return monthlyNumber;

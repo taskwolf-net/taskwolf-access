@@ -120,10 +120,10 @@ public final class StatisticsController extends TaskwolfRestController {
     var moduleUsages = assignModuleUsagesToCreators(workflows);
     var staffs = Lists.newArrayList(moduleUsages.keySet());
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(staffs, staff -> userDatabaseTable().findUser(staff)
-        .thenApply(user -> new AbstractMap.SimpleEntry<>(staff, user.name())),
-      staffs.size(), staffNames -> futureResponse.complete(
-        assemblyStaffModuleUsages(staffNames, moduleUsages)));
+    AsyncIterator.execute(staffs, staff -> userDatabaseTable().findUserIfExists(staff),
+      staffs.size(), staffUsers -> futureResponse.complete(
+        assemblyStaffModuleUsages(staffUsers.stream().filter(staff ->
+          !staff.email().equalsIgnoreCase("Unknown")).toList(), moduleUsages)));
     return futureResponse;
   }
 
@@ -142,12 +142,11 @@ public final class StatisticsController extends TaskwolfRestController {
   }
 
   private Map<String, Object> assemblyStaffModuleUsages(
-    List<AbstractMap.SimpleEntry<UUID, String>> staffNames,
-    Map<UUID, Map<String, Long>> staffModuleUsage
+    List<User> staffs, Map<UUID, Map<String, Long>> staffModuleUsage
   ) {
     var moduleUsages = Maps.<String, Object>newHashMap();
-    for (var entry : staffNames) {
-      moduleUsages.put(entry.getValue(), staffModuleUsage.get(entry.getKey()));
+    for (var staff : staffs) {
+      moduleUsages.put(staff.name(), staffModuleUsage.get(staff.id()));
     }
     return moduleUsages;
   }

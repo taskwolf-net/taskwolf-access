@@ -185,7 +185,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     WorkflowEntry workflow
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userDatabaseTable().findUser(workflow.creatorId()).thenAccept(creator ->
+    userDatabaseTable().findUserIfExists(workflow.creatorId()).thenAccept(creator ->
       triggerDatabaseTable.findTrigger(workflow.triggerId()).thenAccept(trigger ->
         actionDatabaseTable.findActionsByWorkflow(workflow.id()).thenAccept(actions ->
           conditionDatabaseTable.findConditionsByWorkflow(workflow.id()).thenAccept(conditions ->

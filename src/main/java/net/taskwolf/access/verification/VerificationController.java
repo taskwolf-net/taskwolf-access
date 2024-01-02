@@ -84,7 +84,7 @@ public final class VerificationController {
   private void insertNewUser(
     UUID userId, String name, String email, String passwordHash
   ) {
-    userDatabaseTable.insertUser(userId, name, email, passwordHash,
+    userDatabaseTable.insertUser(userId, name, email, passwordHash, "en",
       Lists.newArrayList());
     profilePictureDatabaseTable.insertProfilePicture(userId, DEFAULT_PROFILE_PICTURE);
     var token = UUID.randomUUID().toString();

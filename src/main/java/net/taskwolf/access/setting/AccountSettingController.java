@@ -8,11 +8,10 @@ import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
-import net.taskwolf.core.user.ProfilePictureDatabaseTable;
-import net.taskwolf.core.user.User;
-import net.taskwolf.core.user.UserDatabaseTable;
-import net.taskwolf.core.user.UserPasswordResetDatabaseTable;
+import net.taskwolf.core.user.*;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
+import org.jboss.marshalling.Pair;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -21,11 +20,16 @@ import org.springframework.web.bind.annotation.RestController;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class AccountSettingController extends TaskwolfRestController {
+  private final String verificationMailHost;
+  private final String verificationMail;
+  private final String verificationMailPassword;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
+  private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
   private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final OrganizationModificationController organizationModificationController;
@@ -35,7 +39,11 @@ public final class AccountSettingController extends TaskwolfRestController {
 
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
+    @Qualifier("verificationMailHost") String verificationMailHost,
+    @Qualifier("verificationMail") String verificationMail,
+    @Qualifier("verificationMailPassword") String verificationMailPassword,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
+    UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
     ProfilePictureDatabaseTable profilePictureDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     OrganizationModificationController organizationModificationController,
@@ -44,7 +52,11 @@ public final class AccountSettingController extends TaskwolfRestController {
     AccountController accountController
   ) {
     super(secretKey, userDatabaseTable);
+    this.verificationMailHost = verificationMailHost;
+    this.verificationMail = verificationMail;
+    this.verificationMailPassword = verificationMailPassword;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
+    this.userEmailChangeDatabaseTable = userEmailChangeDatabaseTable;
     this.profilePictureDatabaseTable = profilePictureDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.organizationModificationController = organizationModificationController;
@@ -75,26 +87,81 @@ public final class AccountSettingController extends TaskwolfRestController {
     return Map.of("success", true);
   }
 
-  @RequestMapping(path = "/settings/account/email/change/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> changeEmail(
+  @RequestMapping(path = "/settings/account/email/change/request/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> requestEmailChange(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var password = (String) input.get("password");
     var newEmail = (String) input.get("newEmail");
-    findUser(request).thenAccept(user -> futureResponse.complete(
-      changePassword(user, password, newEmail)));
+    findUser(request).thenAccept(user -> userDatabaseTable().userExists(newEmail)
+      .thenAccept(exists -> requestEmailChange(user, password, newEmail, exists)
+        .thenAccept(futureResponse::complete)));
     return futureResponse;
   }
 
-  private Map<String, Object> changeEmail(
-    User user, String password, String newEmail
+  private CompletableFuture<Map<String, Object>> requestEmailChange(
+    User user, String password, String newEmail, boolean accountExists
   ) {
     if (!user.passwordHash().equals(hashPassword(password))) {
-      return Map.of("success", false);
+      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
     }
-    userDatabaseTable().changeUserEmail(user.id(), newEmail);
+    if (accountExists) {
+      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
+    }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    userEmailChangeDatabaseTable.changeExists(user.id()).thenAccept(requestExists ->
+      futureResponse.complete(requestEmailChange(user, newEmail, requestExists)));
+    return futureResponse;
+  }
+
+  private Map<String, Object> requestEmailChange(
+    User user, String newEmail, boolean requestExists
+  ) {
+    var token = UUID.randomUUID().toString();
+    if (requestExists) {
+      userEmailChangeDatabaseTable.updateChange(user.id(), newEmail, token);
+    } else {
+      userEmailChangeDatabaseTable.insertChange(user.id(), newEmail, token);
+    }
+    EmailChangeEmail.create(verificationMailHost, verificationMail,
+      verificationMailPassword, newEmail, user.id(), token).send();
     return Map.of("success", true);
+  }
+
+  @RequestMapping(path = "/settings/account/email/change/complete/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> completeEmailChange(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    var userId = UUID.fromString((String) input.get("user"));
+    var token = (String) input.get("token");
+    userEmailChangeDatabaseTable.changeExists(userId).thenAccept(exists ->
+      completeEmailChange(userId, token, exists).thenAccept(futureResponse::complete));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> completeEmailChange(
+    UUID userId, String token, boolean exists
+  ) {
+    if (!exists) {
+      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
+    }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    userEmailChangeDatabaseTable.findChange(userId).thenAccept(changeParameters ->
+      completeEmailChange(userId, token, changeParameters).thenAccept(futureResponse::complete));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> completeEmailChange(
+    UUID userId, String token, Pair<String, String> changeParameters
+  ) {
+    if (!token.equals(changeParameters.getB())) {
+      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
+    }
+    userEmailChangeDatabaseTable.deleteChange(userId);
+    userDatabaseTable().changeUserEmail(userId, changeParameters.getA());
+    return CompletableFuture.completedFuture(Map.of("success", true));
   }
 
   @RequestMapping(path = "/settings/account/delete/", method = RequestMethod.POST)
@@ -121,6 +188,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   public void deleteAccount(User user) {
     userDatabaseTable().deleteUser(user.id());
     userPasswordResetDatabaseTable.deleteResetToken(user.id());
+    userEmailChangeDatabaseTable.deleteChange(user.id());
     profilePictureDatabaseTable.deleteProfilePicture(user.id());
     accountController.deleteAllAccounts(user.id());
     workflowDatabaseTable.findWorkflowsOfOwner(user.id()).thenAccept(workflows ->

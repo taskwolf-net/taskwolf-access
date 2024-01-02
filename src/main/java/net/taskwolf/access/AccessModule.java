@@ -21,7 +21,7 @@ public final class AccessModule extends Module {
       coreModule().databaseConnection(), coreModule().databaseKeyspace(),
       coreModule().userDatabaseTable(), coreModule().userVerificationDatabaseTable(),
       coreModule().userPasswordResetDatabaseTable(),
-      coreModule().profilePictureDatabaseTable(),
+      coreModule().userEmailChangeDatabaseTable(), coreModule().profilePictureDatabaseTable(),
       coreModule().organizationDatabaseTable(), coreModule().triggerDatabaseTable(),
       coreModule().actionDatabaseTable(), coreModule().conditionDatabaseTable(),
       coreModule().workflowDatabaseTable(), coreModule().workflowExecutionDatabaseTable(),

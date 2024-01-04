@@ -3,6 +3,7 @@ package net.taskwolf.access.workflow;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -24,14 +25,16 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class WorkflowTimelineController extends TaskwolfRestController {
+  private final CoreModule coreModule;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final TimelineFactory timelineFactory;
 
   private WorkflowTimelineController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
     WorkflowDatabaseTable workflowDatabaseTable, TimelineFactory timelineFactory
   ) {
     super(secretKey, userDatabaseTable);
+    this.coreModule = coreModule;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.timelineFactory = timelineFactory;
   }
@@ -57,17 +60,19 @@ public final class WorkflowTimelineController extends TaskwolfRestController {
       return futureResponse;
     }
     return timelineFactory.createTimeline(workflow.id())
-      .thenApply(this::assemblyTimelineInformation);
+      .thenApply(timeline -> assemblyTimelineInformation(user, timeline));
   }
 
-  private Map<String, Object> assemblyTimelineInformation(Timeline timeline) {
+  private Map<String, Object> assemblyTimelineInformation(
+    User user, Timeline timeline
+  ) {
     var information = Lists.newArrayList();
     var entries = timeline.findAllEntries().stream()
       .sorted(Comparator.comparing(TimelineEntry::rawTime)).toList();
     for (var entry : entries) {
       var entryInformation = Maps.<String, Object>newHashMap();
-      entryInformation.put("title", entry.title());
-      entryInformation.put("description", entry.description());
+      entryInformation.put("title", entry.title(coreModule, user));
+      entryInformation.put("description", entry.description(coreModule, user));
       entryInformation.put("level", entry.level());
       entryInformation.put("time", entry.formattedTime());
       information.add(entryInformation);

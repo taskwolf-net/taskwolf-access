@@ -7,6 +7,7 @@ import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.account.AccountLink;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.module.RegisteredModule;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.json.JSONObject;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -114,19 +115,21 @@ public final class AccountController extends TaskwolfRestController {
     var accountLink = registeredModule.get().accountLink();
     var apiKey = findApiKey(request);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    accountLink.accountExists(target).thenAccept(exists ->
-      futureResponse.complete(assemblyAccountInformation(accountLink, apiKey,
-        target, exists)));
+    findUser(request).thenAccept(user -> accountLink.accountExists(target).thenAccept(exists ->
+      futureResponse.complete(assemblyAccountInformation(user, accountLink, apiKey,
+        target, exists))));
     return futureResponse;
   }
 
   private Map<String, Object> assemblyAccountInformation(
-    AccountLink accountLink, String apiKey, UUID target, boolean accountExists
+    User user, AccountLink accountLink, String apiKey, UUID target,
+    boolean accountExists
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("accountExists", accountExists);
     information.put("registrationUrl", accountLink.registrationUrl(target, apiKey));
-    information.put("linkDescription", accountLink.description());
+    information.put("linkDescription", coreModule.translate(user,
+      accountLink.description()));
     return information;
   }
 }

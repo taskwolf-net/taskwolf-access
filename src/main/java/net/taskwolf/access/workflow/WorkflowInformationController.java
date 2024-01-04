@@ -66,18 +66,18 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     HttpServletRequest request
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> collectOwnersInformation(
+    findUser(request).thenAccept(user -> collectOwnersInformation(user,
       user.organizations(), user.id()).thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> collectOwnersInformation(
-    List<UUID> organizations, UUID applicantId
+    User user, List<UUID> organizations, UUID applicantId
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     AsyncIterator.execute(organizations, this::gatherOrganizationInformation,
       organizations.size(), information -> futureResponse.complete(
-        finishOwnersInformation(information, applicantId)));
+        finishOwnersInformation(user, information, applicantId)));
     return futureResponse;
   }
 
@@ -92,10 +92,11 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   }
 
   private Map<String, Object> finishOwnersInformation(
-    List<Map<String, Object>> organizations, UUID applicantId
+    User user, List<Map<String, Object>> organizations, UUID applicantId
   ) {
     var owners = Lists.<Map<String, Object>>newArrayList();
-    owners.add(Map.of("id", applicantId, "name", "You / Personal"));
+    owners.add(Map.of("id", applicantId, "name", coreModule.translate(user,
+      "workflow.owner.you")));
     owners.addAll(organizations);
     return Map.of("owners", owners);
   }
@@ -120,7 +121,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
       futureResponse.complete(Maps.newHashMap());
       return futureResponse;
     }
-    return gatherWorkflowInformation(workflow);
+    return gatherWorkflowInformation(user, workflow);
   }
 
   @RequestMapping(path = "/workflows/selected/", method = RequestMethod.POST)
@@ -143,7 +144,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
       return futureResponse;
     }
     collectWorkflows(Lists.newArrayList(ownerId)).thenAccept(workflows ->
-      collectWorkflowInformation(workflows).thenAccept(futureResponse::complete));
+      collectWorkflowInformation(user, workflows).thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
@@ -154,7 +155,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenApply(user -> collectWorkflows(Stream.concat(
       user.organizations().stream(), Stream.of(user.id())).collect(Collectors.toList()))
-      .thenAccept(workflows -> collectWorkflowInformation(workflows)
+      .thenAccept(workflows -> collectWorkflowInformation(user, workflows)
         .thenAccept(futureResponse::complete)));
     return futureResponse;
   }
@@ -169,33 +170,34 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   }
 
   private CompletableFuture<Map<String, Object>> collectWorkflowInformation(
-    List<WorkflowEntry> workflows
+    User user, List<WorkflowEntry> workflows
   ) {
     if (workflows.isEmpty()) {
       return CompletableFuture.completedFuture(Map.of("workflows",
         Lists.newArrayList()));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(workflows, this::gatherWorkflowInformation, workflows.size(),
+    AsyncIterator.execute(workflows, workflow ->
+        gatherWorkflowInformation(user, workflow), workflows.size(),
       information -> futureResponse.complete(Map.of("workflows", information)));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> gatherWorkflowInformation(
-    WorkflowEntry workflow
+    User user, WorkflowEntry workflow
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     userDatabaseTable().findUserIfExists(workflow.creatorId()).thenAccept(creator ->
       triggerDatabaseTable.findTrigger(workflow.triggerId()).thenAccept(trigger ->
         actionDatabaseTable.findActionsByWorkflow(workflow.id()).thenAccept(actions ->
           conditionDatabaseTable.findConditionsByWorkflow(workflow.id()).thenAccept(conditions ->
-            futureResponse.complete(assemblyWorkflowInformation(workflow, creator,
-              trigger, actions, conditions))))));
+            futureResponse.complete(assemblyWorkflowInformation(user, workflow,
+              creator, trigger, actions, conditions))))));
     return futureResponse;
   }
 
   private Map<String, Object> assemblyWorkflowInformation(
-    WorkflowEntry workflow, User creator, TriggerEntry trigger,
+    User user, WorkflowEntry workflow, User creator, TriggerEntry trigger,
     List<ActionEntry> actions, List<ConditionEntry> conditions
   ) {
     var information = Maps.<String, Object>newHashMap();
@@ -205,25 +207,30 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     information.put("created", timeMillisecondsToDate(workflow.created()));
     information.put("creator", creator.name());
     information.put("armed", trigger.state() == TriggerState.ARMED);
-    information.putAll(assemblyTriggerInformation(trigger));
-    information.putAll(assemblyActionsInformation(actions));
-    information.putAll(assemblyConditionsInformation(conditions));
+    information.putAll(assemblyTriggerInformation(user, trigger));
+    information.putAll(assemblyActionsInformation(user, actions));
+    information.putAll(assemblyConditionsInformation(user, conditions));
     return information;
   }
 
-  private Map<String, Object> assemblyTriggerInformation(TriggerEntry trigger) {
+  private Map<String, Object> assemblyTriggerInformation(
+    User user, TriggerEntry trigger
+  ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("triggerModule", trigger.module());
     information.put("triggerModuleLogo",
       coreModule.findModuleInformation(trigger.module()).get().logo());
     information.put("triggerType", trigger.type());
-    information.put("triggerTypeDescription", coreModule.findTriggerInformation(
-      trigger.module(), trigger.type()).get().description());
+    information.put("triggerTypeDescription", coreModule.translate(user,
+      coreModule.findTriggerInformation(trigger.module(),
+        trigger.type()).get().description()));
     information.put("triggerContent", trigger.content());
     return information;
   }
 
-  private Map<String, Object> assemblyActionsInformation(List<ActionEntry> actions) {
+  private Map<String, Object> assemblyActionsInformation(
+    User user, List<ActionEntry> actions
+  ) {
     var information = Maps.<String, Object>newHashMap();
     var actionsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var action : actions) {
@@ -233,8 +240,9 @@ public final class WorkflowInformationController extends TaskwolfRestController 
       actionInformation.put("actionModuleLogo",
         coreModule.findModuleInformation(action.module()).get().logo());
       actionInformation.put("actionType", action.type());
-      actionInformation.put("actionTypeDescription",
-        coreModule.findActionInformation(action.module(), action.type()).get().description());
+      actionInformation.put("actionTypeDescription", coreModule.translate(user,
+        coreModule.findActionInformation(action.module(),
+          action.type()).get().description()));
       actionInformation.put("actionContent", action.content());
       actionsInformation.add(actionInformation);
     }
@@ -242,15 +250,17 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     return information;
   }
 
-  private Map<String, Object> assemblyConditionsInformation(List<ConditionEntry> conditions) {
+  private Map<String, Object> assemblyConditionsInformation(
+    User user, List<ConditionEntry> conditions
+  ) {
     var information = Maps.<String, Object>newHashMap();
     var conditionsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var condition : conditions) {
       var conditionInformation = Maps.<String, Object>newHashMap();
       conditionInformation.put("conditionIndex", condition.actionIndex());
       conditionInformation.put("conditionType", condition.type());
-      conditionInformation.put("conditionTypeName",
-        conditionRepository.findByIdentifier(condition.type()).get().name());
+      conditionInformation.put("conditionTypeName", coreModule.translate(user,
+        conditionRepository.findByIdentifier(condition.type()).get().name()));
       conditionInformation.put("conditionContent", condition.content());
       conditionsInformation.add(conditionInformation);
     }

@@ -5,6 +5,7 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.component.ComponentInformation;
 import net.taskwolf.core.workflow.component.ComponentVariable;
@@ -33,28 +34,25 @@ public final class ComponentController extends TaskwolfRestController {
   }
 
   @RequestMapping(path = "/components/find/", method = RequestMethod.POST)
-  public Map<String, Object> findComponents(
-    @RequestBody Map<String, Object> input
+  public CompletableFuture<Map<String, Object>> findComponents(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var componentType = (String) input.get("componentType");
     var module = (String) input.get("module");
     var registeredModule = coreModule.moduleLoader().findModule(module);
     if (registeredModule.isEmpty()) {
-      return Map.of("components", Lists.newArrayList());
+      return CompletableFuture.completedFuture(Map.of("components", Lists.newArrayList()));
     }
     var information = componentType.equalsIgnoreCase("trigger") ?
       registeredModule.get().triggerInformation() :
       registeredModule.get().actionInformation();
-    var components = Lists.<Map<String, Object>>newArrayList();
-    for (var component : information) {
-      components.add(superficialComponentInformation(component));
-    }
-    return Map.of("components", components);
+    return findUser(request).thenApply(user -> Map.of("components",
+      information.stream().map(value -> superficialComponentInformation(user, value))));
   }
 
   @RequestMapping(path = "/component/find/", method = RequestMethod.POST)
-  public Map<String, Object> findComponent(
-    @RequestBody Map<String, Object> input
+  public CompletableFuture<Map<String, Object>> findComponent(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var componentType = (String) input.get("componentType");
     var module = (String) input.get("module");
@@ -62,41 +60,43 @@ public final class ComponentController extends TaskwolfRestController {
     var component = componentType.equalsIgnoreCase("trigger") ?
       coreModule.findTriggerInformation(module, type) :
       coreModule.findActionInformation(module, type);
-    return component.map(this::detailedComponentInformation)
-      .orElseGet(Maps::newHashMap);
+    return findUser(request).thenApply(user -> component.map(value ->
+      detailedComponentInformation(user, value)).orElseGet(Maps::newHashMap));
   }
 
   private Map<String, Object> superficialComponentInformation(
-    ComponentInformation component
+    User user, ComponentInformation component
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("identifier", component.identifier());
-    information.put("name", component.name());
-    information.put("description", component.description());
+    information.put("name", coreModule.translate(user, component.name()));
+    information.put("description", coreModule.translate(user,
+      component.description()));
     return information;
   }
 
   private Map<String, Object> detailedComponentInformation(
-    ComponentInformation component
+    User user, ComponentInformation component
   ) {
-    var information = superficialComponentInformation(component);
+    var information = superficialComponentInformation(user, component);
     information.put("inputVariables",
-      componentVariablesInformation(component.inputVariables()));
+      componentVariablesInformation(user, component.inputVariables()));
     information.put("outputVariables",
-      componentVariablesInformation(component.outputVariables()));
+      componentVariablesInformation(user, component.outputVariables()));
     return information;
   }
 
   private <T extends ComponentVariable> List<Map<String, Object>> componentVariablesInformation(
-    List<T> variables
+    User user, List<T> variables
   ) {
     var variablesInformation = Lists.<Map<String, Object>>newArrayList();
     for (var variable : variables) {
       var variableInformation = Maps.<String, Object>newHashMap();
       variableInformation.put("identifier", variable.identifier());
-      variableInformation.put("name", variable.displayName());
+      variableInformation.put("name", coreModule.translate(user, variable.displayName()));
       if (variable instanceof InputComponentVariable inputVariable) {
-        variableInformation.put("description", inputVariable.description());
+        variableInformation.put("description", coreModule.translate(user,
+          inputVariable.description()));
         variableInformation.put("type", inputVariable.type());
         variableInformation.put("dataType", inputVariable.dataType());
       }

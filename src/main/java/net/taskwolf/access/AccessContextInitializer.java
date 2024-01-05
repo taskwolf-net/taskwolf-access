@@ -10,6 +10,8 @@ import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.template.TemplateDatabaseTable;
+import net.taskwolf.core.ticket.TicketDatabaseTable;
+import net.taskwolf.core.ticket.TicketMessageDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.user.*;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
@@ -36,6 +38,8 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final TemplateDatabaseTable templateDatabaseTable;
   private final TimelineDatabaseTable timelineDatabaseTable;
+  private final TicketDatabaseTable ticketDatabaseTable;
+  private final TicketMessageDatabaseTable ticketMessageDatabaseTable;
   private final Distribution distribution;
   private final ConditionInformationRepository conditionRepository;
   private final TimelineFactory timelineFactory;
@@ -59,6 +63,8 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("workflowExecutionDatabaseTable", workflowExecutionDatabaseTable);
     beanFactory.registerSingleton("templateDatabaseTable", templateDatabaseTable);
     beanFactory.registerSingleton("timelineDatabaseTable", timelineDatabaseTable);
+    beanFactory.registerSingleton("ticketDatabaseTable", ticketDatabaseTable);
+    beanFactory.registerSingleton("ticketMessageDatabaseTable", ticketMessageDatabaseTable);
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("conditionRepository", conditionRepository);
     beanFactory.registerSingleton("timelineFactory", timelineFactory);

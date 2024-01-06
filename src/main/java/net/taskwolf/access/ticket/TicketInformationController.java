@@ -39,8 +39,9 @@ public final class TicketInformationController extends TicketController {
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user -> ticketDatabaseTable()
-      .findTicketsByCreator(user.id()).thenAccept(tickets -> Map.of("tickets",
-        tickets.stream().map(this::superficialTicketInformation).toList())));
+      .findTicketsByCreator(user.id()).thenAccept(tickets ->
+        futureResponse.complete(Map.of("tickets", tickets.stream()
+          .map(this::superficialTicketInformation).toList()))));
     return futureResponse;
   }
 

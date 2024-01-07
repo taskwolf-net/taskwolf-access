@@ -62,6 +62,7 @@ public final class TicketInformationController extends TicketController {
 
   private Map<String, Object> superficialTicketInformation(Ticket ticket) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("id", ticket.id());
     information.put("title", ticket.title());
     information.put("type", ticket.type());
     information.put("status", ticket.status());

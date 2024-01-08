@@ -165,8 +165,7 @@ public final class VerificationController {
       futureResponse.complete(Maps.newHashMap());
       return;
     }
-    futureResponse.complete(Map.of("apiKey", verification.generateApiKey(
-      user.id(), user.name())));
+    futureResponse.complete(Map.of("apiKey", verification.generateApiKey(user.id())));
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)

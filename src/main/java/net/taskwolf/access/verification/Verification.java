@@ -46,13 +46,11 @@ public final class Verification {
 
   private static final int EXPIRATION_TIME = 1000 * 60 * 60;
 
-  public String generateApiKey(UUID userId, String username) {
+  public String generateApiKey(UUID userId) {
     var expiration = new Date(System.currentTimeMillis() + EXPIRATION_TIME);
     return Jwts.builder()
       .setExpiration(expiration)
-      .claim("email", email)
       .claim("id", userId.toString())
-      .claim("username", username)
       .signWith(secret)
       .compact();
   }

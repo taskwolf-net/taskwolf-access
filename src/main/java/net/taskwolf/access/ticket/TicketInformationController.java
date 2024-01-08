@@ -16,10 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -54,8 +51,8 @@ public final class TicketInformationController extends TicketController {
     var userId = findUserId(request);
     performTicketOperation(userId, ticketId, ticket -> AsyncIterator.execute(
       ticket.messages(), ticketMessageDatabaseTable()::findTicketMessage,
-      ticket.messages().size(), messages -> detailedTicketInformation(ticket,
-        messages).thenAccept(futureResponse::complete)),
+      ticket.messages().size(), messages -> detailedTicketInformation(userId,
+          ticket, messages).thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
   }
@@ -70,36 +67,41 @@ public final class TicketInformationController extends TicketController {
   }
 
   private CompletableFuture<Map<String, Object>> detailedTicketInformation(
-    Ticket ticket, List<TicketMessage> messages
+    UUID userId, Ticket ticket, List<TicketMessage> messages
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(messages, this::messageInformation, messages.size(),
-      information -> futureResponse.complete(assemblyDetailedTicketInformation(
-        ticket, information)));
+    AsyncIterator.execute(messages, message -> messageInformation(userId, message),
+      messages.size(), information ->
+        futureResponse.complete(assemblyDetailedTicketInformation(ticket, information)));
     return futureResponse;
   }
 
   private Map<String, Object> assemblyDetailedTicketInformation(
     Ticket ticket, List<Map<String, Object>> messageInformation
   ) {
+    messageInformation.sort(Comparator.comparing(entry ->
+      (long) entry.get("rawTime")));
     var information = superficialTicketInformation(ticket);
     information.put("messages", messageInformation);
     return information;
   }
 
   private CompletableFuture<Map<String, Object>> messageInformation(
-    TicketMessage message
+    UUID userId, TicketMessage message
   ) {
     return userDatabaseTable().findUser(message.author()).thenApply(author ->
-      assemblyMessageInformation(message, author));
+      assemblyMessageInformation(userId, message, author));
   }
 
   private Map<String, Object> assemblyMessageInformation(
-    TicketMessage message, User author
+    UUID userId, TicketMessage message, User author
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("id", message.id());
     information.put("author", author.name());
+    information.put("selfWritten", message.author().equals(userId));
     information.put("message", message.message());
+    information.put("rawTime", message.time());
     information.put("time", formatTime(message.time()));
     return information;
   }

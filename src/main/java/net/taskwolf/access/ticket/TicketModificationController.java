@@ -50,6 +50,17 @@ public final class TicketModificationController extends TicketController {
       ticketId, userId, message, System.currentTimeMillis()));
   }
 
+  @RequestMapping(path = "/ticket/rename/", method = RequestMethod.POST)
+  public void renameTicket(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var ticketId = UUID.fromString((String) input.get("ticket"));
+    var title = (String) input.get("title");
+    var userId = findUserId(request);
+    performTicketOperation(userId, ticketId, ticket ->
+      ticketDatabaseTable().renameTicket(ticketId, title), () -> {});
+  }
+
   @RequestMapping(path = "/ticket/delete/", method = RequestMethod.POST)
   public void deleteTicket(
     HttpServletRequest request, @RequestBody Map<String, Object> input
@@ -98,7 +109,7 @@ public final class TicketModificationController extends TicketController {
   }
 
   private void deleteTicketMessage(Ticket ticket, UUID messageId) {
-    if (!ticket.messages().contains(messageId)) {
+    if (!ticket.messages().contains(messageId) || ticket.messages().indexOf(messageId) == 0) {
       return;
     }
     ticketMessageDatabaseTable().deleteTicketMessage(messageId);

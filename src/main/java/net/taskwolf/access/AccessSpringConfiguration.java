@@ -6,6 +6,8 @@ import lombok.Getter;
 import net.taskwolf.access.verification.VerificationConfiguration;
 import net.taskwolf.core.distribution.DistributionConfiguration;
 import net.taskwolf.core.distribution.Node;
+import net.taskwolf.core.mail.TaskwolfMail;
+import net.taskwolf.core.mail.TaskwolfMailConfiguration;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,9 +20,8 @@ import java.security.Key;
 @Configuration
 public class AccessSpringConfiguration {
   private Key secretKey;
-  private String verificationMailHost;
-  private String verificationMail;
-  private String verificationMailPassword;
+  private TaskwolfMail verificationMail;
+  private TaskwolfMail changeMail;
   private String proxyToken;
   private ProxyStatus proxyStatus;
   private HttpClient httpClient;
@@ -32,21 +33,15 @@ public class AccessSpringConfiguration {
   }
 
   @Bean
-  @Qualifier("verificationMailHost")
-  String provideVerificationMailHost() {
-    return verificationMailHost;
-  }
-
-  @Bean
   @Qualifier("verificationMail")
-  String provideVerificationMail() {
+  TaskwolfMail provideVerificationMail() {
     return verificationMail;
   }
 
   @Bean
-  @Qualifier("verificationMailPassword")
-  String provideVerificationMailPassword() {
-    return verificationMailPassword;
+  @Qualifier("changeMail")
+  TaskwolfMail provideChangeMail() {
+    return changeMail;
   }
 
   @Bean
@@ -72,12 +67,29 @@ public class AccessSpringConfiguration {
 
   @PostConstruct
   private void initializeSecretKey() throws Exception {
-    var verificationConfiguration = VerificationConfiguration.createAndLoad();
-    secretKey = new SecretKeySpec(verificationConfiguration.verificationSecret()
-      .getBytes(StandardCharsets.UTF_8), SignatureAlgorithm.HS256.getJcaName());
-    verificationMailHost = verificationConfiguration.verificationMailHost();
-    verificationMail = verificationConfiguration.verificationMail();
-    verificationMailPassword = verificationConfiguration.verificationMailPassword();
+    secretKey = new SecretKeySpec(VerificationConfiguration.createAndLoad()
+      .verificationSecret().getBytes(StandardCharsets.UTF_8),
+      SignatureAlgorithm.HS256.getJcaName());
+  }
+
+  @PostConstruct
+  private void initializeVerificationMail() throws Exception {
+    var mailConfiguration = TaskwolfMailConfiguration.createAndLoad("verification");
+    verificationMail = TaskwolfMail.create(mailConfiguration.mail(),
+      mailConfiguration.smtpMailHost(), mailConfiguration.pop3MailHost(),
+      mailConfiguration.mailUser(), mailConfiguration.mailPassword());
+  }
+
+  @PostConstruct
+  private void initializePasswordMail() throws Exception {
+    var mailConfiguration = TaskwolfMailConfiguration.createAndLoad("change");
+    changeMail = TaskwolfMail.create(mailConfiguration.mail(),
+      mailConfiguration.smtpMailHost(), mailConfiguration.pop3MailHost(),
+      mailConfiguration.mailUser(), mailConfiguration.mailPassword());
+  }
+
+  @PostConstruct
+  private void initializeDistribution() throws Exception {
     var proxyConfiguration = ProxyConfiguration.createAndLoad();
     proxyToken = proxyConfiguration.proxyToken();
     proxyStatus = proxyConfiguration.proxyEnabled() ? ProxyStatus.ENABLED :

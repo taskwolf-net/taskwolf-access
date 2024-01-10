@@ -6,6 +6,7 @@ import net.taskwolf.access.account.AccountController;
 import net.taskwolf.access.organization.OrganizationModificationController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.*;
@@ -25,9 +26,7 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class AccountSettingController extends TaskwolfRestController {
-  private final String verificationMailHost;
-  private final String verificationMail;
-  private final String verificationMailPassword;
+  private final TaskwolfMail changeMail;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
   private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
@@ -39,9 +38,7 @@ public final class AccountSettingController extends TaskwolfRestController {
 
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    @Qualifier("verificationMailHost") String verificationMailHost,
-    @Qualifier("verificationMail") String verificationMail,
-    @Qualifier("verificationMailPassword") String verificationMailPassword,
+    @Qualifier("changeMail") TaskwolfMail changeMail,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
     UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
     ProfilePictureDatabaseTable profilePictureDatabaseTable,
@@ -52,9 +49,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     AccountController accountController
   ) {
     super(secretKey, userDatabaseTable);
-    this.verificationMailHost = verificationMailHost;
-    this.verificationMail = verificationMail;
-    this.verificationMailPassword = verificationMailPassword;
+    this.changeMail = changeMail;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
     this.userEmailChangeDatabaseTable = userEmailChangeDatabaseTable;
     this.profilePictureDatabaseTable = profilePictureDatabaseTable;
@@ -115,6 +110,18 @@ public final class AccountSettingController extends TaskwolfRestController {
     return futureResponse;
   }
 
+  private static final String EMAIL_TITLE = "Email Change";
+  private static final String EMAIL_CHANGE_URL = "https://taskwolf.net/email/change/complete/%s/%s/";
+  private static final String EMAIL_BODY = "Hey, \n" +
+    "\n" +
+    "we have received a request to replace the email of one of our accounts with this email.\n" +
+    "\n" +
+    "If you are not a Taskwolf customer or have not requested the replacement, please ignore this email.\n" +
+    "\n" +
+    "However, if this is a genuine request, please click on the link below to complete the change:\n" +
+    "\n" +
+    "%s";
+
   private Map<String, Object> requestEmailChange(
     User user, String newEmail, boolean requestExists
   ) {
@@ -124,8 +131,9 @@ public final class AccountSettingController extends TaskwolfRestController {
     } else {
       userEmailChangeDatabaseTable.insertChange(user.id(), newEmail, token);
     }
-    EmailChangeEmail.create(verificationMailHost, verificationMail,
-      verificationMailPassword, newEmail, user.id(), token).send();
+    var body = String.format(EMAIL_BODY, String.format(EMAIL_CHANGE_URL,
+      user.id().toString(), token));
+    changeMail.send(newEmail, EMAIL_TITLE, body);
     return Map.of("success", true);
   }
 

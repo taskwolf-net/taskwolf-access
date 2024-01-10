@@ -2,6 +2,7 @@ package net.taskwolf.access.password;
 
 import com.google.common.hash.Hashing;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserPasswordResetDatabaseTable;
@@ -19,22 +20,16 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class PasswordController extends TaskwolfRestController {
-  private final String verificationMailHost;
-  private final String verificationMail;
-  private final String verificationMailPassword;
+  private final TaskwolfMail changeMail;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
 
   private PasswordController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    @Qualifier("verificationMailHost") String verificationMailHost,
-    @Qualifier("verificationMail") String verificationMail,
-    @Qualifier("verificationMailPassword") String verificationMailPassword,
+    @Qualifier("changeMail") TaskwolfMail changeMail,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
-    this.verificationMailHost = verificationMailHost;
-    this.verificationMail = verificationMail;
-    this.verificationMailPassword = verificationMailPassword;
+    this.changeMail = changeMail;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
   }
 
@@ -62,14 +57,27 @@ public final class PasswordController extends TaskwolfRestController {
     return futureResponse;
   }
 
+  private static final String PASSWORD_EMAIL_TITLE = "Password Reset";
+  private static final String PASSWORD_RESET_URL = "https://taskwolf.net/password/reset/complete/%s/%s/";
+  private static final String PASSWORD_EMAIL_BODY = "Hey %s,\n" +
+    "\n" +
+    "there was a request to change your password!\n" +
+    "\n" +
+    "If you did not make this request then please ignore this email.\n" +
+    "\n" +
+    "Otherwise, please click this link to change your password:\n" +
+    "\n" +
+    "%s";
+
   private Map<String, Object> requestPasswordReset(User user, boolean requestExists) {
     if (requestExists) {
       return Map.of("success", false, "errorCode", 1001);
     }
     var token = UUID.randomUUID().toString();
     userPasswordResetDatabaseTable.insertResetToken(user.id(), token);
-    PasswordResetMail.create(verificationMailHost, verificationMail,
-      verificationMailPassword, user.email(), user.name(), user.id(), token).send();
+    var body = String.format(PASSWORD_EMAIL_BODY, user.name(),
+      String.format(PASSWORD_RESET_URL, user.id().toString(), token));
+    changeMail.send(user.email(), PASSWORD_EMAIL_TITLE, body);
     return Map.of("success", true);
   }
 

@@ -2,7 +2,6 @@ package net.taskwolf.access;
 
 import io.jsonwebtoken.SignatureAlgorithm;
 import jakarta.annotation.PostConstruct;
-import lombok.Getter;
 import net.taskwolf.access.verification.VerificationConfiguration;
 import net.taskwolf.core.distribution.DistributionConfiguration;
 import net.taskwolf.core.distribution.Node;
@@ -76,7 +75,8 @@ public class AccessSpringConfiguration {
   private void initializeVerificationMail() throws Exception {
     var mailConfiguration = TaskwolfMailConfiguration.createAndLoad("verification");
     verificationMail = TaskwolfMail.create(mailConfiguration.mail(),
-      mailConfiguration.smtpMailHost(), mailConfiguration.pop3MailHost(),
+      mailConfiguration.smtpMailHost(), mailConfiguration.smtpMailPort(),
+      mailConfiguration.imapMailHost(), mailConfiguration.imapMailPort(),
       mailConfiguration.mailUser(), mailConfiguration.mailPassword());
   }
 
@@ -84,7 +84,8 @@ public class AccessSpringConfiguration {
   private void initializePasswordMail() throws Exception {
     var mailConfiguration = TaskwolfMailConfiguration.createAndLoad("change");
     changeMail = TaskwolfMail.create(mailConfiguration.mail(),
-      mailConfiguration.smtpMailHost(), mailConfiguration.pop3MailHost(),
+      mailConfiguration.smtpMailHost(), mailConfiguration.smtpMailPort(),
+      mailConfiguration.imapMailHost(), mailConfiguration.imapMailPort(),
       mailConfiguration.mailUser(), mailConfiguration.mailPassword());
   }
 

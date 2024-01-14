@@ -45,7 +45,7 @@ public final class TicketModificationController extends TicketController {
     String message
   ) {
     ticketDatabaseTable().insertTicket(Ticket.create(ticketId, userId, title,
-      Ticket.Type.valueOf(type), Ticket.Status.OPEN, List.of(messageId)));
+      Ticket.Type.valueOf(type), Ticket.Status.OPEN, -1, List.of(messageId)));
     ticketMessageDatabaseTable().insertTicketMessage(TicketMessage.create(messageId,
       ticketId, userId, message, System.currentTimeMillis()));
   }
@@ -92,7 +92,9 @@ public final class TicketModificationController extends TicketController {
   private void addTicketMessage(
     UUID userId, Ticket ticket, UUID messageId, String message
   ) {
-    ticketDatabaseTable().addTicketMessage(ticket.id(), messageId);
+    ticket.addMessage(messageId);
+    ticket.disableExpirationTime();
+    ticketDatabaseTable().updateTicket(ticket);
     ticketMessageDatabaseTable().insertTicketMessage(TicketMessage.create(
       messageId, ticket.id(), userId, message, System.currentTimeMillis()));
   }

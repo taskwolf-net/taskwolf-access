@@ -29,6 +29,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     prepareResponseHeaders(response);
     var apiKey = request.getHeader("Authorization");
     if (apiKey == null) {
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       return;
     }
     apiKey = apiKey.replace("Bearer ", "");
@@ -39,20 +40,23 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     filterChain.doFilter(request, response);
   }
 
+  private static final String CURRENT_API_VERSION = "v1";
+
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
     var controllers = Lists.<String>newArrayList();
     requestHandlerMapping.getHandlerMethods().forEach((key, value) ->
-      controllers.addAll(key.getDirectPaths()));
-    controllers.remove("/");
-    controllers.remove("/verification/register/");
-    controllers.remove("/verification/complete/");
-    controllers.remove("/verification/login/");
-    controllers.remove("/verification/isValid/");
-    controllers.remove("/discord/guild/add/");
-    controllers.remove("/google/account/add/");
-    controllers.remove("/password/reset/request/");
-    controllers.remove("/password/reset/complete/");
+      controllers.addAll(key.getDirectPaths().stream().map(path -> "/" +
+        CURRENT_API_VERSION + path).toList()));
+    controllers.remove("/" + CURRENT_API_VERSION + "/");
+    controllers.remove("/" + CURRENT_API_VERSION + "/verification/register/");
+    controllers.remove("/" + CURRENT_API_VERSION + "/verification/complete/");
+    controllers.remove("/" + CURRENT_API_VERSION + "/verification/login/");
+    controllers.remove("/" + CURRENT_API_VERSION + "/verification/isValid/");
+    controllers.remove("/" + CURRENT_API_VERSION + "/discord/guild/add/");
+    controllers.remove("/" + CURRENT_API_VERSION + "/google/account/add/");
+    controllers.remove("/" + CURRENT_API_VERSION + "/password/reset/request/");
+    controllers.remove("/" + CURRENT_API_VERSION + "/password/reset/complete/");
     return !(controllers.contains(request.getRequestURI()));
   }
 

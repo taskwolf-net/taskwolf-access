@@ -1,32 +1,37 @@
 package net.taskwolf.access.organization;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.user.ProfilePictureDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 @RestController
 public final class OrganizationInformationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
 
   private OrganizationInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable
+    OrganizationDatabaseTable organizationDatabaseTable,
+     ProfilePictureDatabaseTable profilePictureDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
+    this.profilePictureDatabaseTable = profilePictureDatabaseTable;
   }
 
   @RequestMapping(path = "/organization/selected/", method = RequestMethod.POST)
@@ -65,11 +70,13 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     UUID organizationId, UUID applicantId
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
-      organization -> userDatabaseTable().findUser(organization.owner()).thenAccept(
-        owner -> findOrganizationMembers(organization.members()).thenAccept(
-          members -> futureResponse.complete(
-            assemblyOrganizationInformation(organization, owner, members, applicantId)))));
+    organizationDatabaseTable.findOrganization(organizationId).thenAccept(organization ->
+      userDatabaseTable().findUser(organization.owner()).thenAccept(owner ->
+        findOrganizationMembers(organization.members()).thenAccept(members ->
+          profilePictureDatabaseTable.findProfilePicture(owner.id()).thenAccept(
+            ownerPicture -> findProfilePictures(organization.members()).thenAccept(
+              pictures -> futureResponse.complete(assemblyOrganizationInformation(
+                organization, owner, ownerPicture, members, pictures, applicantId)))))));
     return futureResponse;
   }
 
@@ -82,18 +89,38 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     return futureResponse;
   }
 
+  private CompletableFuture<List<Map.Entry<UUID, String>>> findProfilePictures(
+    List<UUID> memberIds
+  ) {
+    var futureResponse = new CompletableFuture<List<Map.Entry<UUID, String>>>();
+    AsyncIterator.execute(memberIds, member -> profilePictureDatabaseTable
+        .findProfilePicture(member).thenApply(picture ->
+          new AbstractMap.SimpleEntry<>(member, picture)),
+      memberIds.size(), futureResponse::complete);
+    return futureResponse;
+  }
+
   private Map<String, Object> assemblyOrganizationInformation(
-    Organization organization, User owner, List<User> members, UUID applicantId
+    Organization organization, User owner, String ownerProfilePicture,
+    List<User> members, List<Map.Entry<UUID, String>> memberProfilePictures,
+    UUID applicantId
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", organization.id());
     information.put("name", organization.name());
     information.put("owner", owner.name());
+    information.put("ownerProfilePicture", ownerProfilePicture);
     information.put("isOwner", applicantId.equals(owner.id()));
-    information.put("members", members.stream().map(User::name)
-      .collect(Collectors.toList()));
-    information.put("memberIds", members.stream().map(User::id)
-      .collect(Collectors.toList()));
+    var membersInformation = Lists.<Map<String, Object>>newArrayList();
+    for (var member : members) {
+      var memberInformation = Maps.<String, Object>newHashMap();
+      memberInformation.put("id", member.id());
+      memberInformation.put("name", member.name());
+      memberInformation.put("profilePicture", memberProfilePictures.stream().filter(
+        entry -> entry.getKey().equals(member.id())).findFirst().get().getValue());
+      membersInformation.add(memberInformation);
+    }
+    information.put("members", membersInformation);
     return information;
   }
 

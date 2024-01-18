@@ -7,6 +7,7 @@ import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.mail.TaskwolfMail;
+import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.user.ProfilePictureDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -27,19 +28,22 @@ public final class VerificationController {
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
+  private final NotificationDatabaseTable notificationDatabaseTable;
   private final Distribution distribution;
 
   private VerificationController(
     Key secretKey, @Qualifier("verificationMail") TaskwolfMail verificationMail,
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
-    ProfilePictureDatabaseTable profilePictureDatabaseTable, Distribution distribution
+    ProfilePictureDatabaseTable profilePictureDatabaseTable,
+    NotificationDatabaseTable notificationDatabaseTable, Distribution distribution
   ) {
     this.secretKey = secretKey;
     this.verificationMail = verificationMail;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.profilePictureDatabaseTable = profilePictureDatabaseTable;
+    this.notificationDatabaseTable = notificationDatabaseTable;
     this.distribution = distribution;
   }
 
@@ -97,6 +101,7 @@ public final class VerificationController {
       Lists.newArrayList());
     profilePictureDatabaseTable.insertProfilePicture(userId, DEFAULT_PROFILE_PICTURE);
     var token = UUID.randomUUID().toString();
+    notificationDatabaseTable.insertNotificationSettings(userId, true, true);
     userVerificationDatabaseTable.insertVerification(userId, token);
     var body = String.format(VERIFICATION_EMAIL_BODY, name,
       String.format(VERIFICATION_URL, userId.toString(), token));

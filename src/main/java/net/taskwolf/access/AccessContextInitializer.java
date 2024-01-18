@@ -8,6 +8,7 @@ import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.distribution.Distribution;
+import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.template.TemplateDatabaseTable;
 import net.taskwolf.core.ticket.TicketDatabaseTable;
@@ -40,6 +41,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final TimelineDatabaseTable timelineDatabaseTable;
   private final TicketDatabaseTable ticketDatabaseTable;
   private final TicketMessageDatabaseTable ticketMessageDatabaseTable;
+  private final NotificationDatabaseTable notificationDatabaseTable;
   private final Distribution distribution;
   private final ConditionInformationRepository conditionRepository;
   private final TimelineFactory timelineFactory;
@@ -65,6 +67,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("timelineDatabaseTable", timelineDatabaseTable);
     beanFactory.registerSingleton("ticketDatabaseTable", ticketDatabaseTable);
     beanFactory.registerSingleton("ticketMessageDatabaseTable", ticketMessageDatabaseTable);
+    beanFactory.registerSingleton("notificationDatabaseTable", notificationDatabaseTable);
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("conditionRepository", conditionRepository);
     beanFactory.registerSingleton("timelineFactory", timelineFactory);

@@ -7,6 +7,7 @@ import net.taskwolf.access.organization.OrganizationModificationController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.mail.TaskwolfMail;
+import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.*;
@@ -30,6 +31,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
   private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
+  private final NotificationDatabaseTable notificationDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final OrganizationModificationController organizationModificationController;
   private final WorkflowDatabaseTable workflowDatabaseTable;
@@ -42,6 +44,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
     UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
     ProfilePictureDatabaseTable profilePictureDatabaseTable,
+    NotificationDatabaseTable notificationDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     OrganizationModificationController organizationModificationController,
     WorkflowDatabaseTable workflowDatabaseTable,
@@ -53,6 +56,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
     this.userEmailChangeDatabaseTable = userEmailChangeDatabaseTable;
     this.profilePictureDatabaseTable = profilePictureDatabaseTable;
+    this.notificationDatabaseTable = notificationDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.organizationModificationController = organizationModificationController;
     this.workflowDatabaseTable = workflowDatabaseTable;
@@ -198,6 +202,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     userPasswordResetDatabaseTable.deleteResetToken(user.id());
     userEmailChangeDatabaseTable.deleteChange(user.id());
     profilePictureDatabaseTable.deleteProfilePicture(user.id());
+    notificationDatabaseTable.deleteNotificationSettings(user.id());
     accountController.deleteAllAccounts(user.id());
     workflowDatabaseTable.findWorkflowsOfOwner(user.id()).thenAccept(workflows ->
       workflows.forEach(workflowModificationController::deleteWorkflow));

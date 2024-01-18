@@ -57,6 +57,8 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     controllers.remove("/" + CURRENT_API_VERSION + "/google/account/add/");
     controllers.remove("/" + CURRENT_API_VERSION + "/password/reset/request/");
     controllers.remove("/" + CURRENT_API_VERSION + "/password/reset/complete/");
+    controllers.removeAll(controllers.stream().filter(controller ->
+      controller.startsWith("/" + CURRENT_API_VERSION + "/team/")).toList());
     return !(controllers.contains(request.getRequestURI()));
   }
 

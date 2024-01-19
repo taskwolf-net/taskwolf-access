@@ -7,6 +7,7 @@ import net.taskwolf.core.distribution.DistributionConfiguration;
 import net.taskwolf.core.distribution.Node;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.mail.TaskwolfMailConfiguration;
+import net.taskwolf.core.user.ProfilePictureConfiguration;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +26,7 @@ public class AccessSpringConfiguration {
   private ProxyStatus proxyStatus;
   private HttpClient httpClient;
   private Node self;
+  private String defaultProfilePicture;
 
   @Bean
   Key provideSecretKey() {
@@ -64,6 +66,12 @@ public class AccessSpringConfiguration {
     return self;
   }
 
+  @Bean
+  @Qualifier("defaultProfilePicture")
+  String provideDefaultProfilePicture() {
+    return defaultProfilePicture;
+  }
+
   @PostConstruct
   private void initializeSecretKey() throws Exception {
     secretKey = new SecretKeySpec(VerificationConfiguration.createAndLoad()
@@ -97,5 +105,11 @@ public class AccessSpringConfiguration {
       ProxyStatus.DISABLED;
     httpClient = HttpClient.newHttpClient();
     self = DistributionConfiguration.createAndLoad().self();
+  }
+
+  @PostConstruct
+  private void initializeDefaultProfilePicture() throws Exception {
+    defaultProfilePicture = ProfilePictureConfiguration.createAndLoad()
+      .defaultProfilePicture();
   }
 }

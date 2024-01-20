@@ -6,6 +6,7 @@ import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.account.AccountLink;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.module.RegisteredModule;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -25,12 +26,15 @@ import java.util.stream.Collectors;
 
 @RestController
 public final class AccountController extends TaskwolfRestController {
+  private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
 
   private AccountController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule
+    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
+    CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
+    this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
   }
 
@@ -46,7 +50,7 @@ public final class AccountController extends TaskwolfRestController {
   }
 
   public CompletableFuture<List<RegisteredModule>> findLinkedAccounts(UUID targetId) {
-    var modules = coreModule.moduleLoader().allRegisteredModules().stream()
+    var modules = moduleLoader.allRegisteredModules().stream()
       .filter(module -> module.module().accountLink() != null)
       .filter(module -> !module.module().accountLink().registrationUrl(targetId,
         "").isEmpty()).toList();
@@ -65,7 +69,7 @@ public final class AccountController extends TaskwolfRestController {
   ) {
     var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
-    var registeredModule = coreModule.moduleLoader().findModule(module);
+    var registeredModule = moduleLoader.findModule(module);
     if (registeredModule.isEmpty()) {
       return CompletableFuture.completedFuture("");
     }
@@ -81,7 +85,7 @@ public final class AccountController extends TaskwolfRestController {
     var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
     var identifier = (String) input.get("identifier");
-    var registeredModule = coreModule.moduleLoader().findModule(module);
+    var registeredModule = moduleLoader.findModule(module);
     if (registeredModule.isEmpty()) {
       return;
     }
@@ -108,7 +112,7 @@ public final class AccountController extends TaskwolfRestController {
   ) {
     var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
-    var registeredModule = coreModule.moduleLoader().findModule(module);
+    var registeredModule = moduleLoader.findModule(module);
     if (registeredModule.isEmpty()) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }

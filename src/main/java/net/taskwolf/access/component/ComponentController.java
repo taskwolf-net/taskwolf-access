@@ -5,6 +5,7 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.component.ComponentInformation;
@@ -24,12 +25,15 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class ComponentController extends TaskwolfRestController {
+  private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
 
   private ComponentController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule
+    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
+    CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
+    this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
   }
 
@@ -39,7 +43,7 @@ public final class ComponentController extends TaskwolfRestController {
   ) {
     var componentType = (String) input.get("componentType");
     var module = (String) input.get("module");
-    var registeredModule = coreModule.moduleLoader().findModule(module);
+    var registeredModule = moduleLoader.findModule(module);
     if (registeredModule.isEmpty()) {
       return CompletableFuture.completedFuture(Map.of("components", Lists.newArrayList()));
     }

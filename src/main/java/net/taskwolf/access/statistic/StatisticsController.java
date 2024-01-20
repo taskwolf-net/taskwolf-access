@@ -8,6 +8,7 @@ import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.iterator.AsyncListIterator;
+import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 
 @RestController
 public final class StatisticsController extends TaskwolfRestController {
+  private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
@@ -36,12 +38,13 @@ public final class StatisticsController extends TaskwolfRestController {
   private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private StatisticsController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
-    OrganizationDatabaseTable organizationDatabaseTable,
+    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
+    CoreModule coreModule, OrganizationDatabaseTable organizationDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
+    this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
@@ -82,7 +85,7 @@ public final class StatisticsController extends TaskwolfRestController {
     UUID targetId, int organizationMembers, int maxOrganizationMembers,
     CompletableFuture<Map<String, Object>> response
   ) {
-    var modules = coreModule.moduleLoader().allRegisteredModules().stream()
+    var modules = moduleLoader.allRegisteredModules().stream()
       .filter(module -> module.module().accountLink() != null)
       .filter(module -> !module.module().accountLink().registrationUrl(targetId, "").isEmpty()).toList();
     AsyncIterator.execute(modules.stream().map(module -> module.module().accountLink()).toList(),

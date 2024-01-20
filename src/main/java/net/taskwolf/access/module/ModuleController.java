@@ -4,6 +4,7 @@ import com.google.common.collect.Maps;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.module.Module;
+import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,12 +13,15 @@ import java.util.Map;
 
 @RestController
 public final class ModuleController extends TaskwolfRestController {
+  private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
 
   private ModuleController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule
+    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
+    CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
+    this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
   }
 
@@ -26,13 +30,13 @@ public final class ModuleController extends TaskwolfRestController {
     @RequestBody Map<String, Object> input
   ) {
     var module = (String) input.get("module");
-    return coreModule.moduleLoader().findModule(module)
-      .map(this::moduleInformation).orElseGet(Maps::newHashMap);
+    return moduleLoader.findModule(module).map(this::moduleInformation)
+      .orElseGet(Maps::newHashMap);
   }
 
   @RequestMapping(path = "/modules/all/", method = RequestMethod.GET)
   public Map<String, Object> findAllModules() {
-    return Map.of("modules", coreModule.moduleLoader().allModules().stream()
+    return Map.of("modules", moduleLoader.allModules().stream()
       .filter(module -> module.moduleInformation().type().isPublic())
       .map(this::moduleInformation).toList());
   }

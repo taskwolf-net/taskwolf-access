@@ -1,5 +1,8 @@
 package net.taskwolf.access;
 
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.action.ActionDatabaseTable;
@@ -8,6 +11,7 @@ import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.distribution.Distribution;
+import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.template.TemplateDatabaseTable;
@@ -22,8 +26,10 @@ import net.taskwolf.core.workflow.timeline.TimelineFactory;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 
-@RequiredArgsConstructor(staticName = "create")
+@Singleton
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({@Inject}))
 public class AccessContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+  private final ModuleLoader moduleLoader;
   private final DatabaseConnection databaseConnection;
   private final DatabaseKeyspace databaseKeyspace;
   private final UserDatabaseTable userDatabaseTable;
@@ -50,6 +56,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
     var beanFactory = applicationContext.getBeanFactory();
+    beanFactory.registerSingleton("moduleLoader", moduleLoader);
     beanFactory.registerSingleton("databaseConnection", databaseConnection);
     beanFactory.registerSingleton("databaseKeyspace", databaseKeyspace);
     beanFactory.registerSingleton("userDatabaseTable", userDatabaseTable);

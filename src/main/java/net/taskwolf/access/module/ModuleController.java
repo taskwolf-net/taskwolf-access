@@ -6,7 +6,10 @@ import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.user.UserDatabaseTable;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.Map;

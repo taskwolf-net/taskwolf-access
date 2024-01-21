@@ -8,7 +8,10 @@ import net.taskwolf.core.condition.ConditionInformation;
 import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.Map;

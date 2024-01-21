@@ -1,6 +1,7 @@
 package net.taskwolf.access;
 
 import com.google.inject.Injector;
+import net.taskwolf.core.log.Log;
 import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleDescription;
 import net.taskwolf.core.module.ModuleInformation;
@@ -10,6 +11,8 @@ import org.springframework.boot.SpringApplication;
 @ModuleDescription(name = "access", version = "1.0.0-SNAPSHOT",
   priority = ModuleLoadPriority.HIGH)
 public final class AccessModule extends Module {
+  private Log log;
+
   public AccessModule(Injector injector) {
     super(injector);
   }
@@ -18,8 +21,9 @@ public final class AccessModule extends Module {
   public void enable() {
     System.setProperty("jdk.httpclient.allowRestrictedHeaders",
       "host,connection,content-length,upgrade");
-   injector().getInstance(SpringApplication.class).addInitializers(
-    injector().getInstance(AccessContextInitializer.class));
+    log = injector().getInstance(Log.class).subLog("Access");
+    injector().getInstance(SpringApplication.class).addInitializers(
+      injector().getInstance(AccessContextInitializer.class));
   }
 
   @Override

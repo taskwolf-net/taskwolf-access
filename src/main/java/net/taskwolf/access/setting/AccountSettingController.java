@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class AccountSettingController extends TaskwolfRestController {
   private final TaskwolfMail changeMail;
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
   private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
@@ -41,6 +42,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     @Qualifier("changeMail") TaskwolfMail changeMail,
+    UserTargetDatabaseTable userTargetDatabaseTable,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
     UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
     ProfilePictureDatabaseTable profilePictureDatabaseTable,
@@ -53,6 +55,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
     this.userEmailChangeDatabaseTable = userEmailChangeDatabaseTable;
     this.profilePictureDatabaseTable = profilePictureDatabaseTable;
@@ -199,6 +202,7 @@ public final class AccountSettingController extends TaskwolfRestController {
 
   public void deleteAccount(User user) {
     userDatabaseTable().deleteUser(user.id());
+    userTargetDatabaseTable.deleteTarget(user.id());
     userPasswordResetDatabaseTable.deleteResetToken(user.id());
     userEmailChangeDatabaseTable.deleteChange(user.id());
     profilePictureDatabaseTable.deleteProfilePicture(user.id());

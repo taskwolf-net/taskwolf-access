@@ -41,9 +41,9 @@ dependencies {
   compileOnly("org.json:json:20231013")
   compileOnly("commons-io:commons-io:2.15.1")
 
-  compileOnly("org.redisson:redisson:3.25.2")
+  compileOnly("org.redisson:redisson:3.26.0")
 
-  compileOnly("org.springframework.boot:spring-boot-starter-web:3.2.1")
+  compileOnly("org.springframework.boot:spring-boot-starter-web:3.2.2")
 
   compileOnly("io.jsonwebtoken:jjwt:0.12.3")
 

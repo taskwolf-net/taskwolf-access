@@ -9,6 +9,7 @@ import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerState;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.*;
 import net.taskwolf.core.workflow.timeline.TimelineDatabaseEntry;
 import net.taskwolf.core.workflow.timeline.TimelineDatabaseTable;
@@ -33,13 +34,15 @@ public final class WorkflowModificationController extends TaskwolfRestController
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final TimelineDatabaseTable timelineDatabaseTable;
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
 
   private WorkflowModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable, WorkflowDatabaseTable workflowDatabaseTable,
     WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable,
-    TimelineDatabaseTable timelineDatabaseTable
+    TimelineDatabaseTable timelineDatabaseTable,
+    UserTargetDatabaseTable userTargetDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.triggerDatabaseTable = triggerDatabaseTable;
@@ -48,23 +51,25 @@ public final class WorkflowModificationController extends TaskwolfRestController
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
     this.timelineDatabaseTable = timelineDatabaseTable;
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
   }
 
   @RequestMapping(path = "/workflow/add/", method = RequestMethod.POST)
   public void addWorkflow(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var ownerId = UUID.fromString((String) input.get("owner"));
     var name = (String) input.get("name");
     var description = (String) input.get("description");
     var triggerData = (Map<String, Object>) input.get("trigger");
     var actionData = (List<Map<String, Object>>) input.get("actions");
     var conditionData = (List<Map<String, Object>>) input.get("conditions");
     var created = System.currentTimeMillis();
-    findUser(request).thenAccept(user -> createWorkflowCreateTimelineEntry(user)
-      .thenAccept(workflowCreateEntry -> createWorkflow(user, ownerId, triggerData,
-        actionData, conditionData, created, name, description, Lists.newArrayList(),
-        Lists.newArrayList(workflowCreateEntry), WorkflowState.OPERATIONAL)));
+    findUser(request).thenAccept(user ->
+      userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
+        createWorkflowCreateTimelineEntry(user).thenAccept(workflowCreateEntry ->
+          createWorkflow(user, target, triggerData, actionData, conditionData,
+            created, name, description, Lists.newArrayList(),
+            Lists.newArrayList(workflowCreateEntry), WorkflowState.OPERATIONAL))));
   }
 
   private CompletableFuture<TimelineDatabaseEntry> createWorkflowCreateTimelineEntry(

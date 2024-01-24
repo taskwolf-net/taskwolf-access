@@ -17,6 +17,7 @@ import net.taskwolf.core.trigger.TriggerEntry;
 import net.taskwolf.core.trigger.TriggerState;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -42,6 +43,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   private final ConditionDatabaseTable conditionDatabaseTable;
   private final ConditionInformationRepository conditionRepository;
   private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private WorkflowInformationController(
@@ -49,7 +51,8 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
     ConditionInformationRepository conditionRepository,
-    WorkflowDatabaseTable workflowDatabaseTable
+    WorkflowDatabaseTable workflowDatabaseTable,
+    UserTargetDatabaseTable userTargetDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.coreModule = coreModule;
@@ -58,6 +61,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     this.conditionDatabaseTable = conditionDatabaseTable;
     this.conditionRepository = conditionRepository;
     this.workflowDatabaseTable = workflowDatabaseTable;
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
   }
 
   @RequestMapping(path = "/workflow/find/", method = RequestMethod.POST)
@@ -83,14 +87,14 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     return gatherWorkflowInformation(user, workflow);
   }
 
-  @RequestMapping(path = "/workflows/selected/", method = RequestMethod.POST)
+  @RequestMapping(path = "/workflows/selected/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> selectedWorkflows(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var ownerId = UUID.fromString((String) input.get("owner"));
-    findUser(request).thenApply(user -> findSelectedWorkflows(user, ownerId)
-      .thenApply(futureResponse::complete));
+    findUser(request).thenApply(user ->
+      userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
+        findSelectedWorkflows(user, target).thenApply(futureResponse::complete)));
     return futureResponse;
   }
 

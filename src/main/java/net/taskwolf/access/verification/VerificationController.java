@@ -8,10 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
-import net.taskwolf.core.user.ProfilePictureDatabaseTable;
-import net.taskwolf.core.user.User;
-import net.taskwolf.core.user.UserDatabaseTable;
-import net.taskwolf.core.user.UserVerificationDatabaseTable;
+import net.taskwolf.core.user.*;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +27,7 @@ public final class VerificationController {
   private final TaskwolfMail verificationMail;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
   private final String defaultProfilePicture;
   private final NotificationDatabaseTable notificationDatabaseTable;
@@ -39,6 +37,7 @@ public final class VerificationController {
     Key secretKey, @Qualifier("verificationMail") TaskwolfMail verificationMail,
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
+    UserTargetDatabaseTable userTargetDatabaseTable,
     ProfilePictureDatabaseTable profilePictureDatabaseTable,
     @Qualifier("defaultProfilePicture") String defaultProfilePicture,
     NotificationDatabaseTable notificationDatabaseTable, Distribution distribution
@@ -47,6 +46,7 @@ public final class VerificationController {
     this.verificationMail = verificationMail;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.profilePictureDatabaseTable = profilePictureDatabaseTable;
     this.defaultProfilePicture = defaultProfilePicture;
     this.notificationDatabaseTable = notificationDatabaseTable;
@@ -104,6 +104,7 @@ public final class VerificationController {
   ) {
     userDatabaseTable.insertUser(userId, name, email, passwordHash, "en",
       Lists.newArrayList());
+    userTargetDatabaseTable.insertTarget(userId, userId);
     profilePictureDatabaseTable.insertProfilePicture(userId, defaultProfilePicture);
     var token = UUID.randomUUID().toString();
     notificationDatabaseTable.insertNotificationSettings(userId, true, true);

@@ -12,7 +12,6 @@ import net.taskwolf.core.condition.ConditionEntry;
 import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.iterator.AsyncListIterator;
-import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
 import net.taskwolf.core.trigger.TriggerState;
@@ -43,7 +42,6 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   private final ConditionDatabaseTable conditionDatabaseTable;
   private final ConditionInformationRepository conditionRepository;
   private final WorkflowDatabaseTable workflowDatabaseTable;
-  private final OrganizationDatabaseTable organizationDatabaseTable;
   private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private WorkflowInformationController(
@@ -51,8 +49,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
     ConditionInformationRepository conditionRepository,
-    WorkflowDatabaseTable workflowDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable
+    WorkflowDatabaseTable workflowDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.coreModule = coreModule;
@@ -61,47 +58,6 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     this.conditionDatabaseTable = conditionDatabaseTable;
     this.conditionRepository = conditionRepository;
     this.workflowDatabaseTable = workflowDatabaseTable;
-    this.organizationDatabaseTable = organizationDatabaseTable;
-  }
-
-  @RequestMapping(path = "/workflow/owners/all/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> allWorkflowOwners(
-    HttpServletRequest request
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> collectOwnersInformation(user,
-      user.organizations(), user.id()).thenAccept(futureResponse::complete));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> collectOwnersInformation(
-    User user, List<UUID> organizations, UUID applicantId
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(organizations, this::gatherOrganizationInformation,
-      organizations.size(), information -> futureResponse.complete(
-        finishOwnersInformation(user, information, applicantId)));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> gatherOrganizationInformation(
-    UUID organizationId
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
-      organization -> futureResponse.complete(Map.of("id", organization.id(),
-        "name", organization.name())));
-    return futureResponse;
-  }
-
-  private Map<String, Object> finishOwnersInformation(
-    User user, List<Map<String, Object>> organizations, UUID applicantId
-  ) {
-    var owners = Lists.<Map<String, Object>>newArrayList();
-    owners.add(Map.of("id", applicantId, "name", coreModule.translate(user,
-      "workflow.owner.you")));
-    owners.addAll(organizations);
-    return Map.of("owners", owners);
   }
 
   @RequestMapping(path = "/workflow/find/", method = RequestMethod.POST)

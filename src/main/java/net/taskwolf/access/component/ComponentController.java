@@ -8,6 +8,7 @@ import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.component.ComponentInformation;
 import net.taskwolf.core.workflow.component.ComponentVariable;
 import net.taskwolf.core.workflow.component.input.InputComponentDataType;
@@ -20,19 +21,21 @@ import org.springframework.web.bind.annotation.RestController;
 import java.security.Key;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class ComponentController extends TaskwolfRestController {
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
 
   private ComponentController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
+    Key secretKey, UserDatabaseTable userDatabaseTable,
+    UserTargetDatabaseTable userTargetDatabaseTable, ModuleLoader moduleLoader,
     CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
   }
@@ -114,7 +117,6 @@ public final class ComponentController extends TaskwolfRestController {
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var componentType = (String) input.get("componentType");
-    var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
     var type = (String) input.get("type");
     var previousInputs = (Map<String, String>) input.get("previousInputs");
@@ -132,7 +134,10 @@ public final class ComponentController extends TaskwolfRestController {
     if (select.isEmpty()) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
-    return select.get().select().compile(target, previousInputs)
-      .thenApply(items -> Map.of("items", items));
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
+      target -> select.get().select().compile(target, previousInputs)
+        .thenAccept(items -> futureResponse.complete(Map.of("items", items))));
+    return futureResponse;
   }
 }

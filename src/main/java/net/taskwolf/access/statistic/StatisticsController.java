@@ -12,10 +12,10 @@ import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
 import net.taskwolf.core.workflow.WorkflowExecutionDatabaseTable;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +33,7 @@ public final class StatisticsController extends TaskwolfRestController {
   private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
   private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
@@ -40,6 +41,7 @@ public final class StatisticsController extends TaskwolfRestController {
   private StatisticsController(
     Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
     CoreModule coreModule, OrganizationDatabaseTable organizationDatabaseTable,
+    UserTargetDatabaseTable userTargetDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable
   ) {
@@ -47,6 +49,7 @@ public final class StatisticsController extends TaskwolfRestController {
     this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
     this.organizationDatabaseTable = organizationDatabaseTable;
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
   }
@@ -55,14 +58,14 @@ public final class StatisticsController extends TaskwolfRestController {
   private static final int MAX_WORKFLOWS = 100;
   private static final int MAX_ORGANIZATION_MEMBERS = 5;
 
-  @RequestMapping(path = "/statistics/", method = RequestMethod.POST)
+  @RequestMapping(path = "/statistics/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findStatistics(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request
   ) {
-    var targetId = UUID.fromString((String) input.get("target"));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> findOrganizationsData(user, targetId,
-      futureResponse));
+    findUser(request).thenAccept(user -> userTargetDatabaseTable
+      .findTargetSecured(user.id()).thenAccept(target ->
+        findOrganizationsData(user, target, futureResponse)));
     return futureResponse;
   }
 

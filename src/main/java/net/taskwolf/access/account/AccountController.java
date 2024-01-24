@@ -10,6 +10,7 @@ import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.module.RegisteredModule;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import org.json.JSONObject;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,27 +27,28 @@ import java.util.stream.Collectors;
 
 @RestController
 public final class AccountController extends TaskwolfRestController {
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
 
   private AccountController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
+    Key secretKey, UserDatabaseTable userDatabaseTable,
+    UserTargetDatabaseTable userTargetDatabaseTable, ModuleLoader moduleLoader,
     CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
   }
 
-  @RequestMapping(path = "/account/apps/", method = RequestMethod.POST)
-  public CompletableFuture<String> findAccountApps(
-    @RequestBody Map<String, Object> input
-  ) {
-    var target = UUID.fromString((String) input.get("target"));
-    return findLinkedAccounts(target).thenApply(modules ->
-      new JSONObject(Map.of("apps", modules.stream().map(entry ->
-        entry.module().moduleInformation()).map(entry -> new JSONObject(Map.of("logo",
-        entry.logo(), "name", entry.name()))).toList())).toString());
+  @RequestMapping(path = "/account/apps/", method = RequestMethod.GET)
+  public CompletableFuture<String> findAccountApps(HttpServletRequest request) {
+    var futureResponse = new CompletableFuture<String>();
+    userTargetDatabaseTable.findTargetSecured(findUserId(request))
+      .thenAccept(target -> findLinkedAccounts(target).thenAccept(modules ->
+        futureResponse.complete(finishAccountAppFinding(modules))));
+    return futureResponse;
   }
 
   public CompletableFuture<List<RegisteredModule>> findLinkedAccounts(UUID targetId) {
@@ -63,33 +65,43 @@ public final class AccountController extends TaskwolfRestController {
     return futureResponse;
   }
 
+  private String finishAccountAppFinding(List<RegisteredModule> modules) {
+    return new JSONObject(Map.of("apps", modules.stream().map(entry ->
+      entry.module().moduleInformation()).map(entry -> new JSONObject(Map.of(
+      "logo", entry.logo(), "name", entry.name()))).toList())).toString();
+  }
+
   @RequestMapping(path = "/accounts/", method = RequestMethod.POST)
   public CompletableFuture<String> findAccounts(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
     var registeredModule = moduleLoader.findModule(module);
     if (registeredModule.isEmpty()) {
       return CompletableFuture.completedFuture("");
     }
-    return registeredModule.get().accountLink().findAccounts(target)
-      .thenApply(accounts -> new JSONObject(Map.of("accounts", accounts.stream()
-        .map(JSONObject::new).collect(Collectors.toList()))).toString());
+    var futureResponse = new CompletableFuture<String>();
+    userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
+      target -> registeredModule.get().accountLink().findAccounts(target)
+        .thenApply(accounts -> futureResponse.complete(new JSONObject(
+          Map.of("accounts", accounts.stream().map(JSONObject::new)
+            .collect(Collectors.toList()))).toString())));
+    return futureResponse;
   }
 
   @RequestMapping(path = "/account/remove/", method = RequestMethod.POST)
   public void removeAccount(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
     var identifier = (String) input.get("identifier");
     var registeredModule = moduleLoader.findModule(module);
     if (registeredModule.isEmpty()) {
       return;
     }
-    registeredModule.get().accountLink().removeAccount(target, identifier);
+    userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
+      target -> registeredModule.get().accountLink().removeAccount(
+        target, identifier));
   }
 
   public void deleteAllAccounts(UUID targetId) {
@@ -110,7 +122,6 @@ public final class AccountController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findAccountInformation(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var target = UUID.fromString((String) input.get("target"));
     var module = (String) input.get("module");
     var registeredModule = moduleLoader.findModule(module);
     if (registeredModule.isEmpty()) {
@@ -119,9 +130,10 @@ public final class AccountController extends TaskwolfRestController {
     var accountLink = registeredModule.get().accountLink();
     var apiKey = findApiKey(request);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> accountLink.accountExists(target).thenAccept(exists ->
-      futureResponse.complete(assemblyAccountInformation(user, accountLink, apiKey,
-        target, exists))));
+    userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
+      target -> findUser(request).thenAccept(user -> accountLink.accountExists(target)
+        .thenAccept(exists -> futureResponse.complete(assemblyAccountInformation(
+          user, accountLink, apiKey, target, exists)))));
     return futureResponse;
   }
 

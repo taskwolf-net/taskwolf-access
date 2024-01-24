@@ -34,6 +34,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final DatabaseKeyspace databaseKeyspace;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
   private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
@@ -61,6 +62,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("databaseKeyspace", databaseKeyspace);
     beanFactory.registerSingleton("userDatabaseTable", userDatabaseTable);
     beanFactory.registerSingleton("userVerificationDatabaseTable", userVerificationDatabaseTable);
+    beanFactory.registerSingleton("userTargetDatabaseTable", userTargetDatabaseTable);
     beanFactory.registerSingleton("userPasswordResetDatabaseTable", userPasswordResetDatabaseTable);
     beanFactory.registerSingleton("userEmailChangeDatabaseTable", userEmailChangeDatabaseTable);
     beanFactory.registerSingleton("profilePictureDatabaseTable", profilePictureDatabaseTable);

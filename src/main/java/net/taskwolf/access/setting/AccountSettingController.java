@@ -67,6 +67,48 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.accountController = accountController;
   }
 
+  @RequestMapping(path = "/settings/account/unlocked/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> accountSettingsUnlocked(
+    HttpServletRequest request
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    findUser(request).thenAccept(user -> futureResponse.complete(
+      Map.of("unlocked", !user.passwordHash().equals(""))));
+    return futureResponse;
+  }
+
+  @RequestMapping(path = "/settings/account/unlock/", method = RequestMethod.GET)
+  public void unlockAccountSettings(
+    HttpServletRequest request
+  ) {
+    findUser(request).thenAccept(user -> userPasswordResetDatabaseTable
+      .resetTokenExists(user.id()).thenAccept(requestExists ->
+        unlockAccountSettings(user, requestExists)));
+  }
+
+  private static final String PASSWORD_EMAIL_TITLE = "Set Password";
+  private static final String PASSWORD_RESET_URL = "https://taskwolf.net/password/reset/complete/%s/%s/";
+  private static final String PASSWORD_EMAIL_BODY = "Hey %s,\n" +
+    "\n" +
+    "there was a request to set your password!\n" +
+    "\n" +
+    "If you did not make this request then please ignore this email.\n" +
+    "\n" +
+    "Otherwise, please click this link to set your password:\n" +
+    "\n" +
+    "%s";
+
+  private void unlockAccountSettings(User user, boolean requestExists) {
+    if (!user.passwordHash().equals("") || requestExists) {
+      return;
+    }
+    var token = UUID.randomUUID().toString();
+    userPasswordResetDatabaseTable.insertResetToken(user.id(), token);
+    var body = String.format(PASSWORD_EMAIL_BODY, user.name(),
+      String.format(PASSWORD_RESET_URL, user.id().toString(), token));
+    changeMail.send(user.email(), PASSWORD_EMAIL_TITLE, body);
+  }
+
   @RequestMapping(path = "/settings/account/password/change/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> changePassword(
     HttpServletRequest request, @RequestBody Map<String, Object> input

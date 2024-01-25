@@ -13,6 +13,8 @@ public class FilterConfiguration {
   private AuthorizationFilter authorizationFilter;
   @Autowired
   private ProxyFilter proxyFilter;
+  @Autowired
+  private WhitelistFilter whitelistFilter;
 
   @Bean
   public FilterRegistrationBean<AuthorizationFilter> provideAuthorizationFilter() {
@@ -25,6 +27,13 @@ public class FilterConfiguration {
   public FilterRegistrationBean<ProxyFilter> provideProxyFilter() {
     var registrationBean = new FilterRegistrationBean<ProxyFilter>();
     registrationBean.setFilter(proxyFilter);
+    return registrationBean;
+  }
+
+  @Bean
+  public FilterRegistrationBean<WhitelistFilter> provideWhitelistFilter() {
+    var registrationBean = new FilterRegistrationBean<WhitelistFilter>();
+    registrationBean.setFilter(whitelistFilter);
     return registrationBean;
   }
 }

@@ -19,6 +19,7 @@ import net.taskwolf.core.ticket.TicketDatabaseTable;
 import net.taskwolf.core.ticket.TicketMessageDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.user.*;
+import net.taskwolf.core.whitelist.WhitelistConfiguration;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowExecutionDatabaseTable;
 import net.taskwolf.core.workflow.timeline.TimelineDatabaseTable;
@@ -49,6 +50,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final TicketDatabaseTable ticketDatabaseTable;
   private final TicketMessageDatabaseTable ticketMessageDatabaseTable;
   private final NotificationDatabaseTable notificationDatabaseTable;
+  private final WhitelistConfiguration whitelistConfiguration;
   private final Distribution distribution;
   private final ConditionInformationRepository conditionRepository;
   private final TimelineFactory timelineFactory;
@@ -77,6 +79,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("ticketDatabaseTable", ticketDatabaseTable);
     beanFactory.registerSingleton("ticketMessageDatabaseTable", ticketMessageDatabaseTable);
     beanFactory.registerSingleton("notificationDatabaseTable", notificationDatabaseTable);
+    beanFactory.registerSingleton("whitelistConfiguration", whitelistConfiguration);
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("conditionRepository", conditionRepository);
     beanFactory.registerSingleton("timelineFactory", timelineFactory);

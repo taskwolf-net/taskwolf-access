@@ -26,7 +26,7 @@ public class WhitelistFilter extends OncePerRequestFilter {
       filterChain.doFilter(request, response);
       return;
     }
-    var key = request.getHeader("WHITELIST_KEY");
+    var key = request.getHeader("WHITELIST-KEY");
     if (key == null) {
       response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       return;
@@ -36,5 +36,12 @@ public class WhitelistFilter extends OncePerRequestFilter {
       return;
     }
     filterChain.doFilter(request, response);
+  }
+
+  private static final String CURRENT_API_VERSION = "v1";
+
+  @Override
+  protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+    return request.getRequestURI().equals("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
   }
 }

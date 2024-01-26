@@ -49,6 +49,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
       controllers.addAll(key.getDirectPaths().stream().map(path -> "/" +
         CURRENT_API_VERSION + path).toList()));
     controllers.remove("/" + CURRENT_API_VERSION + "/");
+    controllers.remove("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
     controllers.remove("/" + CURRENT_API_VERSION + "/verification/register/");
     controllers.remove("/" + CURRENT_API_VERSION + "/verification/complete/");
     controllers.remove("/" + CURRENT_API_VERSION + "/verification/login/");
@@ -67,8 +68,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     response.setHeader("Access-Control-Allow-Origin", "*");
     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     response.setHeader("Access-Control-Max-Age", "3600");
-    response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    response.addHeader("Access-Control-Expose-Headers", "Authorization");
+    response.setHeader("Access-Control-Allow-Headers", "content-type, authorization, whitelist-key");
   }
 
   private boolean validateApiKey(String apiKey) {

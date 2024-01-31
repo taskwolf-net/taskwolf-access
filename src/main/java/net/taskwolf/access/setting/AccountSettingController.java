@@ -13,7 +13,6 @@ import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.*;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
-import org.jboss.marshalling.Pair;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -214,13 +213,13 @@ public final class AccountSettingController extends TaskwolfRestController {
   }
 
   private CompletableFuture<Map<String, Object>> completeEmailChange(
-    UUID userId, String token, Pair<String, String> changeParameters
+    UUID userId, String token, Map.Entry<String, String> changeParameters
   ) {
-    if (!token.equals(changeParameters.getB())) {
+    if (!token.equals(changeParameters.getValue())) {
       return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
     }
     userEmailChangeDatabaseTable.deleteChange(userId);
-    userDatabaseTable().changeUserEmail(userId, changeParameters.getA());
+    userDatabaseTable().changeUserEmail(userId, changeParameters.getKey());
     return CompletableFuture.completedFuture(Map.of("success", true));
   }
 

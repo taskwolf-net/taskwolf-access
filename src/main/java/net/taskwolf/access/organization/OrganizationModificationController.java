@@ -58,7 +58,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     organizationDatabaseTable.insertOrganization(organizationId, name, userId,
       Lists.newArrayList(), UUID.randomUUID().toString());
     userDatabaseTable().addUserOrganization(userId, organizationId);
-    distribution.addNewUser(organizationId);
+    distribution.addUser(organizationId);
   }
 
   @RequestMapping(path = "/organization/link/regenerate/", method = RequestMethod.POST)
@@ -205,5 +205,6 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     workflowDatabaseTable.findWorkflowsOfOwner(organization.id()).thenAccept(
       workflows -> workflows.forEach(workflowModificationController::deleteWorkflow));
     accountController.deleteAllAccounts(organization.id());
+    distribution.removeUser(organization.id());
   }
 }

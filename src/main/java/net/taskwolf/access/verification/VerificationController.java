@@ -112,7 +112,7 @@ public final class VerificationController {
     var body = String.format(VERIFICATION_EMAIL_BODY, name,
       String.format(VERIFICATION_URL, userId.toString(), token));
     verificationMail.send(email, VERIFICATIION_EMAIL_TITLE, body);
-    distribution.addNewUser(userId);
+    distribution.addUser(userId);
   }
 
   @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)

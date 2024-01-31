@@ -6,6 +6,7 @@ import net.taskwolf.access.account.AccountController;
 import net.taskwolf.access.organization.OrganizationModificationController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
@@ -38,6 +39,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowModificationController workflowModificationController;
   private final AccountController accountController;
+  private final Distribution distribution;
 
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -51,7 +53,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     OrganizationModificationController organizationModificationController,
     WorkflowDatabaseTable workflowDatabaseTable,
     WorkflowModificationController workflowModificationController,
-    AccountController accountController
+    AccountController accountController, Distribution distribution
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
@@ -65,6 +67,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.workflowModificationController = workflowModificationController;
     this.accountController = accountController;
+    this.distribution = distribution;
   }
 
   @RequestMapping(path = "/settings/account/unlocked/", method = RequestMethod.GET)
@@ -250,6 +253,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     profilePictureDatabaseTable.deleteProfilePicture(user.id());
     notificationDatabaseTable.deleteNotificationSettings(user.id());
     accountController.deleteAllAccounts(user.id());
+    distribution.removeUser(user.id());
     workflowDatabaseTable.findWorkflowsOfOwner(user.id()).thenAccept(workflows ->
       workflows.forEach(workflowModificationController::deleteWorkflow));
     for (var organizationId : user.organizations()) {

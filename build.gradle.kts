@@ -22,7 +22,7 @@ repositories {
 }
 
 dependencies {
-  testCompileOnly(platform("org.junit:junit-bom:5.10.1"))
+  testCompileOnly(platform("org.junit:junit-bom:5.10.2"))
   testCompileOnly("org.junit.jupiter:junit-jupiter:5.10.1")
 
   compileOnly("net.taskwolf:core:1.0.0-SNAPSHOT")

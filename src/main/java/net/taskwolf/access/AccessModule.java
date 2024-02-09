@@ -1,5 +1,6 @@
 package net.taskwolf.access;
 
+import com.google.common.collect.Lists;
 import com.google.inject.Injector;
 import net.taskwolf.core.log.Log;
 import net.taskwolf.core.module.Module;
@@ -12,6 +13,8 @@ import org.springframework.boot.SpringApplication;
   priority = ModuleLoadPriority.HIGH)
 public final class AccessModule extends Module {
   private Log log;
+  private SpringApplication springApplication;
+  private AccessContextInitializer contextInitializer;
 
   public AccessModule(Injector injector) {
     super(injector);
@@ -22,13 +25,16 @@ public final class AccessModule extends Module {
     System.setProperty("jdk.httpclient.allowRestrictedHeaders",
       "host,connection,content-length,upgrade");
     log = injector().getInstance(Log.class).subLog("Access");
-    injector().getInstance(SpringApplication.class).addInitializers(
-      injector().getInstance(AccessContextInitializer.class));
+    springApplication = injector().getInstance(SpringApplication.class);
+    contextInitializer = injector().getInstance(AccessContextInitializer.class);
+    springApplication.addInitializers(contextInitializer);
   }
 
   @Override
   public void disable() {
-
+    var initializers = Lists.newArrayList(springApplication.getInitializers());
+    initializers.remove(contextInitializer);
+    springApplication.setInitializers(initializers);
   }
 
   @Override

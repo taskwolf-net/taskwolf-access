@@ -41,7 +41,7 @@ dependencies {
   compileOnly("org.json:json:20240205")
   compileOnly("commons-io:commons-io:2.15.1")
 
-  compileOnly("org.redisson:redisson:3.26.1")
+  compileOnly("org.redisson:redisson:3.27.0")
 
   compileOnly("org.springframework.boot:spring-boot-starter-web:3.2.3")
 

@@ -43,7 +43,7 @@ dependencies {
 
   compileOnly("org.redisson:redisson:3.26.1")
 
-  compileOnly("org.springframework.boot:spring-boot-starter-web:3.2.2")
+  compileOnly("org.springframework.boot:spring-boot-starter-web:3.2.3")
 
   compileOnly("io.jsonwebtoken:jjwt:0.12.5")
 

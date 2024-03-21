@@ -2,7 +2,9 @@ package net.taskwolf.access.target;
 
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
@@ -93,9 +95,11 @@ public final class TargetController extends TaskwolfRestController {
 
   @RequestMapping(path = "/target/change/", method = RequestMethod.POST)
   public void changeTarget(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var target = UUID.fromString((String) input.get("target"));
+    var body = TaskwolfRequestBody.of(payload, response);
+    var target = body.getUUID("target");
     var userId = findUserId(request);
     checkTargetValidity(userId, target).thenAccept(accepted ->
       userTargetDatabaseTable.changeTarget(userId, target));

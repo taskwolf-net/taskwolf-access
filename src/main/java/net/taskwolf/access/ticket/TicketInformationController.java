@@ -2,6 +2,8 @@ package net.taskwolf.access.ticket;
 
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.ticket.Ticket;
 import net.taskwolf.core.ticket.TicketDatabaseTable;
@@ -44,10 +46,12 @@ public final class TicketInformationController extends TicketController {
 
   @RequestMapping(path = "/ticket/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findTicket(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var ticketId = UUID.fromString((String) input.get("ticket"));
+    var ticketId = body.getUUID("ticket");
     var userId = findUserId(request);
     performTicketOperation(userId, ticketId, ticket -> AsyncIterator.execute(
       ticket.messages(), ticketMessageDatabaseTable()::findTicketMessage,

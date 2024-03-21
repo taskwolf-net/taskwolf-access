@@ -1,6 +1,8 @@
 package net.taskwolf.access.ticket;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.ticket.Ticket;
 import net.taskwolf.core.ticket.TicketDatabaseTable;
 import net.taskwolf.core.ticket.TicketMessage;
@@ -13,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -29,15 +30,16 @@ public final class TicketModificationController extends TicketController {
 
   @RequestMapping(path = "/ticket/create/", method = RequestMethod.POST)
   public void createTicket(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var title = (String) input.get("title");
-    var type = (String) input.get("type");
-    var message = (String) input.get("message");
+    var body = TaskwolfRequestBody.of(payload, response);
     var userId = findUserId(request);
     ticketDatabaseTable().generateAvailableTicketId().thenAccept(ticketId ->
       ticketMessageDatabaseTable().generateAvailableTicketMessageId().thenAccept(
-        messageId -> createTicket(userId, ticketId, messageId, title, type, message)));
+        messageId -> createTicket(userId, ticketId, messageId,
+          body.getString("title"), body.getString("type"),
+          body.getString("message"))));
   }
 
   private void createTicket(
@@ -52,22 +54,26 @@ public final class TicketModificationController extends TicketController {
 
   @RequestMapping(path = "/ticket/rename/", method = RequestMethod.POST)
   public void renameTicket(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var ticketId = UUID.fromString((String) input.get("ticket"));
-    var title = (String) input.get("title");
+    var body = TaskwolfRequestBody.of(payload, response);
+    var ticketId = body.getUUID("ticket");
     var userId = findUserId(request);
     performTicketOperation(userId, ticketId, ticket ->
-      ticketDatabaseTable().renameTicket(ticketId, title), () -> {});
+      ticketDatabaseTable().renameTicket(ticketId, body.getString("title")),
+      () -> {});
   }
 
   @RequestMapping(path = "/ticket/delete/", method = RequestMethod.POST)
   public void deleteTicket(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var ticketId = UUID.fromString((String) input.get("ticket"));
+    var body = TaskwolfRequestBody.of(payload, response);
     var userId = findUserId(request);
-    performTicketOperation(userId, ticketId, this::deleteTicket, () -> {});
+    performTicketOperation(userId, body.getUUID("ticket"), this::deleteTicket,
+      () -> {});
   }
 
   private void deleteTicket(Ticket ticket) {
@@ -79,14 +85,15 @@ public final class TicketModificationController extends TicketController {
 
   @RequestMapping(path = "/ticket/message/add/", method = RequestMethod.POST)
   public void addTicketMessage(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var ticketId = UUID.fromString((String) input.get("ticket"));
-    var message = (String) input.get("message");
+    var body = TaskwolfRequestBody.of(payload, response);
     var userId = findUserId(request);
-    performTicketOperation(userId, ticketId, ticket -> ticketMessageDatabaseTable()
-      .generateAvailableTicketMessageId().thenAccept(messageId ->
-        addTicketMessage(userId, ticket, messageId, message)), () -> {});
+    performTicketOperation(userId, body.getUUID("ticket"), ticket ->
+      ticketMessageDatabaseTable().generateAvailableTicketMessageId()
+        .thenAccept(messageId -> addTicketMessage(userId, ticket, messageId,
+          body.getString("message"))), () -> {});
   }
 
   private void addTicketMessage(
@@ -101,13 +108,13 @@ public final class TicketModificationController extends TicketController {
 
   @RequestMapping(path = "/ticket/message/delete/", method = RequestMethod.POST)
   public void deleteTicketMessage(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var ticketId = UUID.fromString((String) input.get("ticket"));
-    var messageId = UUID.fromString((String) input.get("message"));
+    var body = TaskwolfRequestBody.of(payload, response);
     var userId = findUserId(request);
-    performTicketOperation(userId, ticketId, ticket ->
-      deleteTicketMessage(ticket, messageId), () -> {});
+    performTicketOperation(userId, body.getUUID("ticket"), ticket ->
+      deleteTicketMessage(ticket, body.getUUID("message")), () -> {});
   }
 
   private void deleteTicketMessage(Ticket ticket, UUID messageId) {

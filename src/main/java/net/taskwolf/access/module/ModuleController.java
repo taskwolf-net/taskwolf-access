@@ -1,7 +1,9 @@
 package net.taskwolf.access.module;
 
 import com.google.common.collect.Maps;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleLoader;
@@ -12,29 +14,27 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.List;
 import java.util.Map;
 
 @RestController
 public final class ModuleController extends TaskwolfRestController {
   private final ModuleLoader moduleLoader;
-  private final CoreModule coreModule;
 
   private ModuleController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
-    CoreModule coreModule
+    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader
   ) {
     super(secretKey, userDatabaseTable);
     this.moduleLoader = moduleLoader;
-    this.coreModule = coreModule;
   }
 
   @RequestMapping(path = "/module/find/", method = RequestMethod.POST)
   public Map<String, Object> findActions(
-    @RequestBody Map<String, Object> input
+    @RequestBody String payload, HttpServletResponse response
   ) {
-    var module = (String) input.get("module");
-    return moduleLoader.findModule(module).map(this::moduleInformation)
-      .orElseGet(Maps::newHashMap);
+    var body = TaskwolfRequestBody.of(payload, response);
+    return moduleLoader.findModule(body.getString("module"))
+      .map(this::moduleInformation).orElseGet(Maps::newHashMap);
   }
 
   @RequestMapping(path = "/modules/all/", method = RequestMethod.GET)

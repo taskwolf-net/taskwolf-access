@@ -2,10 +2,13 @@ package net.taskwolf.access.account;
 
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.account.AccountLink;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.module.RegisteredModule;
 import net.taskwolf.core.user.User;
@@ -73,16 +76,19 @@ public final class AccountController extends TaskwolfRestController {
 
   @RequestMapping(path = "/accounts/", method = RequestMethod.POST)
   public CompletableFuture<String> findAccounts(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var module = (String) input.get("module");
-    var registeredModule = moduleLoader.findModule(module);
-    if (registeredModule.isEmpty()) {
-      return CompletableFuture.completedFuture("");
-    }
+    var body = TaskwolfRequestBody.of(payload, response);
+    var registeredModule = moduleLoader.findModule(body.getString("module"));
+    return registeredModule.map(module ->
+      findAccounts(findUserId(request), module)).orElse(null);
+  }
+
+  private CompletableFuture<String> findAccounts(UUID userId, Module module) {
     var futureResponse = new CompletableFuture<String>();
-    userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
-      target -> registeredModule.get().accountLink().findAccounts(target)
+    userTargetDatabaseTable.findTargetSecured(userId)
+      .thenAccept(target -> module.accountLink().findAccounts(target)
         .thenApply(accounts -> futureResponse.complete(new JSONObject(
           Map.of("accounts", accounts.stream().map(JSONObject::new)
             .collect(Collectors.toList()))).toString())));
@@ -91,17 +97,18 @@ public final class AccountController extends TaskwolfRestController {
 
   @RequestMapping(path = "/account/remove/", method = RequestMethod.POST)
   public void removeAccount(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var module = (String) input.get("module");
-    var identifier = (String) input.get("identifier");
-    var registeredModule = moduleLoader.findModule(module);
+    var body = TaskwolfRequestBody.of(payload, response);
+    var registeredModule = moduleLoader.findModule(body.getString("module"));
     if (registeredModule.isEmpty()) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return;
     }
     userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
       target -> registeredModule.get().accountLink().removeAccount(
-        target, identifier));
+        target, body.getString("identifier")));
   }
 
   public void deleteAllAccounts(UUID targetId) {
@@ -120,20 +127,24 @@ public final class AccountController extends TaskwolfRestController {
 
   @RequestMapping(path = "/account/information/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findAccountInformation(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var module = (String) input.get("module");
-    var registeredModule = moduleLoader.findModule(module);
-    if (registeredModule.isEmpty()) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    var accountLink = registeredModule.get().accountLink();
-    var apiKey = findApiKey(request);
+    var body = TaskwolfRequestBody.of(payload, response);
+    var registeredModule = moduleLoader.findModule(body.getString("module"));
+      return registeredModule.map(module ->
+        findAccountInformation(request, module.accountLink())).orElse(null);
+  }
+
+  private CompletableFuture<Map<String, Object>> findAccountInformation(
+    HttpServletRequest request, AccountLink accountLink
+  ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
-      target -> findUser(request).thenAccept(user -> accountLink.accountExists(target)
-        .thenAccept(exists -> futureResponse.complete(assemblyAccountInformation(
-          user, accountLink, apiKey, target, exists)))));
+    userTargetDatabaseTable.findTargetSecured(findUserId(request))
+      .thenAccept(target -> findUser(request)
+        .thenAccept(user -> accountLink.accountExists(target)
+          .thenAccept(exists -> futureResponse.complete(assemblyAccountInformation(
+            user, accountLink, findApiKey(request), target, exists)))));
     return futureResponse;
   }
 

@@ -5,6 +5,7 @@ import com.google.common.collect.Maps;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
@@ -55,14 +56,14 @@ public final class VerificationController {
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> register(
-    @RequestBody Map<String, Object> input
+    @RequestBody String payload, HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var email = (String) input.get("email");
-    var name = (String) input.get("name");
-    var password = (String) input.get("password");
+    var email = body.getString("email");
     userDatabaseTable.userExists(email).thenAccept(exists ->
-      completeRegistration(futureResponse, exists, email, name, password));
+      completeRegistration(futureResponse, exists, email, body.getString("name"),
+        body.getString("password")));
     return futureResponse;
   }
 
@@ -117,13 +118,13 @@ public final class VerificationController {
 
   @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> complete(
-    @RequestBody Map<String, Object> input
+    @RequestBody String payload, HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var userId = UUID.fromString((String) input.get("user"));
-    var token = (String) input.get("token");
+    var userId = body.getUUID("user");
     userVerificationDatabaseTable.verificationExists(userId).thenApply(exists ->
-      complete(userId, token, exists));
+      complete(userId, body.getString("token"), exists));
     return futureResponse;
   }
 
@@ -151,13 +152,14 @@ public final class VerificationController {
 
   @RequestMapping(path = "/verification/login/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> login(
-    @RequestBody Map<String, Object> input, HttpServletResponse servletResponse
+    @RequestBody String payload, HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var verification = Verification.create(userDatabaseTable, secretKey,
-      (String) input.get("email"), hashPassword((String) input.get("password")));
+      body.getString("email"), hashPassword(body.getString("password")));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
-      checkAuthorization(servletResponse, verification, futureResponse, isAuthenticated));
+      checkAuthorization(response, verification, futureResponse, isAuthenticated));
     return futureResponse;
   }
 
@@ -190,18 +192,21 @@ public final class VerificationController {
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)
-  public Map<String, Object> isValid(@RequestBody Map<String, Object> input) {
-    var response = Maps.<String, Object>newHashMap();
+  public Map<String, Object> isValid(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var result = Maps.<String, Object>newHashMap();
     try {
       Jwts.parser()
         .setSigningKey(secretKey)
         .build()
-        .parseClaimsJws((String) input.get("token"));
-      response.put("isValid", "true");
+        .parseClaimsJws(body.getString("token"));
+      result.put("isValid", "true");
     } catch (Exception exception) {
-      response.put("isValid", "false");
+      result.put("isValid", "false");
     }
-    return response;
+    return result;
   }
 
   private String hashPassword(String password) {

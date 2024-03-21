@@ -1,6 +1,8 @@
 package net.taskwolf.access.password;
 
 import com.google.common.hash.Hashing;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.user.User;
@@ -35,10 +37,11 @@ public final class PasswordController extends TaskwolfRestController {
 
   @RequestMapping(path = "/password/reset/request/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> requestPasswordReset(
-    @RequestBody Map<String, Object> input
+    @RequestBody String payload, HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var email = (String) input.get("email");
+    var email = body.getString("email");
     userDatabaseTable().userExists(email).thenAccept(exists ->
       requestPasswordReset(email, exists).thenAccept(futureResponse::complete));
     return futureResponse;
@@ -83,15 +86,14 @@ public final class PasswordController extends TaskwolfRestController {
 
   @RequestMapping(path = "/password/reset/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> completePasswordReset(
-    @RequestBody Map<String, Object> input
+    @RequestBody String payload, HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var userId = UUID.fromString((String) input.get("user"));
-    var token = (String) input.get("token");
-    var newPassword = (String) input.get("newPassword");
+    var userId = body.getUUID("user");
     userPasswordResetDatabaseTable.resetTokenExists(userId).thenAccept(exists ->
-      completePasswordReset(userId, token, exists, newPassword)
-        .thenAccept(futureResponse::complete));
+      completePasswordReset(userId, body.getString("token"), exists,
+        body.getString("newPassword")).thenAccept(futureResponse::complete));
     return futureResponse;
   }
 

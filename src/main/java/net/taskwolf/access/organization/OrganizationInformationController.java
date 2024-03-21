@@ -3,6 +3,8 @@ package net.taskwolf.access.organization;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.Organization;
@@ -39,13 +41,23 @@ public final class OrganizationInformationController extends TaskwolfRestControl
 
   @RequestMapping(path = "/organization/selected/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findSelectedOrganization(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var id = UUID.fromString((String) input.get("id"));
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> gatherOrganizationInformation(
-      id, user.id()).thenAccept(futureResponse::complete));
+    findUser(request).thenAccept(user -> findSelectedOrganization(user,
+      body.getUUID("id")).thenAccept(futureResponse::complete));
     return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> findSelectedOrganization(
+    User user, UUID organizationId
+  ) {
+    if (!user.organizations().contains(organizationId)) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return gatherOrganizationInformation(organizationId, user.id());
   }
 
   @RequestMapping(path = "/organizations/all/", method = RequestMethod.GET)
@@ -129,10 +141,12 @@ public final class OrganizationInformationController extends TaskwolfRestControl
 
   @RequestMapping(path = "/organization/link/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findLink(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var organizationId = UUID.fromString((String) input.get("organization"));
+    var organizationId = body.getUUID("organization");
     findUser(request).thenAccept(user ->
       organizationDatabaseTable.organizationExists(organizationId).thenAccept(
         exists -> findLink(user, organizationId, exists)

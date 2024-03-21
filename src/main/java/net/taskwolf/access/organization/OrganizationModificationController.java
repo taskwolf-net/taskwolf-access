@@ -2,8 +2,10 @@ package net.taskwolf.access.organization;
 
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.access.account.AccountController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.organization.Organization;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -46,12 +49,13 @@ public final class OrganizationModificationController extends TaskwolfRestContro
 
   @RequestMapping(path = "/organization/create/", method = RequestMethod.POST)
   public void createOrganization(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var name = (String) input.get("name");
+    var body = TaskwolfRequestBody.of(payload, response);
     var userId = findUserId(request);
     organizationDatabaseTable.generateAvailableOrganizationId().thenAccept(id ->
-        createOrganization(id, name, userId));
+        createOrganization(id, body.getString("name"), userId));
   }
 
   private void createOrganization(UUID organizationId, String name, UUID userId) {
@@ -63,9 +67,11 @@ public final class OrganizationModificationController extends TaskwolfRestContro
 
   @RequestMapping(path = "/organization/link/regenerate/", method = RequestMethod.POST)
   public void regenerateLink(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var organizationId = UUID.fromString((String) input.get("organization"));
+    var body = TaskwolfRequestBody.of(payload, response);
+    var organizationId = body.getUUID("organization");
     findUser(request).thenAccept(user ->
       organizationDatabaseTable.organizationExists(organizationId).thenAccept(
         exists -> regenerateLink(user, organizationId, exists)));
@@ -94,15 +100,16 @@ public final class OrganizationModificationController extends TaskwolfRestContro
 
   @RequestMapping(path = "/organization/join/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> joinOrganization(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var organizationId = UUID.fromString((String) input.get("organization"));
-    var invitationToken = (String) input.get("token");
+    var organizationId = body.getUUID("organization");
     findUser(request).thenAccept(user ->
       organizationDatabaseTable.organizationExists(organizationId).thenAccept(
-        exists -> joinOrganization(user, organizationId, exists, invitationToken)
-          .thenAccept(futureResponse::complete)));
+        exists -> joinOrganization(user, organizationId, exists,
+          body.getString("token")).thenAccept(futureResponse::complete)));
     return futureResponse;
   }
 
@@ -135,12 +142,12 @@ public final class OrganizationModificationController extends TaskwolfRestContro
 
   @RequestMapping(path = "/organization/kick/", method = RequestMethod.POST)
   public void kickFromOrganization(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var organizationId = UUID.fromString((String) input.get("organization"));
-    var targetId = UUID.fromString((String) input.get("target"));
-    findUser(request).thenAccept(user ->
-      kickFromOrganization(user, organizationId, targetId));
+    var body = TaskwolfRequestBody.of(payload, response);
+    findUser(request).thenAccept(user -> kickFromOrganization(user,
+      body.getUUID("organization"), body.getUUID("target")));
   }
 
   private void kickFromOrganization(User user, UUID organizationId, UUID targetId) {
@@ -165,10 +172,12 @@ public final class OrganizationModificationController extends TaskwolfRestContro
 
   @RequestMapping(path = "/organization/leave/", method = RequestMethod.POST)
   public void leaveOrganization(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var organizationId = UUID.fromString((String) input.get("organization"));
-    findUser(request).thenAccept(user -> leaveOrganization(user, organizationId));
+    var body = TaskwolfRequestBody.of(payload, response);
+    findUser(request).thenAccept(user -> leaveOrganization(user,
+      body.getUUID("organization")));
   }
 
   public void leaveOrganization(User user, UUID organizationId) {
@@ -181,10 +190,12 @@ public final class OrganizationModificationController extends TaskwolfRestContro
 
   @RequestMapping(path = "/organization/delete/", method = RequestMethod.POST)
   public void deleteOrganization(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var organizationId = UUID.fromString((String) input.get("organization"));
-    findUser(request).thenAccept(user -> deleteOrganization(user, organizationId));
+    var body = TaskwolfRequestBody.of(payload, response);
+    findUser(request).thenAccept(user -> deleteOrganization(user,
+      body.getUUID("organization")));
   }
 
   public void deleteOrganization(User user, UUID organizationId) {

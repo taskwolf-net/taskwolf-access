@@ -3,7 +3,9 @@ package net.taskwolf.access.template;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionInformation;
 import net.taskwolf.core.module.ModuleInformation;
@@ -49,14 +51,16 @@ public final class TemplateController extends TaskwolfRestController {
 
   @RequestMapping(path = "/templates/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findTemplate(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var module = (String) input.get("module");
+    var body = TaskwolfRequestBody.of(payload, response);
+    var module = body.getString("module");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user ->
       templateDatabaseTable.findTemplatesByModule(module).thenAccept(templates ->
-        futureResponse.complete(Map.of("templates", templates.stream().map(template ->
-          assemblyTemplateInformation(user, template)).toList()))));
+        futureResponse.complete(Map.of("templates", templates.stream().map(
+          template -> assemblyTemplateInformation(user, template)).toList()))));
     return futureResponse;
   }
 

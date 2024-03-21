@@ -2,7 +2,9 @@ package net.taskwolf.access.condition;
 
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.condition.ConditionInformation;
 import net.taskwolf.core.condition.ConditionInformationRepository;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -42,10 +45,11 @@ public final class ConditionController extends TaskwolfRestController {
 
   @RequestMapping(path = "/condition/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findCondition(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var identifier = (String) input.get("identifier");
-    var condition = conditionRepository.findByIdentifier(identifier);
+    var body = TaskwolfRequestBody.of(payload, response);
+    var condition = conditionRepository.findByIdentifier(body.getString("identifier"));
     return findUser(request).thenApply(user -> condition.map(value ->
       findConditionInformation(user, value)).orElseGet(Maps::newHashMap));
   }

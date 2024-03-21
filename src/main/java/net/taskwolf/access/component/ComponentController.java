@@ -3,7 +3,9 @@ package net.taskwolf.access.component;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.user.User;
@@ -42,15 +44,15 @@ public final class ComponentController extends TaskwolfRestController {
 
   @RequestMapping(path = "/components/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findComponents(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var componentType = (String) input.get("componentType");
-    var module = (String) input.get("module");
-    var registeredModule = moduleLoader.findModule(module);
+    var body = TaskwolfRequestBody.of(payload, response);
+    var registeredModule = moduleLoader.findModule(body.getString("module"));
     if (registeredModule.isEmpty()) {
       return CompletableFuture.completedFuture(Map.of("components", Lists.newArrayList()));
     }
-    var information = componentType.equalsIgnoreCase("trigger") ?
+    var information = body.getString("componentType").equalsIgnoreCase("trigger") ?
       registeredModule.get().triggerInformation() :
       registeredModule.get().actionInformation();
     return findUser(request).thenApply(user -> Map.of("components",
@@ -59,12 +61,13 @@ public final class ComponentController extends TaskwolfRestController {
 
   @RequestMapping(path = "/component/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findComponent(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var componentType = (String) input.get("componentType");
-    var module = (String) input.get("module");
-    var type = (String) input.get("type");
-    var component = componentType.equalsIgnoreCase("trigger") ?
+    var body = TaskwolfRequestBody.of(payload, response);
+    var module = body.getString("module");
+    var type = body.getString("type");
+    var component = body.getString("componentType").equalsIgnoreCase("trigger") ?
       coreModule.findTriggerInformation(module, type) :
       coreModule.findActionInformation(module, type);
     return findUser(request).thenApply(user -> component.map(value ->
@@ -116,6 +119,7 @@ public final class ComponentController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findSelectItems(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
+    //TODO: BRING TO THE NEWEST REQUEST BODY STANDARD
     var componentType = (String) input.get("componentType");
     var module = (String) input.get("module");
     var type = (String) input.get("type");

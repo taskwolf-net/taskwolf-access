@@ -1,6 +1,7 @@
 package net.taskwolf.access.workflow;
 
 import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.workflow.WorkflowEntry;
 import net.taskwolf.core.workflow.timeline.TimelineDatabaseEntry;
@@ -18,8 +19,8 @@ public final class WorkflowAlterationSupervisor {
   private final WorkflowEntry currentEntry;
   private final String name;
   private final String description;
-  private final List<Map<String, Object>> actions;
-  private final List<Map<String, Object>> conditions;
+  private final List<TaskwolfRequestBody> actions;
+  private final List<TaskwolfRequestBody> conditions;
 
   public void evaluate(User actor) {
     var time = System.currentTimeMillis();

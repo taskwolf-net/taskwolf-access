@@ -2,6 +2,8 @@ package net.taskwolf.access.workflow;
 
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
@@ -56,20 +58,19 @@ public final class WorkflowModificationController extends TaskwolfRestController
 
   @RequestMapping(path = "/workflow/add/", method = RequestMethod.POST)
   public void addWorkflow(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var name = (String) input.get("name");
-    var description = (String) input.get("description");
-    var triggerData = (Map<String, Object>) input.get("trigger");
-    var actionData = (List<Map<String, Object>>) input.get("actions");
-    var conditionData = (List<Map<String, Object>>) input.get("conditions");
+    var body = TaskwolfRequestBody.of(payload, response);
     var created = System.currentTimeMillis();
     findUser(request).thenAccept(user ->
       userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
         createWorkflowCreateTimelineEntry(user).thenAccept(workflowCreateEntry ->
-          createWorkflow(user, target, triggerData, actionData, conditionData,
-            created, name, description, Lists.newArrayList(),
-            Lists.newArrayList(workflowCreateEntry), WorkflowState.OPERATIONAL))));
+          createWorkflow(user, target, body.getObject("trigger"),
+            body.getObjectList("actions"), body.getObjectList("conditions"),
+            created, body.getString("name"), body.getString("description"),
+            Lists.newArrayList(), Lists.newArrayList(workflowCreateEntry),
+            WorkflowState.OPERATIONAL))));
   }
 
   private CompletableFuture<TimelineDatabaseEntry> createWorkflowCreateTimelineEntry(
@@ -83,25 +84,24 @@ public final class WorkflowModificationController extends TaskwolfRestController
 
   @RequestMapping(path = "/workflow/update/", method = RequestMethod.POST)
   public void updateWorkflow(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var workflowId = UUID.fromString((String) input.get("workflow"));
-    var name = (String) input.get("name");
-    var description = (String) input.get("description");
-    var triggerData = (Map<String, Object>) input.get("trigger");
-    var actionData = (List<Map<String, Object>>) input.get("actions");
-    var conditionData = (List<Map<String, Object>>) input.get("conditions");
+    var body = TaskwolfRequestBody.of(payload, response);
+    var workflowId = body.getUUID("workflow");
     findUser(request).thenAccept(user -> workflowDatabaseTable.findWorkflow(workflowId)
       .thenAccept(workflow -> workflowExecutionDatabaseTable.findWorkflowExecutions(workflowId)
         .thenAccept(executions -> timelineDatabaseTable.findEntriesByWorkflow(workflowId)
-          .thenAccept(timelineEntries -> updateWorkflow(user, workflow, triggerData,
-            actionData, conditionData, name, description, executions, timelineEntries,
+          .thenAccept(timelineEntries -> updateWorkflow(user, workflow,
+            body.getObject("trigger"), body.getObjectList("actions"),
+            body.getObjectList("conditions"), body.getString("name"),
+            body.getString("description"), executions, timelineEntries,
             workflow.state())))));
   }
 
   private void updateWorkflow(
-    User user, WorkflowEntry entry, Map<String, Object> triggerData,
-    List<Map<String, Object>> actionData, List<Map<String, Object>> conditionData,
+    User user, WorkflowEntry entry, TaskwolfRequestBody triggerData,
+    List<TaskwolfRequestBody> actionData, List<TaskwolfRequestBody> conditionData,
     String name, String description, List<Long> executions,
     List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
@@ -117,8 +117,8 @@ public final class WorkflowModificationController extends TaskwolfRestController
 
   private void updateWorkflow(
     UUID workflowId, User user, User creator, WorkflowEntry entry,
-    Map<String, Object> triggerData, List<Map<String, Object>> actionData,
-    List<Map<String, Object>> conditionData, String name, String description,
+    TaskwolfRequestBody triggerData, List<TaskwolfRequestBody> actionData,
+    List<TaskwolfRequestBody> conditionData, String name, String description,
     List<Long> executions, List<TimelineDatabaseEntry> timelineEntries,
     WorkflowState state
   ) {
@@ -130,8 +130,8 @@ public final class WorkflowModificationController extends TaskwolfRestController
   }
 
   private void createWorkflow(
-    User creator, UUID ownerId, Map<String, Object> triggerData,
-    List<Map<String, Object>> actionData,  List<Map<String, Object>> conditionData,
+    User creator, UUID ownerId, TaskwolfRequestBody triggerData,
+    List<TaskwolfRequestBody> actionData,  List<TaskwolfRequestBody> conditionData,
     long created, String name, String description, List<Long> executions,
     List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
@@ -144,8 +144,8 @@ public final class WorkflowModificationController extends TaskwolfRestController
   }
 
   private void createWorkflow(
-    UUID workflowId, User creator, UUID ownerId, Map<String, Object> triggerData,
-    List<Map<String, Object>> actionData,  List<Map<String, Object>> conditionData,
+    UUID workflowId, User creator, UUID ownerId, TaskwolfRequestBody triggerData,
+    List<TaskwolfRequestBody> actionData,  List<TaskwolfRequestBody> conditionData,
     long created, String name, String description, List<Long> executions,
     List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
@@ -188,18 +188,18 @@ public final class WorkflowModificationController extends TaskwolfRestController
 
   private void createWorkflow(
     UUID workflowId, UUID creatorId, UUID ownerId,
-    UUID triggerId, Map<String, Object> triggerData, List<UUID> actionIds,
-    List<Map<String, Object>> actionData, List<UUID> conditionIds,
-    List<Map<String, Object>> conditionData, long created, String name,
+    UUID triggerId, TaskwolfRequestBody triggerData, List<UUID> actionIds,
+    List<TaskwolfRequestBody> actionData, List<UUID> conditionIds,
+    List<TaskwolfRequestBody> conditionData, long created, String name,
     String description, List<Long> executions,
     List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
     var modules = Lists.<String>newArrayList();
     createTrigger(triggerId, ownerId, workflowId, triggerData);
-    modules.add((String) triggerData.get("module"));
+    modules.add(triggerData.getString("module"));
     for (int i = 0; i < actionData.size(); i++) {
       createAction(actionIds.get(i), ownerId, workflowId, actionData.get(i));
-      modules.add((String) actionData.get(i).get("module"));
+      modules.add(actionData.get(i).getString("module"));
     }
     for (int i = 0; i < conditionData.size(); i++) {
       createCondition(conditionIds.get(i), ownerId, workflowId, conditionData.get(i));
@@ -220,49 +220,47 @@ public final class WorkflowModificationController extends TaskwolfRestController
   }
 
   private void createTrigger(
-    UUID triggerId, UUID ownerId, UUID workflowId, Map<String, Object> triggerData
+    UUID triggerId, UUID ownerId, UUID workflowId, TaskwolfRequestBody triggerData
   ) {
-    var module = (String) triggerData.get("module");
-    var type = (String) triggerData.get("type");
-    var content = (String) triggerData.get("content");
     triggerDatabaseTable.insertTrigger(triggerId, ownerId, workflowId,
-      module, type, content, TriggerState.ARMED.toString());
+      triggerData.getString("module"), triggerData.getString("type"),
+      triggerData.getString("content"), TriggerState.ARMED.toString());
   }
 
   private void createAction(
-    UUID actionId, UUID ownerId, UUID workflowId, Map<String, Object> actionData
+    UUID actionId, UUID ownerId, UUID workflowId, TaskwolfRequestBody actionData
   ) {
-    var index = (Integer) actionData.get("index");
-    var module = (String) actionData.get("module");
-    var type = (String) actionData.get("type");
-    var content = (String) actionData.get("content");
-    actionDatabaseTable.insertAction(actionId, ownerId, workflowId, index,
-      module, type, content);
+    actionDatabaseTable.insertAction(actionId, ownerId, workflowId,
+      actionData.getInt("index"), actionData.getString("module"),
+      actionData.getString("type"), actionData.getString("content"));
   }
 
   private void createCondition(
-    UUID conditionId, UUID ownerId, UUID workflowId, Map<String, Object> conditionData
+    UUID conditionId, UUID ownerId, UUID workflowId, TaskwolfRequestBody conditionData
   ) {
-    var index = (Integer) conditionData.get("index");
-    var type = (String) conditionData.get("type");
-    var content = (String) conditionData.get("content");
     conditionDatabaseTable.insertCondition(conditionId, ownerId, workflowId,
-      index, type, content);
+      conditionData.getInt("index"), conditionData.getString("type"),
+      conditionData.getString("content"));
   }
 
   @RequestMapping(path = "/workflow/state/change/", method = RequestMethod.POST)
-  public void changeWorkflowState(@RequestBody Map<String, Object> input) {
-    var workflowId = UUID.fromString((String) input.get("workflow"));
-    var isArmed = (boolean) input.get("armed") ? TriggerState.ARMED : TriggerState.DISABLED;
-    workflowDatabaseTable.findWorkflow(workflowId).thenAccept(workflow ->
-      triggerDatabaseTable.changeState(workflow.triggerId(), isArmed));
+  public void changeWorkflowState(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var isArmed = body.getBoolean("armed") ? TriggerState.ARMED :
+      TriggerState.DISABLED;
+    workflowDatabaseTable.findWorkflow(body.getUUID("workflow")).thenAccept(
+      workflow -> triggerDatabaseTable.changeState(workflow.triggerId(), isArmed));
   }
 
   @RequestMapping(path = "/workflow/remove/", method = RequestMethod.POST)
   public void removeWorkflow(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var workflowId = UUID.fromString((String) input.get("workflow"));
+    var body = TaskwolfRequestBody.of(payload, response);
+    var workflowId = body.getUUID("workflow");
     findUser(request).thenAccept(user -> workflowDatabaseTable.workflowExists(
       workflowId).thenAccept(exists -> deleteWorkflow(user, workflowId, exists)));
   }

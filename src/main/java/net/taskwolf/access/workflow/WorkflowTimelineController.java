@@ -3,7 +3,9 @@ package net.taskwolf.access.workflow;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -41,13 +43,14 @@ public final class WorkflowTimelineController extends TaskwolfRestController {
 
   @RequestMapping(path = "/workflow/timeline/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findTimeline(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var workflowId = UUID.fromString((String) input.get("workflow"));
-    findUser(request).thenAccept(user -> workflowDatabaseTable
-      .findWorkflow(workflowId).thenAccept(workflow ->
-        findTimeline(user, workflow).thenAccept(futureResponse::complete)));
+    findUser(request).thenAccept(user ->
+      workflowDatabaseTable.findWorkflow(body.getUUID("workflow")).thenAccept(
+        workflow -> findTimeline(user, workflow).thenAccept(futureResponse::complete)));
     return futureResponse;
   }
 

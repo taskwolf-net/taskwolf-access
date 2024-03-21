@@ -1,5 +1,7 @@
 package net.taskwolf.access.whitelist;
 
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.whitelist.WhitelistConfiguration;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,8 +21,11 @@ public final class WhitelistController {
   }
 
   @RequestMapping(path = "/whitelist/isValid/", method = RequestMethod.POST)
-  public Map<String, Object> isValid(@RequestBody Map<String, Object> input) {
-    var key = input.get("key");
+  public Map<String, Object> isValid(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var key = body.getString("key");
     return Map.of("isValid", whitelistConfiguration.whitelistKey().equals(key));
   }
 }

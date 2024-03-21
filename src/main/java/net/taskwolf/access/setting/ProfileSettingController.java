@@ -1,6 +1,8 @@
 package net.taskwolf.access.setting;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.user.ProfilePictureDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -34,11 +36,12 @@ public final class ProfileSettingController extends TaskwolfRestController {
 
   @RequestMapping(path = "/settings/profile/username/change/", method = RequestMethod.POST)
   public void changeUsername(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var newUsername = (String) input.get("username");
+    var body = TaskwolfRequestBody.of(payload, response);
     findUser(request).thenAccept(user -> userDatabaseTable().changeUserName(
-      user.id(), newUsername));
+      user.id(), body.getString("username")));
   }
 
   @RequestMapping(path = "/settings/profile/picture/", method = RequestMethod.GET)
@@ -53,10 +56,12 @@ public final class ProfileSettingController extends TaskwolfRestController {
 
   @RequestMapping(path = "/settings/profile/picture/change/", method = RequestMethod.POST)
   public void changeProfilePicture(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var newPicture = (String) input.get("picture");
-    findUser(request).thenAccept(user -> profilePictureDatabaseTable.changeProfilePicture(
-      user.id(), newPicture));
+    var body = TaskwolfRequestBody.of(payload, response);
+    findUser(request).thenAccept(user ->
+      profilePictureDatabaseTable.changeProfilePicture(user.id(),
+        body.getString("picture")));
   }
 }

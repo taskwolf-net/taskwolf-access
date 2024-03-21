@@ -2,9 +2,11 @@ package net.taskwolf.access.setting;
 
 import com.google.common.hash.Hashing;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.access.account.AccountController;
 import net.taskwolf.access.organization.OrganizationModificationController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.mail.TaskwolfMail;
@@ -113,13 +115,14 @@ public final class AccountSettingController extends TaskwolfRestController {
 
   @RequestMapping(path = "/settings/account/password/change/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> changePassword(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var currentPassword = (String) input.get("currentPassword");
-    var newPassword = (String) input.get("newPassword");
     findUser(request).thenAccept(user -> futureResponse.complete(
-      changePassword(user, currentPassword, newPassword)));
+      changePassword(user, body.getString("currentPassword"),
+        body.getString("newPassword"))));
     return futureResponse;
   }
 
@@ -135,14 +138,15 @@ public final class AccountSettingController extends TaskwolfRestController {
 
   @RequestMapping(path = "/settings/account/email/change/request/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> requestEmailChange(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var password = (String) input.get("password");
-    var newEmail = (String) input.get("newEmail");
+    var newEmail = body.getString("newEmail");
     findUser(request).thenAccept(user -> userDatabaseTable().userExists(newEmail)
-      .thenAccept(exists -> requestEmailChange(user, password, newEmail, exists)
-        .thenAccept(futureResponse::complete)));
+      .thenAccept(exists -> requestEmailChange(user, body.getString("password"),
+        newEmail, exists).thenAccept(futureResponse::complete)));
     return futureResponse;
   }
 
@@ -190,13 +194,14 @@ public final class AccountSettingController extends TaskwolfRestController {
 
   @RequestMapping(path = "/settings/account/email/change/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> completeEmailChange(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    @RequestBody String payload, HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var userId = UUID.fromString((String) input.get("user"));
-    var token = (String) input.get("token");
+    var userId = body.getUUID("user");
     userEmailChangeDatabaseTable.changeExists(userId).thenAccept(exists ->
-      completeEmailChange(userId, token, exists).thenAccept(futureResponse::complete));
+      completeEmailChange(userId, body.getString("token"), exists)
+        .thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
@@ -225,12 +230,13 @@ public final class AccountSettingController extends TaskwolfRestController {
 
   @RequestMapping(path = "/settings/account/delete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> deleteAccount(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var password = (String) input.get("password");
     findUser(request).thenAccept(user -> futureResponse.complete(
-      deleteAccount(user, password)));
+      deleteAccount(user, body.getString("password"))));
     return futureResponse;
   }
 

@@ -1,6 +1,8 @@
 package net.taskwolf.access.setting;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -39,12 +41,12 @@ public final class NotificationSettingController extends TaskwolfRestController 
 
   @RequestMapping(path = "/settings/notification/change/", method = RequestMethod.POST)
   public void changeNotificationSettings(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var general = (boolean) input.get("general");
-    var workflowFail = (boolean) input.get("workflowFail");
+    var body = TaskwolfRequestBody.of(payload, response);
     var userId = findUserId(request);
-    notificationDatabaseTable.changeNotificationSettings(userId, general,
-      workflowFail);
+    notificationDatabaseTable.changeNotificationSettings(userId,
+      body.getBoolean("general"), body.getBoolean("workflowFail"));
   }
 }

@@ -1,6 +1,8 @@
 package net.taskwolf.access.setting;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.user.ProfilePictureDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -31,10 +33,11 @@ public final class LanguageSettingController extends TaskwolfRestController {
 
   @RequestMapping(path = "/settings/language/change/", method = RequestMethod.POST)
   public void changeLanguage(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var newLanguage = (String) input.get("language");
+    var body = TaskwolfRequestBody.of(payload, response);
     findUser(request).thenAccept(user -> userDatabaseTable().changeUserLanguage(
-      user.id(), newLanguage));
+      user.id(), body.getString("language")));
   }
 }

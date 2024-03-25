@@ -151,7 +151,8 @@ public final class ProcessModificationController extends TaskwolfRestController 
       createStep(stepIds.get(i), processId, stepData.get(i));
     }
     for (int i = 0; i < connectionData.size(); i++) {
-      createConnection(connectionIds.get(i), processId, connectionData.get(i));
+      createConnection(connectionIds.get(i), processId, connectionData.get(i),
+        stepIds);
     }
     processDatabaseTable.insertProcess(processId, creatorId, ownerId,
       stepIds, connectionIds, created, name, description);
@@ -167,11 +168,12 @@ public final class ProcessModificationController extends TaskwolfRestController 
   }
 
   private void createConnection(
-    UUID connectionId, UUID processId, TaskwolfRequestBody connectionData
+    UUID connectionId, UUID processId, TaskwolfRequestBody connectionData,
+    List<UUID> stepIds
   ) {
     processConnectionDatabaseTable.insertProcessConnection(connectionId,
-      processId, connectionData.getUUID("originStep"),
-      connectionData.getUUID("destinationStep"));
+      processId, stepIds.get(connectionData.getInt("originStep")),
+      stepIds.get(connectionData.getInt("destinationStep")));
   }
 
   @RequestMapping(path = "/process/remove/", method = RequestMethod.POST)

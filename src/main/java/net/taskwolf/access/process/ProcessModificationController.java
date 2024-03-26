@@ -51,11 +51,17 @@ public final class ProcessModificationController extends TaskwolfRestController 
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var created = System.currentTimeMillis();
+    var name = body.getString("name");
+    var description = body.getString("description");
+    var steps = body.getObjectList("steps");
+    var connections = body.getObjectList("connections");
+    if (!checkProcessIntegrity(name, description, steps, connections)) {
+      return;
+    }
     findUser(request).thenAccept(user ->
       userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
-        createProcess(user, target, body.getObjectList("steps"),
-          body.getObjectList("connections"), created, body.getString("name"),
-          body.getString("description"))));
+        createProcess(user, target, steps, connections, created, name,
+          description)));
   }
 
   @RequestMapping(path = "/process/update/", method = RequestMethod.POST)
@@ -65,10 +71,60 @@ public final class ProcessModificationController extends TaskwolfRestController 
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var processId = body.getUUID("process");
+    var name = body.getString("name");
+    var description = body.getString("description");
+    var steps = body.getObjectList("steps");
+    var connections = body.getObjectList("connections");
+    if (!checkProcessIntegrity(name, description, steps, connections)) {
+      return;
+    }
     findUser(request).thenAccept(user -> processDatabaseTable.findProcess(processId)
-      .thenAccept(process -> updateProcess(user, process,
-        body.getObjectList("steps"), body.getObjectList("connections"),
-        body.getString("name"), body.getString("description"))));
+      .thenAccept(process -> updateProcess(user, process, steps, connections,
+        name, description)));
+  }
+
+  private boolean checkProcessIntegrity(
+    String name, String description, List<TaskwolfRequestBody> stepData,
+    List<TaskwolfRequestBody> connectionData
+  ) {
+    if (name.equals("") || description.equals("")) {
+      return false;
+    }
+    var step = findStartStep(stepData);
+    while (step != null) {
+      var connection = findStepConnection(step, stepData, connectionData);
+      if (connection == null) {
+        step = null;
+        continue;
+      }
+      step = stepData.get(connection.getInt("destinationStep"));
+      if (step.getString("type").equalsIgnoreCase("END")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private TaskwolfRequestBody findStartStep(List<TaskwolfRequestBody> stepData) {
+    for (var step : stepData) {
+      if (step.getString("type").equalsIgnoreCase("START")) {
+        return step;
+      }
+    }
+    return null;
+  }
+
+  private TaskwolfRequestBody findStepConnection(
+    TaskwolfRequestBody step, List<TaskwolfRequestBody> stepData,
+    List<TaskwolfRequestBody> connectionData
+  ) {
+    var stepIndex = stepData.indexOf(step);
+    for (var connection : connectionData) {
+      if (connection.getInt("originStep") == stepIndex) {
+        return connection;
+      }
+    }
+    return null;
   }
 
   private void updateProcess(

@@ -10,15 +10,12 @@ import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.whitelist.WhitelistConfiguration;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-
 import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class WhitelistFilter extends OncePerRequestFilter {
   private final WhitelistConfiguration whitelistConfiguration;
-  private final RequestMappingHandlerMapping requestHandlerMapping;
 
   @Override
   protected void doFilterInternal(
@@ -46,13 +43,10 @@ public class WhitelistFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
     var controllers = Lists.<String>newArrayList();
-    requestHandlerMapping.getHandlerMethods().forEach((key, value) ->
-      controllers.addAll(key.getDirectPaths().stream().map(path -> "/" +
-        CURRENT_API_VERSION + path).toList()));
-    controllers.remove("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/discord/guild/add/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/google/login/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/google/account/add/");
-    return !(controllers.contains(request.getRequestURI()));
+    controllers.add("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
+    controllers.add("/" + CURRENT_API_VERSION + "/discord/guild/add/");
+    controllers.add("/" + CURRENT_API_VERSION + "/google/login/");
+    controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");
+    return controllers.contains(request.getRequestURI());
   }
 }

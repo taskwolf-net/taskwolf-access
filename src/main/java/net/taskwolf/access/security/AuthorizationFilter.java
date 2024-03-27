@@ -10,7 +10,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.io.IOException;
 import java.security.Key;
@@ -19,7 +18,6 @@ import java.security.Key;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class AuthorizationFilter extends OncePerRequestFilter {
   private final Key secretKey;
-  private final RequestMappingHandlerMapping requestHandlerMapping;
 
   @Override
   protected void doFilterInternal(
@@ -45,22 +43,19 @@ public class AuthorizationFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
     var controllers = Lists.<String>newArrayList();
-    requestHandlerMapping.getHandlerMethods().forEach((key, value) ->
-      controllers.addAll(key.getDirectPaths().stream().map(path -> "/" +
-        CURRENT_API_VERSION + path).toList()));
-    controllers.remove("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/verification/register/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/verification/complete/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/verification/login/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/verification/isValid/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/discord/guild/add/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/google/login/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/google/account/add/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/password/reset/request/");
-    controllers.remove("/" + CURRENT_API_VERSION + "/password/reset/complete/");
-    controllers.removeAll(controllers.stream().filter(controller ->
+    controllers.add("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
+    controllers.add("/" + CURRENT_API_VERSION + "/verification/register/");
+    controllers.add("/" + CURRENT_API_VERSION + "/verification/complete/");
+    controllers.add("/" + CURRENT_API_VERSION + "/verification/login/");
+    controllers.add("/" + CURRENT_API_VERSION + "/verification/isValid/");
+    controllers.add("/" + CURRENT_API_VERSION + "/discord/guild/add/");
+    controllers.add("/" + CURRENT_API_VERSION + "/google/login/");
+    controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");
+    controllers.add("/" + CURRENT_API_VERSION + "/password/reset/request/");
+    controllers.add("/" + CURRENT_API_VERSION + "/password/reset/complete/");
+    controllers.addAll(controllers.stream().filter(controller ->
       controller.startsWith("/" + CURRENT_API_VERSION + "/team/")).toList());
-    return !(controllers.contains(request.getRequestURI()));
+    return controllers.contains(request.getRequestURI());
   }
 
   private void prepareResponseHeaders(HttpServletResponse response) {

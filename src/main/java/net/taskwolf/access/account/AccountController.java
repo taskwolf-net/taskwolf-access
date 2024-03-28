@@ -132,8 +132,8 @@ public final class AccountController extends TaskwolfRestController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var registeredModule = moduleLoader.findModule(body.getString("module"));
-      return registeredModule.map(module ->
-        findAccountInformation(request, module.accountLink())).orElse(null);
+    return registeredModule.map(module ->
+      findAccountInformation(request, module.accountLink())).orElse(null);
   }
 
   private CompletableFuture<Map<String, Object>> findAccountInformation(

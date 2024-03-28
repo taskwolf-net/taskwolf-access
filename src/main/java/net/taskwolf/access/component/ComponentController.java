@@ -24,6 +24,7 @@ import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @RestController
 public final class ComponentController extends TaskwolfRestController {
@@ -117,15 +118,13 @@ public final class ComponentController extends TaskwolfRestController {
 
   @RequestMapping(path = "/component/select/items/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findSelectItems(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    //TODO: BRING TO THE NEWEST REQUEST BODY STANDARD
-    var componentType = (String) input.get("componentType");
-    var module = (String) input.get("module");
-    var type = (String) input.get("type");
-    var previousInputs = (Map<String, String>) input.get("previousInputs");
-    var selectIdentifier = (String) input.get("select");
-    var component = componentType.equalsIgnoreCase("trigger") ?
+    var body = TaskwolfRequestBody.of(payload, response);
+    var module = body.getString("module");
+    var type = body.getString("type");
+    var component = body.getString("componentType").equalsIgnoreCase("trigger") ?
       coreModule.findTriggerInformation(module, type) :
       coreModule.findActionInformation(module, type);
     if (component.isEmpty()) {
@@ -133,11 +132,14 @@ public final class ComponentController extends TaskwolfRestController {
     }
     var select = component.get().inputVariables().stream()
       .filter(variable -> variable.dataType().equals(InputComponentDataType.SELECT))
-      .filter(variable -> variable.identifier().equals(selectIdentifier))
+      .filter(variable -> variable.identifier().equals(body.getString("select")))
       .findFirst();
     if (select.isEmpty()) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
+    var previousInputs =body.getObject("previousInputs").raw().toMap()
+      .entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
+        entry -> (String) entry.getValue()));;
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
       target -> select.get().select().compile(target, previousInputs)

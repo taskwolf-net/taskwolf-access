@@ -103,18 +103,6 @@ public final class ProcessInformationController extends TaskwolfRestController {
     return futureResponse;
   }
 
-  @RequestMapping(path = "/processes/all/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> allProcesses(
-    HttpServletRequest request
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenApply(user -> collectProcesses(Stream.concat(
-      user.organizations().stream(), Stream.of(user.id())).collect(Collectors.toList()))
-      .thenAccept(processes -> collectProcessInformation(processes)
-        .thenAccept(futureResponse::complete)));
-    return futureResponse;
-  }
-
   private CompletableFuture<List<Process>> collectProcesses(
     List<UUID> ownerIds
   ) {

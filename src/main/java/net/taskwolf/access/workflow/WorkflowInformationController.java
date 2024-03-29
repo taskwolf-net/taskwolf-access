@@ -114,18 +114,6 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     return futureResponse;
   }
 
-  @RequestMapping(path = "/workflows/all/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> allWorkflows(
-    HttpServletRequest request
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenApply(user -> collectWorkflows(Stream.concat(
-      user.organizations().stream(), Stream.of(user.id())).collect(Collectors.toList()))
-      .thenAccept(workflows -> collectWorkflowInformation(user, workflows)
-        .thenAccept(futureResponse::complete)));
-    return futureResponse;
-  }
-
   private CompletableFuture<List<WorkflowEntry>> collectWorkflows(
     List<UUID> ownerIds
   ) {

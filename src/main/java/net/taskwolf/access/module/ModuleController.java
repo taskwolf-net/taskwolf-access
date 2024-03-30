@@ -2,7 +2,6 @@ package net.taskwolf.access.module;
 
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletResponse;
-import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.module.Module;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
-import java.util.List;
 import java.util.Map;
 
 @RestController

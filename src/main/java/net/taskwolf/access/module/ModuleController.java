@@ -37,6 +37,27 @@ public final class ModuleController extends TaskwolfRestController {
       .map(this::moduleInformation).orElseGet(Maps::newHashMap);
   }
 
+  @RequestMapping(path = "/modules/available/", method = RequestMethod.POST)
+  public Map<String, Object> findAllModules(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var componentType = body.getString("componentType");
+    return Map.of("modules", moduleLoader.allModules().stream()
+      .filter(module -> module.moduleInformation().type().isPublic())
+      .filter(module -> moduleFitsComponentType(module, componentType))
+      .map(this::moduleInformation).toList());
+  }
+
+  private boolean moduleFitsComponentType(Module module, String componentType) {
+    if (componentType.equalsIgnoreCase("trigger")) {
+      return !module.triggerInformation().isEmpty();
+    } else if(componentType.equalsIgnoreCase("action")) {
+      return !module.actionInformation().isEmpty();
+    }
+    return false;
+  }
+
   @RequestMapping(path = "/modules/all/", method = RequestMethod.GET)
   public Map<String, Object> findAllModules() {
     return Map.of("modules", moduleLoader.allModules().stream()

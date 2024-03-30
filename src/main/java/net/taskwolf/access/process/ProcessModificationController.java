@@ -90,41 +90,48 @@ public final class ProcessModificationController extends TaskwolfRestController 
     if (name.equals("") || description.equals("")) {
       return false;
     }
-    var step = findStartStep(stepData);
-    while (step != null) {
-      var connection = findStepConnection(step, stepData, connectionData);
-      if (connection == null) {
-        step = null;
-        continue;
+    var steps = findStartSteps(stepData);
+    while (!steps.isEmpty()) {
+      var newSteps = Lists.<TaskwolfRequestBody>newArrayList();
+      for (var step : steps) {
+        var connections = findStepConnections(step, stepData, connectionData);
+        for (var connection : connections) {
+          var destination = stepData.get(connection.getInt("destinationStep"));
+          if (destination.getString("type").equalsIgnoreCase("END")) {
+            return true;
+          }
+          newSteps.add(destination);
+        }
       }
-      step = stepData.get(connection.getInt("destinationStep"));
-      if (step.getString("type").equalsIgnoreCase("END")) {
-        return true;
-      }
+      steps = newSteps;
     }
     return false;
   }
 
-  private TaskwolfRequestBody findStartStep(List<TaskwolfRequestBody> stepData) {
+  private List<TaskwolfRequestBody> findStartSteps(
+    List<TaskwolfRequestBody> stepData
+  ) {
+    var startSteps = Lists.<TaskwolfRequestBody>newArrayList();
     for (var step : stepData) {
       if (step.getString("type").equalsIgnoreCase("START")) {
-        return step;
+        startSteps.add(step);
       }
     }
-    return null;
+    return startSteps;
   }
 
-  private TaskwolfRequestBody findStepConnection(
+  private List<TaskwolfRequestBody> findStepConnections(
     TaskwolfRequestBody step, List<TaskwolfRequestBody> stepData,
     List<TaskwolfRequestBody> connectionData
   ) {
     var stepIndex = stepData.indexOf(step);
+    var connections = Lists.<TaskwolfRequestBody>newArrayList();
     for (var connection : connectionData) {
       if (connection.getInt("originStep") == stepIndex) {
-        return connection;
+        connections.add(connection);
       }
     }
-    return null;
+    return connections;
   }
 
   private void updateProcess(

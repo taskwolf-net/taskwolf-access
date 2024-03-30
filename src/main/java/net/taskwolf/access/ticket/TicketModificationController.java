@@ -76,7 +76,7 @@ public final class TicketModificationController extends TicketController {
       () -> {});
   }
 
-  private void deleteTicket(Ticket ticket) {
+  public void deleteTicket(Ticket ticket) {
     ticketDatabaseTable().deleteTicket(ticket.id());
     for (var message : ticket.messages()) {
       ticketMessageDatabaseTable().deleteTicketMessage(message);

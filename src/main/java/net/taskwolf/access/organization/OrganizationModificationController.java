@@ -4,15 +4,20 @@ import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.access.account.AccountController;
+import net.taskwolf.access.process.ProcessModificationController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.process.ProcessDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
+import net.taskwolf.table.access.TableModificationController;
+import net.taskwolf.table.structure.TableDatabaseTable;
+import net.taskwolf.webhook.structure.WebhookDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -29,6 +34,11 @@ public final class OrganizationModificationController extends TaskwolfRestContro
   private final Distribution distribution;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowModificationController workflowModificationController;
+  private final ProcessDatabaseTable processDatabaseTable;
+  private final ProcessModificationController processModificationController;
+  private final TableDatabaseTable tableDatabaseTable;
+  private final TableModificationController tableModificationController;
+  private final WebhookDatabaseTable webhookDatabaseTable;
   private final AccountController accountController;
 
   private OrganizationModificationController(
@@ -36,6 +46,11 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     OrganizationDatabaseTable organizationDatabaseTable, Distribution distribution,
     WorkflowDatabaseTable workflowDatabaseTable,
     WorkflowModificationController workflowModificationController,
+    ProcessDatabaseTable processDatabaseTable,
+    ProcessModificationController processModificationController,
+    TableDatabaseTable tableDatabaseTable,
+    TableModificationController tableModificationController,
+    WebhookDatabaseTable webhookDatabaseTable,
     AccountController accountController
   ) {
     super(secretKey, userDatabaseTable);
@@ -43,6 +58,11 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     this.distribution = distribution;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.workflowModificationController = workflowModificationController;
+    this.processDatabaseTable = processDatabaseTable;
+    this.processModificationController = processModificationController;
+    this.tableDatabaseTable = tableDatabaseTable;
+    this.tableModificationController = tableModificationController;
+    this.webhookDatabaseTable = webhookDatabaseTable;
     this.accountController = accountController;
   }
 
@@ -214,6 +234,12 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     }
     workflowDatabaseTable.findWorkflowsOfOwner(organization.id()).thenAccept(
       workflows -> workflows.forEach(workflowModificationController::deleteWorkflow));
+    processDatabaseTable.findProcessesOfOwner(organization.id()).thenAccept(
+      processes -> processes.forEach(processModificationController::deleteProcess));
+    tableDatabaseTable.findTablesOfOwner(organization.id()).thenAccept(tables ->
+      tables.forEach(tableModificationController::deleteTable));
+    webhookDatabaseTable.findWebhooksByOwner(organization.id()).thenAccept(webhooks ->
+      webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
     accountController.deleteAllAccounts(organization.id());
     distribution.removeUser(organization.id());
   }

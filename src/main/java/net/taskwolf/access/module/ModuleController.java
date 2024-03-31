@@ -67,6 +67,7 @@ public final class ModuleController extends TaskwolfRestController {
     var information = Maps.<String, Object>newHashMap();
     information.put("name", module.moduleInformation().name());
     information.put("description", module.moduleInformation().description());
+    information.put("novelty", module.moduleInformation().novelty());
     information.put("logo", module.moduleInformation().logo());
     return information;
   }

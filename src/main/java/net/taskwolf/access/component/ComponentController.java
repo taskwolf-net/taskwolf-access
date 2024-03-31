@@ -83,6 +83,7 @@ public final class ComponentController extends TaskwolfRestController {
     information.put("name", coreModule.translate(user, component.name()));
     information.put("description", coreModule.translate(user,
       component.description()));
+    information.put("novelty", component.novelty());
     return information;
   }
 

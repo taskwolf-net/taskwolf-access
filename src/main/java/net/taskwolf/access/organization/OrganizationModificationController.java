@@ -113,8 +113,41 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     if (!organization.owner().equals(user.id())) {
       return;
     }
-    organizationDatabaseTable.changeOrganizationInvitationToken(organization.id(),
+    organizationDatabaseTable.changeOrganizationInvitationToken(organization,
       UUID.randomUUID().toString());
+  }
+
+  @RequestMapping(path = "/organization/rename/", method = RequestMethod.POST)
+  public void renameOrganization(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var organizationId = body.getUUID("organization");
+    findUser(request).thenAccept(user ->
+      organizationDatabaseTable.organizationExists(organizationId).thenAccept(
+        exists -> renameOrganization(user, organizationId,
+          body.getString("name"), exists)));
+  }
+
+  private void renameOrganization(
+    User user, UUID organizationId, String name, boolean organizationExists
+  ) {
+    if (!organizationExists) {
+      return;
+    }
+    if (!user.organizations().contains(organizationId)) {
+      return;
+    }
+    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
+      organization -> renameOrganization(user, organization, name));
+  }
+
+  private void renameOrganization(User user, Organization organization, String name) {
+    if (!organization.owner().equals(user.id())) {
+      return;
+    }
+    organizationDatabaseTable.renameOrganization(organization, name);
   }
 
   @RequestMapping(path = "/organization/join/", method = RequestMethod.POST)

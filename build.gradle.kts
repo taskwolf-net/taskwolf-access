@@ -28,6 +28,7 @@ dependencies {
   compileOnly("net.taskwolf:core:1.0.0-SNAPSHOT")
   compileOnly("net.taskwolf:table:1.0.0-SNAPSHOT")
   compileOnly("net.taskwolf:webhook:1.0.0-SNAPSHOT")
+  compileOnly("net.taskwolf:device:1.0.0-SNAPSHOT")
 
   compileOnly("com.google.inject:guice:7.0.0")
 

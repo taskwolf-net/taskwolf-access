@@ -19,6 +19,8 @@ import net.taskwolf.core.process.ProcessDatabaseTable;
 import net.taskwolf.core.ticket.TicketDatabaseTable;
 import net.taskwolf.core.user.*;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
+import net.taskwolf.device.structure.DeviceDatabaseTable;
+import net.taskwolf.device.structure.UserDeviceDatabaseTable;
 import net.taskwolf.table.access.TableModificationController;
 import net.taskwolf.table.structure.TableDatabaseTable;
 import net.taskwolf.webhook.structure.WebhookDatabaseTable;
@@ -53,6 +55,8 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final WebhookDatabaseTable webhookDatabaseTable;
   private final TicketDatabaseTable ticketDatabaseTable;
   private final TicketModificationController ticketModificationController;
+  private final DeviceDatabaseTable deviceDatabaseTable;
+  private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final AccountController accountController;
   private final Distribution distribution;
 
@@ -75,6 +79,8 @@ public final class AccountSettingController extends TaskwolfRestController {
     WebhookDatabaseTable webhookDatabaseTable,
     TicketDatabaseTable ticketDatabaseTable,
     TicketModificationController ticketModificationController,
+    DeviceDatabaseTable deviceDatabaseTable,
+    UserDeviceDatabaseTable userDeviceDatabaseTable,
     AccountController accountController, Distribution distribution
   ) {
     super(secretKey, userDatabaseTable);
@@ -95,6 +101,8 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.webhookDatabaseTable = webhookDatabaseTable;
     this.ticketDatabaseTable = ticketDatabaseTable;
     this.ticketModificationController = ticketModificationController;
+    this.deviceDatabaseTable = deviceDatabaseTable;
+    this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.accountController = accountController;
     this.distribution = distribution;
   }
@@ -295,6 +303,14 @@ public final class AccountSettingController extends TaskwolfRestController {
       tables.forEach(tableModificationController::deleteTable));
     webhookDatabaseTable.findWebhooksByOwner(user.id()).thenAccept(webhooks ->
       webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
+    var futureDevices = deviceDatabaseTable.findDevicesOfOwner(user.id());
+    futureDevices.thenAccept(devices -> devices.forEach(device ->
+      deviceDatabaseTable.deleteDevice(device.id())));
+    futureDevices.thenAccept(devices -> devices.forEach(device ->
+      userDeviceDatabaseTable.findUsersOfDevice(device.id()).thenAccept(users ->
+        users.forEach(entry -> userDeviceDatabaseTable.removeDevice(entry,
+          device.id())))));
+    userDeviceDatabaseTable.deleteDevices(user.id());
     ticketDatabaseTable.findTicketsByCreator(user.id()).thenAccept(tables ->
       tables.forEach(ticketModificationController::deleteTicket));
     for (var organizationId : user.organizations()) {

@@ -15,6 +15,7 @@ import net.taskwolf.core.process.ProcessDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
+import net.taskwolf.device.structure.UserDeviceDatabaseTable;
 import net.taskwolf.table.access.TableModificationController;
 import net.taskwolf.table.structure.TableDatabaseTable;
 import net.taskwolf.webhook.structure.WebhookDatabaseTable;
@@ -39,6 +40,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
   private final TableDatabaseTable tableDatabaseTable;
   private final TableModificationController tableModificationController;
   private final WebhookDatabaseTable webhookDatabaseTable;
+  private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final AccountController accountController;
 
   private OrganizationModificationController(
@@ -51,6 +53,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     TableDatabaseTable tableDatabaseTable,
     TableModificationController tableModificationController,
     WebhookDatabaseTable webhookDatabaseTable,
+    UserDeviceDatabaseTable userDeviceDatabaseTable,
     AccountController accountController
   ) {
     super(secretKey, userDatabaseTable);
@@ -63,6 +66,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     this.tableDatabaseTable = tableDatabaseTable;
     this.tableModificationController = tableModificationController;
     this.webhookDatabaseTable = webhookDatabaseTable;
+    this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.accountController = accountController;
   }
 
@@ -273,6 +277,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
       tables.forEach(tableModificationController::deleteTable));
     webhookDatabaseTable.findWebhooksByOwner(organization.id()).thenAccept(webhooks ->
       webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
+    userDeviceDatabaseTable.deleteDevices(organization.id());
     accountController.deleteAllAccounts(organization.id());
     distribution.removeUser(organization.id());
   }

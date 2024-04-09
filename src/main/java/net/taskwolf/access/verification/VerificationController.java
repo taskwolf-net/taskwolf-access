@@ -192,21 +192,21 @@ public final class VerificationController {
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)
-  public Map<String, Object> isValid(
+  public CompletableFuture<Map<String, Object>> isValid(
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var result = Maps.<String, Object>newHashMap();
     try {
-      Jwts.parser()
+      var userId = UUID.fromString(Jwts.parser()
         .setSigningKey(secretKey)
         .build()
-        .parseClaimsJws(body.getString("token"));
-      result.put("isValid", "true");
+        .parseClaimsJws(body.getString("token"))
+        .getPayload().get("id", String.class));
+      return userDatabaseTable.userExists(userId).thenApply(exists ->
+        Map.of("isValid", exists ? "true" : "false"));
     } catch (Exception exception) {
-      result.put("isValid", "false");
+      return CompletableFuture.completedFuture(Map.of("isValid", "false"));
     }
-    return result;
   }
 
   private String hashPassword(String password) {

@@ -30,9 +30,12 @@ import net.taskwolf.core.workflow.timeline.TimelineFactory;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 
+import java.security.Key;
+
 @Singleton
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({@Inject}))
 public class AccessContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+  private final Key key;
   private final ModuleLoader moduleLoader;
   private final DatabaseConnection databaseConnection;
   private final DatabaseKeyspace databaseKeyspace;
@@ -65,6 +68,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
     var beanFactory = applicationContext.getBeanFactory();
+    beanFactory.registerSingleton("key", key);
     beanFactory.registerSingleton("moduleLoader", moduleLoader);
     beanFactory.registerSingleton("databaseConnection", databaseConnection);
     beanFactory.registerSingleton("databaseKeyspace", databaseKeyspace);

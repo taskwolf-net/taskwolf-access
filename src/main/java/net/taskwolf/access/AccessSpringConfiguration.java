@@ -2,7 +2,6 @@ package net.taskwolf.access;
 
 import io.jsonwebtoken.SignatureAlgorithm;
 import jakarta.annotation.PostConstruct;
-import net.taskwolf.access.verification.VerificationConfiguration;
 import net.taskwolf.core.distribution.DistributionConfiguration;
 import net.taskwolf.core.distribution.Node;
 import net.taskwolf.core.mail.TaskwolfMail;
@@ -19,7 +18,6 @@ import java.security.Key;
 
 @Configuration
 public class AccessSpringConfiguration {
-  private Key secretKey;
   private TaskwolfMail verificationMail;
   private TaskwolfMail changeMail;
   private String proxyToken;
@@ -27,11 +25,6 @@ public class AccessSpringConfiguration {
   private HttpClient httpClient;
   private Node self;
   private String defaultProfilePicture;
-
-  @Bean
-  Key provideSecretKey() {
-    return secretKey;
-  }
 
   @Bean
   @Qualifier("verificationMail")
@@ -70,13 +63,6 @@ public class AccessSpringConfiguration {
   @Qualifier("defaultProfilePicture")
   String provideDefaultProfilePicture() {
     return defaultProfilePicture;
-  }
-
-  @PostConstruct
-  private void initializeSecretKey() throws Exception {
-    secretKey = new SecretKeySpec(VerificationConfiguration.createAndLoad()
-      .verificationSecret().getBytes(StandardCharsets.UTF_8),
-      SignatureAlgorithm.HS256.getJcaName());
   }
 
   @PostConstruct

@@ -156,7 +156,8 @@ public final class VerificationController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var verification = Verification.create(userDatabaseTable, secretKey,
-      body.getString("email"), hashPassword(body.getString("password")));
+      body.getString("email").replace(" ", ""),
+      hashPassword(body.getString("password")));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
       checkAuthorization(response, verification, futureResponse, isAuthenticated));

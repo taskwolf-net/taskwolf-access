@@ -22,9 +22,7 @@ public final class Verification {
 
   public CompletableFuture<Boolean> isAuthenticated() {
     var futureResponse = new CompletableFuture<Boolean>();
-    if (email == null || passwordHash == null || email.equals("") ||
-      passwordHash.equals("")
-    ) {
+    if (email == null || passwordHash == null || email.isEmpty()) {
       futureResponse.complete(false);
       return futureResponse;
     }

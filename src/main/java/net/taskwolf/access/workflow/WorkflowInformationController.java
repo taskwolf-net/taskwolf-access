@@ -36,31 +36,29 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class WorkflowInformationController extends TaskwolfRestController {
+public final class WorkflowInformationController extends WorkflowController {
   private final CoreModule coreModule;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
   private final ConditionInformationRepository conditionRepository;
-  private final WorkflowDatabaseTable workflowDatabaseTable;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private WorkflowInformationController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
+    Key secretKey, UserDatabaseTable userDatabaseTable,
+    WorkflowDatabaseTable workflowDatabaseTable, CoreModule coreModule,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
     ConditionInformationRepository conditionRepository,
-    WorkflowDatabaseTable workflowDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
+    super(secretKey, userDatabaseTable, workflowDatabaseTable);
     this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
     this.conditionRepository = conditionRepository;
-    this.workflowDatabaseTable = workflowDatabaseTable;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
   }
 
@@ -71,21 +69,11 @@ public final class WorkflowInformationController extends TaskwolfRestController 
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user ->
-      workflowDatabaseTable.findWorkflow(body.getUUID("workflow")).thenAccept(
-        workflow -> findWorkflow(user, workflow).thenAccept(futureResponse::complete)));
+    findUser(request).thenAccept(user -> performWorkflowOperation(user,
+      body.getUUID("workflow"), workflow -> gatherWorkflowInformation(user, workflow)
+        .thenAccept(futureResponse::complete),
+      () -> futureResponse.complete(Maps.newHashMap())));
     return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> findWorkflow(
-    User user, WorkflowEntry workflow
-  ) {
-    if (!checkWorkflowAuthorization(user, workflow)) {
-      var futureResponse = new CompletableFuture<Map<String, Object>>();
-      futureResponse.complete(Maps.newHashMap());
-      return futureResponse;
-    }
-    return gatherWorkflowInformation(user, workflow);
   }
 
   @RequestMapping(path = "/workflows/selected/", method = RequestMethod.GET)
@@ -103,10 +91,6 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     User user, UUID ownerId
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    if (!checkWorkflowAuthorization(user, ownerId)) {
-      futureResponse.complete(Maps.newHashMap());
-      return futureResponse;
-    }
     collectWorkflows(Lists.newArrayList(ownerId)).thenAccept(workflows ->
       collectWorkflowInformation(user, workflows).thenAccept(futureResponse::complete));
     return futureResponse;
@@ -116,7 +100,7 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     List<UUID> ownerIds
   ) {
     var futureResponse = new CompletableFuture<List<WorkflowEntry>>();
-    AsyncListIterator.execute(ownerIds, workflowDatabaseTable::findWorkflowsOfOwner,
+    AsyncListIterator.execute(ownerIds, workflowDatabaseTable()::findWorkflowsOfOwner,
       ownerIds.size(), futureResponse::complete);
     return futureResponse;
   }
@@ -224,14 +208,5 @@ public final class WorkflowInformationController extends TaskwolfRestController 
     Calendar calendar = Calendar.getInstance();
     calendar.setTimeInMillis(milliseconds);
     return simpleDateFormat.format(calendar.getTime());
-  }
-
-  private boolean checkWorkflowAuthorization(User user, WorkflowEntry workflow) {
-    return checkWorkflowAuthorization(user, workflow.ownerId());
-  }
-
-  private boolean checkWorkflowAuthorization(User user, UUID workflowOwnerId) {
-    return workflowOwnerId.equals(user.id()) ||
-      user.organizations().contains(workflowOwnerId);
   }
 }

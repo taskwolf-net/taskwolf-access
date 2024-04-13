@@ -4,7 +4,6 @@ import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
@@ -29,28 +28,27 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class WorkflowModificationController extends TaskwolfRestController {
+public final class WorkflowModificationController extends WorkflowController {
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
-  private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final TimelineDatabaseTable timelineDatabaseTable;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
 
   private WorkflowModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
+    WorkflowDatabaseTable workflowDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
-    ConditionDatabaseTable conditionDatabaseTable, WorkflowDatabaseTable workflowDatabaseTable,
+    ConditionDatabaseTable conditionDatabaseTable,
     WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable,
     TimelineDatabaseTable timelineDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
+    super(secretKey, userDatabaseTable, workflowDatabaseTable);
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
-    this.workflowDatabaseTable = workflowDatabaseTable;
     this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
     this.timelineDatabaseTable = timelineDatabaseTable;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
@@ -89,7 +87,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var workflowId = body.getUUID("workflow");
-    findUser(request).thenAccept(user -> workflowDatabaseTable.findWorkflow(workflowId)
+    findUser(request).thenAccept(user -> workflowDatabaseTable().findWorkflow(workflowId)
       .thenAccept(workflow -> workflowExecutionDatabaseTable.findWorkflowExecutions(workflowId)
         .thenAccept(executions -> timelineDatabaseTable.findEntriesByWorkflow(workflowId)
           .thenAccept(timelineEntries -> updateWorkflow(user, workflow,
@@ -110,7 +108,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
     }
     deleteWorkflow(user, entry);
     userDatabaseTable().findUser(entry.creatorId()).thenAccept(creator ->
-      workflowDatabaseTable.generateAvailableWorkflowId().thenAccept(workflowId ->
+      workflowDatabaseTable().generateAvailableWorkflowId().thenAccept(workflowId ->
         updateWorkflow(workflowId, user, creator, entry, triggerData, actionData,
           conditionData, name, description, executions, timelineEntries, state)));
   }
@@ -138,7 +136,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
     if (!checkWorkflowAuthorization(creator, ownerId)) {
       return;
     }
-    workflowDatabaseTable.generateAvailableWorkflowId().thenAccept(workflowId ->
+    workflowDatabaseTable().generateAvailableWorkflowId().thenAccept(workflowId ->
       createWorkflow(workflowId, creator, ownerId, triggerData, actionData,
         conditionData, created, name, description, executions, timelineEntries, state));
   }
@@ -204,7 +202,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
     for (int i = 0; i < conditionData.size(); i++) {
       createCondition(conditionIds.get(i), ownerId, workflowId, conditionData.get(i));
     }
-    workflowDatabaseTable.insertWorkflow(workflowId, creatorId,
+    workflowDatabaseTable().insertWorkflow(workflowId, creatorId,
       findAffiliation(creatorId, ownerId).toString(), ownerId, triggerId,
       actionIds, conditionIds, modules, created, name, description, state.toString());
     workflowExecutionDatabaseTable.insertWorkflowExecution(workflowId, executions);
@@ -245,13 +243,15 @@ public final class WorkflowModificationController extends TaskwolfRestController
 
   @RequestMapping(path = "/workflow/state/change/", method = RequestMethod.POST)
   public void changeWorkflowState(
-    @RequestBody String payload, HttpServletResponse response
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var isArmed = body.getBoolean("armed") ? TriggerState.ARMED :
       TriggerState.DISABLED;
-    workflowDatabaseTable.findWorkflow(body.getUUID("workflow")).thenAccept(
-      workflow -> triggerDatabaseTable.changeState(workflow.triggerId(), isArmed));
+    performWorkflowOperation(findUserId(request), body.getUUID("workflow"),
+      workflow -> triggerDatabaseTable.changeState(workflow.triggerId(), isArmed),
+      () -> {});
   }
 
   @RequestMapping(path = "/workflow/remove/", method = RequestMethod.POST)
@@ -260,17 +260,8 @@ public final class WorkflowModificationController extends TaskwolfRestController
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var workflowId = body.getUUID("workflow");
-    findUser(request).thenAccept(user -> workflowDatabaseTable.workflowExists(
-      workflowId).thenAccept(exists -> deleteWorkflow(user, workflowId, exists)));
-  }
-
-  private void deleteWorkflow(User user, UUID workflowId, boolean workflowExists) {
-    if (!workflowExists) {
-      return;
-    }
-    workflowDatabaseTable.findWorkflow(workflowId).thenAccept(workflow ->
-      deleteWorkflow(user, workflow));
+    performWorkflowOperation(findUserId(request), body.getUUID("workflow"),
+      this::deleteWorkflow, () -> {});
   }
 
   private void deleteWorkflow(User user, WorkflowEntry workflow) {
@@ -281,7 +272,7 @@ public final class WorkflowModificationController extends TaskwolfRestController
   }
 
   public void deleteWorkflow(WorkflowEntry workflow) {
-    workflowDatabaseTable.deleteWorkflow(workflow.id());
+    workflowDatabaseTable().deleteWorkflow(workflow.id());
     triggerDatabaseTable.deleteTrigger(workflow.triggerId());
     for (var action : workflow.actionIds()) {
       actionDatabaseTable.deleteAction(action);
@@ -293,14 +284,5 @@ public final class WorkflowModificationController extends TaskwolfRestController
     timelineDatabaseTable.findEntriesByWorkflow(workflow.id()).thenAccept(entries ->
       entries.forEach(timelineDatabaseEntry ->
         timelineDatabaseTable.deleteEntry(timelineDatabaseEntry.id())));
-  }
-
-  private boolean checkWorkflowAuthorization(User user, WorkflowEntry workflow) {
-    return checkWorkflowAuthorization(user, workflow.ownerId());
-  }
-
-  private boolean checkWorkflowAuthorization(User user, UUID workflowOwnerId) {
-    return workflowOwnerId.equals(user.id()) ||
-      user.organizations().contains(workflowOwnerId);
   }
 }

@@ -12,6 +12,7 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
 import net.taskwolf.core.workflow.timeline.Timeline;
+import net.taskwolf.core.workflow.timeline.TimelineDatabaseTable;
 import net.taskwolf.core.workflow.timeline.TimelineFactory;
 import net.taskwolf.core.workflow.timeline.entry.TimelineEntry;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,15 +31,18 @@ public final class WorkflowTimelineController extends TaskwolfRestController {
   private final CoreModule coreModule;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final TimelineFactory timelineFactory;
+  private final TimelineDatabaseTable timelineDatabaseTable;
 
   private WorkflowTimelineController(
     Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
-    WorkflowDatabaseTable workflowDatabaseTable, TimelineFactory timelineFactory
+    WorkflowDatabaseTable workflowDatabaseTable, TimelineFactory timelineFactory,
+    TimelineDatabaseTable timelineDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.coreModule = coreModule;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.timelineFactory = timelineFactory;
+    this.timelineDatabaseTable = timelineDatabaseTable;
   }
 
   @RequestMapping(path = "/workflow/timeline/find/", method = RequestMethod.POST)
@@ -81,6 +85,28 @@ public final class WorkflowTimelineController extends TaskwolfRestController {
       information.add(entryInformation);
     }
     return Map.of("timeline", information);
+  }
+
+  @RequestMapping(path = "/workflow/timeline/reset/", method = RequestMethod.POST)
+  public void resetTimeline(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    findUser(request).thenAccept(user ->
+      workflowDatabaseTable.findWorkflow(body.getUUID("workflow"))
+        .thenAccept(workflow -> resetTimeline(user, workflow)));
+  }
+
+  private void resetTimeline(
+    User user, WorkflowEntry workflow
+  ) {
+    if (!checkWorkflowAuthorization(user, workflow)) {
+      return;
+    }
+    timelineDatabaseTable.findEntriesByWorkflow(workflow.id())
+      .thenAccept(entries -> entries.forEach(entry ->
+        timelineDatabaseTable.deleteEntry(entry.id())));
   }
 
   private boolean checkWorkflowAuthorization(User user, WorkflowEntry workflow) {

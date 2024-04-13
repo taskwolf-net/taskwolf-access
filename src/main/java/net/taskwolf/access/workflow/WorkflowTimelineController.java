@@ -71,7 +71,7 @@ public final class WorkflowTimelineController extends TaskwolfRestController {
   ) {
     var information = Lists.newArrayList();
     var entries = timeline.findAllEntries().stream()
-      .sorted(Comparator.comparing(TimelineEntry::rawTime)).toList();
+      .sorted(Comparator.comparing(TimelineEntry::rawTime).reversed()).toList();
     for (var entry : entries) {
       var entryInformation = Maps.<String, Object>newHashMap();
       entryInformation.put("title", entry.title(coreModule, user));

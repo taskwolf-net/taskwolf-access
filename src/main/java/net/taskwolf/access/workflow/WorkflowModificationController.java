@@ -237,8 +237,8 @@ public final class WorkflowModificationController extends WorkflowController {
     UUID conditionId, UUID ownerId, UUID workflowId, TaskwolfRequestBody conditionData
   ) {
     conditionDatabaseTable.insertCondition(conditionId, ownerId, workflowId,
-      conditionData.getInt("index"), conditionData.getString("type"),
-      conditionData.getString("content"));
+      conditionData.getInt("actionIndex"), conditionData.getInt("conditionIndex"),
+      conditionData.getString("type"), conditionData.getString("content"));
   }
 
   @RequestMapping(path = "/workflow/state/change/", method = RequestMethod.POST)

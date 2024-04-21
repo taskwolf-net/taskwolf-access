@@ -193,7 +193,9 @@ public final class WorkflowInformationController extends WorkflowController {
     var conditionsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var condition : conditions) {
       var conditionInformation = Maps.<String, Object>newHashMap();
-      conditionInformation.put("conditionIndex", condition.actionIndex());
+      conditionInformation.put("conditionActionIndex", condition.actionIndex());
+      conditionInformation.put("conditionConditionIndex",
+        condition.conditionIndex());
       conditionInformation.put("conditionType", condition.type());
       conditionInformation.put("conditionTypeName", coreModule.translate(user,
         conditionRepository.findByIdentifier(condition.type()).get().name()));

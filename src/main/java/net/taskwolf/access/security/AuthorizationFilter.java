@@ -53,10 +53,9 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/password/reset/request/");
     controllers.add("/" + CURRENT_API_VERSION + "/password/reset/complete/");
-    controllers.addAll(controllers.stream().filter(controller ->
-      controller.startsWith("/" + CURRENT_API_VERSION + "/team/")).toList());
-    return controllers.contains(request.getRequestURI()) ||
-      request.getRequestURI().contains("/webhook/trigger/");
+    var url = request.getRequestURI();
+    return controllers.contains(url) || url.contains("/team/") ||
+      url.contains("/webhook/trigger/");
   }
 
   private void prepareResponseHeaders(HttpServletResponse response) {

@@ -54,11 +54,17 @@ public final class WorkflowModificationController extends WorkflowController {
     this.userTargetDatabaseTable = userTargetDatabaseTable;
   }
 
+  private static final long MAX_WORKFLOW_BYTES = 500 * 1000;
+
   @RequestMapping(path = "/workflow/add/", method = RequestMethod.POST)
   public void addWorkflow(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
+    if (payload.getBytes().length > MAX_WORKFLOW_BYTES) {
+      response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+      return;
+    }
     var body = TaskwolfRequestBody.of(payload, response);
     var created = System.currentTimeMillis();
     findUser(request).thenAccept(user ->
@@ -85,6 +91,10 @@ public final class WorkflowModificationController extends WorkflowController {
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
+    if (payload.getBytes().length > MAX_WORKFLOW_BYTES) {
+      response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+      return;
+    }
     var body = TaskwolfRequestBody.of(payload, response);
     var workflowId = body.getUUID("workflow");
     findUser(request).thenAccept(user -> workflowDatabaseTable().findWorkflow(workflowId)

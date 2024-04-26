@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.text.SimpleDateFormat;
-import java.time.Year;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -133,22 +132,22 @@ public final class StatisticsController extends TaskwolfRestController {
     return futureResponse;
   }
 
-  private Map<UUID, Map<String, Long>> assignModuleUsagesToCreators(
+  private Map<UUID, Integer> assignModuleUsagesToCreators(
     List<WorkflowEntry> workflows
   ) {
     var creatorWorkflows = ArrayListMultimap.<UUID, WorkflowEntry>create();
     for (var workflow : workflows) {
       creatorWorkflows.put(workflow.creatorId(), workflow);
     }
-    var moduleUsages = Maps.<UUID, Map<String, Long>>newHashMap();
+    var moduleUsages = Maps.<UUID, Integer>newHashMap();
     for (var staff : creatorWorkflows.keySet()) {
-      moduleUsages.put(staff, findModuleUsage(creatorWorkflows.get(staff)));
+      moduleUsages.put(staff, creatorWorkflows.get(staff).size());
     }
     return moduleUsages;
   }
 
   private Map<String, Object> assemblyStaffModuleUsages(
-    List<User> staffs, Map<UUID, Map<String, Long>> staffModuleUsage
+    List<User> staffs, Map<UUID, Integer> staffModuleUsage
   ) {
     var moduleUsages = Maps.<String, Object>newHashMap();
     for (var staff : staffs) {
@@ -185,73 +184,39 @@ public final class StatisticsController extends TaskwolfRestController {
         maxOrganizationMembers, linkedAccounts, maxLinkedAccounts, moduleUsage,
         staffModuleUsages, classifyWorkflowNumbers(workflowEntries),
         classifyWorkflowNumbersGrowth(workflowEntries),
-        classifyWorkflowExecutions(executionDates))));
+        assemblyTimeSeriesData(executionDates))));
   }
 
-  private Map<Integer, Integer> classifyWorkflowNumbers(List<WorkflowEntry> workflowEntries) {
-    return classifyDatesInMonthlyOccurrence(workflowEntries.stream()
-      .map(WorkflowEntry::created).map(this::timeMillisecondsToDate).toList(), true);
-  }
-
-  private Map<Integer, Integer> classifyWorkflowNumbersGrowth(List<WorkflowEntry> workflowEntries) {
-    return classifyDatesInMonthlyOccurrence(workflowEntries.stream()
-      .map(WorkflowEntry::created).map(this::timeMillisecondsToDate).toList(), false);
-  }
-
-  private Map<Integer, Integer> classifyWorkflowExecutions(List<Long> executionDates) {
-    return classifyDatesInMonthlyOccurrence(executionDates.stream()
-      .map(this::timeMillisecondsToDate).toList(), false);
-  }
-
-  private Map<Integer, Integer> classifyDatesInMonthlyOccurrence(
-    List<String> dates, boolean totalValues
+  private List<Map<String, Object>> classifyWorkflowNumbers(
+    List<WorkflowEntry> workflowEntries
   ) {
-    var currentYear = String.valueOf(Year.now().getValue());
-    var calendar = Calendar.getInstance();
-    calendar.setTime(new Date());
-    int currentMonth = calendar.get(Calendar.MONTH) + 1;
-    var monthlyNumber = Maps.<Integer, Integer>newHashMapWithExpectedSize(currentMonth);
-    for (var i = 0; i < currentMonth; i++) {
-      monthlyNumber.put(i, 0);
-    }
-    var previousDates = 0;
-    for (var date : dates) {
-      if (!date.contains(currentYear)) {
-        previousDates++;
-        continue;
-      }
-      var entryMonth = Integer.valueOf(date.split("\\.")[1]) - 1;
-      monthlyNumber.put(entryMonth, monthlyNumber.get(entryMonth) + 1);
-    }
-    return totalValues ? calculateTotalOccurrenceValues(monthlyNumber, previousDates) :
-      monthlyNumber;
+    return assemblyTimeSeriesData(workflowEntries.stream()
+      .map(WorkflowEntry::created).toList());
   }
 
-  private Map<Integer, Integer> calculateTotalOccurrenceValues(
-    Map<Integer, Integer> monthlyNumber, int previousDates
+  private List<Map<String, Object>> classifyWorkflowNumbersGrowth(
+    List<WorkflowEntry> workflowEntries
   ) {
-    for (var i = 1; i < monthlyNumber.size(); i++) {
-      monthlyNumber.put(i, monthlyNumber.get(i) + monthlyNumber.get(i - 1));
-    }
-    for (var i = 1; i < monthlyNumber.size(); i++) {
-      monthlyNumber.put(i, monthlyNumber.get(i) + previousDates);
-    }
-    return monthlyNumber;
+    return assemblyTimeSeriesData(workflowEntries.stream()
+      .map(WorkflowEntry::created).toList());
   }
 
-  private String timeMillisecondsToDate(long milliseconds) {
-    Calendar calendar = Calendar.getInstance();
-    calendar.setTimeInMillis(milliseconds);
-    return simpleDateFormat.format(calendar.getTime());
+  private List<Map<String, Object>> assemblyTimeSeriesData(List<Long> times) {
+    times = times.stream().sorted().toList();
+    var result = Lists.<Map<String, Object>>newArrayList();
+    for (var i = 0; i < times.size(); i++) {
+      result.add(Map.of("timestamp", times.get(i), "value", i + 1));
+    }
+    return result;
   }
 
   private Map<String, Object> assemblyStatistics(
     int workflows, int maxWorkflows, int failingWorkflows, int organizationMembers,
     int maxOrganizationMembers, int linkedAccounts, int maxLinkedAccounts,
     Map<String, Long> moduleUsage, Map<String, Object> staffModuleUsages,
-    Map<Integer, Integer> workflowNumberOccurrence,
-    Map<Integer, Integer> workflowNumberGrowth,
-    Map<Integer, Integer> workflowExecutionsOccurrence
+    List<Map<String, Object>> workflowNumberOccurrence,
+    List<Map<String, Object>> workflowNumberGrowth,
+    List<Map<String, Object>> workflowExecutionsOccurrence
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("workflows", workflows);

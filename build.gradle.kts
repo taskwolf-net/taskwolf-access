@@ -1,11 +1,42 @@
 plugins {
   id("java")
+  id("maven-publish")
 }
 
 group = "net.taskwolf"
 version = "1.0.0-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_20
 java.targetCompatibility = JavaVersion.VERSION_20
+
+publishing {
+  repositories {
+    maven {
+      name = "GitHubPackages"
+      url = uri("https://maven.pkg.github.com/TaskwolfNET/taskwolf-access")
+      credentials {
+        username = System.getenv("GITHUB_USERNAME") ?: providers.gradleProperty("githubUsername").get()
+        password = System.getenv("GITHUB_ACCESS_TOKEN") ?: providers.gradleProperty("githubAccessToken").get()
+      }
+    }
+  }
+  publications {
+    register<MavenPublication>("gpr") {
+      from(components["java"])
+    }
+  }
+}
+
+repositories {
+  mavenCentral()
+  maven {
+    name = "GitHubPackages"
+    url = uri("https://maven.pkg.github.com/TaskwolfNET/taskwolf-core")
+    credentials {
+      username = System.getenv("GITHUB_USERNAME") ?: providers.gradleProperty("githubUsername").get()
+      password = System.getenv("GITHUB_ACCESS_TOKEN") ?: providers.gradleProperty("githubAccessToken").get()
+    }
+  }
+}
 
 repositories {
   mavenCentral()

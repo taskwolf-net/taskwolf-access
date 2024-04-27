@@ -240,19 +240,15 @@ public final class StatisticsController extends TaskwolfRestController {
     return information;
   }
 
+  private static final String DASHBOARD_URL = "https://analytics.taskwolf.net%s?kiosk";
+
   @RequestMapping(path = "/dashboard/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findDashboard(
     HttpServletRequest request
   ) {
-    return findUser(request).thenCompose(user -> userTargetDatabaseTable
-      .findTargetSecured(user.id()).thenCompose(this::findDashboard));
-  }
-
-  private static final String DASHBOARD_URL = "https://analytics.taskwolf.net%s?kiosk";
-
-  private CompletableFuture<Map<String, Object>> findDashboard(UUID target) {
-    return grafanaDatabaseTable.findAccount(target).thenCompose(account ->
-      grafanaUserFactory.createUser(target).login().thenApply(token ->
+    var user = findUserId(request);
+    return grafanaDatabaseTable.findAccount(user).thenCompose(account ->
+      grafanaUserFactory.createUser(user).login().thenApply(token ->
         Map.of("url", String.format(DASHBOARD_URL, account.dashboardUrl()),
           "token", token)));
   }

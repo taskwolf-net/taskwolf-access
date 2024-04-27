@@ -11,6 +11,8 @@ import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.distribution.Distribution;
+import net.taskwolf.core.grafana.GrafanaDatabaseTable;
+import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
@@ -63,6 +65,8 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final Distribution distribution;
   private final ConditionInformationRepository conditionRepository;
   private final TimelineFactory timelineFactory;
+  private final GrafanaDatabaseTable grafanaDatabaseTable;
+  private final GrafanaUserFactory grafanaUserFactory;
   private final CoreModule coreModule;
 
   @Override
@@ -96,6 +100,8 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("conditionRepository", conditionRepository);
     beanFactory.registerSingleton("timelineFactory", timelineFactory);
+    beanFactory.registerSingleton("grafanaDatabaseTable", grafanaDatabaseTable);
+    beanFactory.registerSingleton("grafanaUserFactory", grafanaUserFactory);
     beanFactory.registerSingleton("coreModule", coreModule);
   }
 }

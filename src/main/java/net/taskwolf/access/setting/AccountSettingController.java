@@ -11,6 +11,7 @@ import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.distribution.Distribution;
+import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
@@ -59,6 +60,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final AccountController accountController;
   private final Distribution distribution;
+  private final GrafanaUserFactory grafanaUserFactory;
 
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -81,7 +83,8 @@ public final class AccountSettingController extends TaskwolfRestController {
     TicketModificationController ticketModificationController,
     DeviceDatabaseTable deviceDatabaseTable,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
-    AccountController accountController, Distribution distribution
+    AccountController accountController, Distribution distribution,
+    GrafanaUserFactory grafanaUserFactory
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
@@ -105,6 +108,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.accountController = accountController;
     this.distribution = distribution;
+    this.grafanaUserFactory = grafanaUserFactory;
   }
 
   @RequestMapping(path = "/settings/account/unlocked/", method = RequestMethod.GET)
@@ -317,6 +321,7 @@ public final class AccountSettingController extends TaskwolfRestController {
       organizationDatabaseTable.findOrganization(organizationId).thenAccept(
         organization -> accountDeletionHandleOrganization(user, organization));
     }
+    grafanaUserFactory.createUser(user.id()).delete();
   }
 
   private void accountDeletionHandleOrganization(User user, Organization organization) {

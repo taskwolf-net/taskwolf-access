@@ -7,6 +7,7 @@ import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.distribution.Distribution;
+import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.user.*;
@@ -33,6 +34,7 @@ public final class VerificationController {
   private final String defaultProfilePicture;
   private final NotificationDatabaseTable notificationDatabaseTable;
   private final Distribution distribution;
+  private final GrafanaUserFactory grafanaUserFactory;
 
   private VerificationController(
     Key secretKey, @Qualifier("verificationMail") TaskwolfMail verificationMail,
@@ -41,7 +43,8 @@ public final class VerificationController {
     UserTargetDatabaseTable userTargetDatabaseTable,
     ProfilePictureDatabaseTable profilePictureDatabaseTable,
     @Qualifier("defaultProfilePicture") String defaultProfilePicture,
-    NotificationDatabaseTable notificationDatabaseTable, Distribution distribution
+    NotificationDatabaseTable notificationDatabaseTable, Distribution distribution,
+    GrafanaUserFactory grafanaUserFactory
   ) {
     this.secretKey = secretKey;
     this.verificationMail = verificationMail;
@@ -52,6 +55,7 @@ public final class VerificationController {
     this.defaultProfilePicture = defaultProfilePicture;
     this.notificationDatabaseTable = notificationDatabaseTable;
     this.distribution = distribution;
+    this.grafanaUserFactory = grafanaUserFactory;
   }
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
@@ -114,6 +118,7 @@ public final class VerificationController {
       String.format(VERIFICATION_URL, userId.toString(), token));
     verificationMail.send(email, VERIFICATIION_EMAIL_TITLE, body);
     distribution.addUser(userId);
+    grafanaUserFactory.createUser(userId).create("");
   }
 
   @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)
@@ -189,7 +194,9 @@ public final class VerificationController {
       futureResponse.complete(Maps.newHashMap());
       return;
     }
-    futureResponse.complete(Map.of("apiKey", verification.generateApiKey(user.id())));
+    var apiKey = verification.generateApiKey(user.id());
+    grafanaUserFactory.createUser(user.id()).updateApiKey(apiKey);
+    futureResponse.complete(Map.of("apiKey", apiKey));
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)

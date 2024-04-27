@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -35,7 +34,6 @@ public final class StatisticsController extends TaskwolfRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
-  private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private StatisticsController(
     Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,

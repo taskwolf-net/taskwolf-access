@@ -1,4 +1,4 @@
-image: openjdk:22
+image: openjdk:21
 
 before_script:
   - GRADLE_USER_HOME="$(pwd)/.gradle"

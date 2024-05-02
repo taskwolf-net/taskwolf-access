@@ -141,8 +141,9 @@ public final class WorkflowInformationController extends WorkflowController {
     AsyncIterator.execute(actions, action -> coreModule.findAction(action.module(),
         action.type()).get().findContent(action.id()).thenApply(content ->
         new AbstractMap.SimpleEntry(action, content)),
-      actions.size(), result -> result.stream().collect(
-        Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+      actions.size(), result -> futureResponse.complete(result.stream().collect(
+        Collectors.toMap(entry -> (ActionEntry) entry.getKey(),
+          entry -> (Map<String, Object>) entry.getValue()))));
     return futureResponse;
   }
 

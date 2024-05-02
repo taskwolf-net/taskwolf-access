@@ -49,9 +49,9 @@ public final class ModuleController extends TaskwolfRestController {
 
   private boolean moduleFitsComponentType(Module module, String componentType) {
     if (componentType.equalsIgnoreCase("trigger")) {
-      return !module.triggerInformation().isEmpty();
+      return !module.triggerRepository().isEmpty();
     } else if(componentType.equalsIgnoreCase("action")) {
-      return !module.actionInformation().isEmpty();
+      return !module.actionRepository().isEmpty();
     }
     return false;
   }

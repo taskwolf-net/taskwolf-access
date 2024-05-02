@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -53,11 +54,22 @@ public final class ComponentController extends TaskwolfRestController {
     if (registeredModule.isEmpty()) {
       return CompletableFuture.completedFuture(Map.of("components", Lists.newArrayList()));
     }
-    var information = body.getString("componentType").equalsIgnoreCase("trigger") ?
-      registeredModule.get().triggerInformation() :
-      registeredModule.get().actionInformation();
-    return findUser(request).thenApply(user -> Map.of("components",
-      information.stream().map(value -> superficialComponentInformation(user, value))));
+    return findUser(request).thenApply(user ->
+      body.getString("componentType").equalsIgnoreCase("trigger") ?
+        findTriggerComponents(user, registeredModule.get()) :
+        findActionComponents(user, registeredModule.get()));
+  }
+
+  private Map<String, Object> findTriggerComponents(User user, Module module) {
+    return Map.of("components", module.triggerRepository().allTriggers()
+      .stream().map(trigger -> superficialComponentInformation(user,
+        trigger.type(), trigger.information())).toList());
+  }
+
+  private Map<String, Object> findActionComponents(User user, Module module) {
+    return Map.of("components", module.actionRepository().allActions()
+      .stream().map(action -> superficialComponentInformation(user,
+        action.type(), action.information())).toList());
   }
 
   @RequestMapping(path = "/component/find/", method = RequestMethod.POST)
@@ -68,18 +80,33 @@ public final class ComponentController extends TaskwolfRestController {
     var body = TaskwolfRequestBody.of(payload, response);
     var module = body.getString("module");
     var type = body.getString("type");
-    var component = body.getString("componentType").equalsIgnoreCase("trigger") ?
-      coreModule.findTriggerInformation(module, type) :
-      coreModule.findActionInformation(module, type);
-    return findUser(request).thenApply(user -> component.map(value ->
-      detailedComponentInformation(user, value)).orElseGet(Maps::newHashMap));
+    return findUser(request).thenApply(user ->
+      body.getString("componentType").equalsIgnoreCase("trigger") ?
+        findTriggerComponent(user, module, type) :
+        findActionComponent(user, module, type));
+  }
+
+  private Map<String, Object> findTriggerComponent(
+    User user, String module, String type
+  ) {
+    return coreModule.findTrigger(module, type).map(trigger ->
+        detailedComponentInformation(user, trigger.type(), trigger.information()))
+      .orElseGet(Maps::newHashMap);
+  }
+
+  private Map<String, Object> findActionComponent(
+    User user, String module, String type
+  ) {
+    return coreModule.findAction(module, type).map(action ->
+        detailedComponentInformation(user, action.type(), action.information()))
+      .orElseGet(Maps::newHashMap);
   }
 
   private Map<String, Object> superficialComponentInformation(
-    User user, ComponentInformation component
+    User user, String identifier, ComponentInformation component
   ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("identifier", component.identifier());
+    information.put("identifier", identifier);
     information.put("name", coreModule.translate(user, component.name()));
     information.put("description", coreModule.translate(user,
       component.description()));
@@ -88,9 +115,9 @@ public final class ComponentController extends TaskwolfRestController {
   }
 
   private Map<String, Object> detailedComponentInformation(
-    User user, ComponentInformation component
+    User user, String identifier, ComponentInformation component
   ) {
-    var information = superficialComponentInformation(user, component);
+    var information = superficialComponentInformation(user, identifier, component);
     information.put("inputVariables",
       componentVariablesInformation(user, component.inputVariables()));
     information.put("outputVariables",

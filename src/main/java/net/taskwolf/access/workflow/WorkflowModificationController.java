@@ -3,6 +3,7 @@ package net.taskwolf.access.workflow;
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
@@ -29,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class WorkflowModificationController extends WorkflowController {
+  private final CoreModule coreModule;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
@@ -37,7 +39,7 @@ public final class WorkflowModificationController extends WorkflowController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
 
   private WorkflowModificationController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
     WorkflowDatabaseTable workflowDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
@@ -46,6 +48,7 @@ public final class WorkflowModificationController extends WorkflowController {
     UserTargetDatabaseTable userTargetDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable);
+    this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
@@ -230,17 +233,23 @@ public final class WorkflowModificationController extends WorkflowController {
   private void createTrigger(
     UUID triggerId, UUID ownerId, UUID workflowId, TaskwolfRequestBody triggerData
   ) {
-    triggerDatabaseTable.insertTrigger(triggerId, ownerId, workflowId,
-      triggerData.getString("module"), triggerData.getString("type"),
-      triggerData.getString("content"), TriggerState.ARMED.toString());
+    var module = triggerData.getString("module");
+    var type = triggerData.getString("type");
+    triggerDatabaseTable.insertTrigger(triggerId, ownerId, workflowId, module,
+      type, TriggerState.ARMED.toString());
+    coreModule.findTrigger(module, type).ifPresent(trigger -> trigger.insert(
+      triggerId, new JSONObject(triggerData.getString("content")).toMap()));
   }
 
   private void createAction(
     UUID actionId, UUID ownerId, UUID workflowId, TaskwolfRequestBody actionData
   ) {
+    var module = actionData.getString("module");
+    var type = actionData.getString("type");
     actionDatabaseTable.insertAction(actionId, ownerId, workflowId,
-      actionData.getInt("index"), actionData.getString("module"),
-      actionData.getString("type"), actionData.getString("content"));
+      actionData.getInt("index"), module, type);
+    coreModule.findAction(module, type).ifPresent(action -> action.insert(
+      actionId, new JSONObject(actionData.getString("content")).toMap()));
   }
 
   private void createCondition(

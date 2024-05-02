@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.action.ActionEntry;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
@@ -22,6 +21,7 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
+import org.json.JSONObject;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -29,11 +29,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @RestController
 public final class WorkflowInformationController extends WorkflowController {
@@ -123,18 +121,35 @@ public final class WorkflowInformationController extends WorkflowController {
     User user, WorkflowEntry workflow
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userDatabaseTable().findUserIfExists(workflow.creatorId()).thenAccept(creator ->
-      triggerDatabaseTable.findTrigger(workflow.triggerId()).thenAccept(trigger ->
-        actionDatabaseTable.findActionsByWorkflow(workflow.id()).thenAccept(actions ->
-          conditionDatabaseTable.findConditionsByWorkflow(workflow.id()).thenAccept(conditions ->
-            futureResponse.complete(assemblyWorkflowInformation(user, workflow,
-              creator, trigger, actions, conditions))))));
+    userDatabaseTable().findUserIfExists(workflow.creatorId())
+      .thenAccept(creator -> triggerDatabaseTable.findTrigger(workflow.triggerId())
+        .thenAccept(trigger -> coreModule.findTrigger(trigger.module(), trigger.type())
+          .get().findContent(trigger.id())
+          .thenAccept(triggerContent -> actionDatabaseTable.findActionsByWorkflow(workflow.id())
+            .thenAccept(actions -> findActionsContent(actions)
+              .thenAccept(actionsContent -> conditionDatabaseTable.findConditionsByWorkflow(workflow.id())
+                .thenAccept(conditions -> futureResponse.complete(
+                  assemblyWorkflowInformation(user, workflow, creator, trigger,
+                    triggerContent, actionsContent, conditions))))))));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<ActionEntry, Map<String, Object>>> findActionsContent(
+    List<ActionEntry> actions
+  ) {
+    var futureResponse = new CompletableFuture<Map<ActionEntry, Map<String, Object>>>();
+    AsyncIterator.execute(actions, action -> coreModule.findAction(action.module(),
+        action.type()).get().findContent(action.id()).thenApply(content ->
+        new AbstractMap.SimpleEntry(action, content)),
+      actions.size(), result -> result.stream().collect(
+        Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     return futureResponse;
   }
 
   private Map<String, Object> assemblyWorkflowInformation(
     User user, WorkflowEntry workflow, User creator, TriggerEntry trigger,
-    List<ActionEntry> actions, List<ConditionEntry> conditions
+    Map<String, Object> triggerContent, Map<ActionEntry, Map<String, Object>> actions,
+    List<ConditionEntry> conditions
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", workflow.id());
@@ -143,14 +158,14 @@ public final class WorkflowInformationController extends WorkflowController {
     information.put("created", timeMillisecondsToDate(workflow.created()));
     information.put("creator", creator.name());
     information.put("armed", trigger.state() == TriggerState.ARMED);
-    information.putAll(assemblyTriggerInformation(user, trigger));
+    information.putAll(assemblyTriggerInformation(user, trigger, triggerContent));
     information.putAll(assemblyActionsInformation(user, actions));
     information.putAll(assemblyConditionsInformation(user, conditions));
     return information;
   }
 
   private Map<String, Object> assemblyTriggerInformation(
-    User user, TriggerEntry trigger
+    User user, TriggerEntry trigger, Map<String, Object> content
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("triggerModule", trigger.module());
@@ -160,16 +175,18 @@ public final class WorkflowInformationController extends WorkflowController {
     information.put("triggerTypeDescription", coreModule.translate(user,
       coreModule.findTriggerInformation(trigger.module(),
         trigger.type()).get().description()));
-    information.put("triggerContent", trigger.content());
+    information.put("triggerContent", new JSONObject(content).toString());
     return information;
   }
 
   private Map<String, Object> assemblyActionsInformation(
-    User user, List<ActionEntry> actions
+    User user, Map<ActionEntry, Map<String, Object>> actions
   ) {
     var information = Maps.<String, Object>newHashMap();
     var actionsInformation = Lists.<Map<String, Object>>newArrayList();
-    for (var action : actions) {
+    for (var entry : actions.entrySet()) {
+      var action = entry.getKey();
+      var content = entry.getValue();
       var actionInformation = Maps.<String, Object>newHashMap();
       actionInformation.put("actionIndex", action.actionIndex());
       actionInformation.put("actionModule", action.module());
@@ -179,7 +196,7 @@ public final class WorkflowInformationController extends WorkflowController {
       actionInformation.put("actionTypeDescription", coreModule.translate(user,
         coreModule.findActionInformation(action.module(),
           action.type()).get().description()));
-      actionInformation.put("actionContent", action.content());
+      actionInformation.put("actionContent", new JSONObject(content).toString());
       actionsInformation.add(actionInformation);
     }
     information.put("actions", actionsInformation);

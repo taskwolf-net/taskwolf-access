@@ -6,8 +6,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.action.ActionDatabaseTable;
+import net.taskwolf.core.action.ActionEntry;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
+import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
+import net.taskwolf.core.trigger.TriggerEntry;
 import net.taskwolf.core.trigger.TriggerState;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -287,14 +290,28 @@ public final class WorkflowModificationController extends WorkflowController {
     if (!checkWorkflowAuthorization(user, workflow)) {
       return;
     }
+
     deleteWorkflow(workflow);
   }
 
   public void deleteWorkflow(WorkflowEntry workflow) {
+    AsyncIterator.execute(workflow.actionIds(), actionDatabaseTable::findAction,
+      workflow.actionIds().size(), actions ->
+        triggerDatabaseTable.findTrigger(workflow.triggerId()).thenAccept(
+          trigger -> deleteWorkflow(workflow, trigger, actions)));
+  }
+
+  private void deleteWorkflow(
+    WorkflowEntry workflow, TriggerEntry trigger, List<ActionEntry> actions
+  ) {
     workflowDatabaseTable().deleteWorkflow(workflow.id());
     triggerDatabaseTable.deleteTrigger(workflow.triggerId());
-    for (var action : workflow.actionIds()) {
-      actionDatabaseTable.deleteAction(action);
+    coreModule.findTrigger(trigger.module(), trigger.type()).ifPresent(value ->
+      value.delete(trigger.id()));
+    for (var action : actions) {
+      actionDatabaseTable.deleteAction(action.id());
+      coreModule.findAction(action.module(), action.type()).ifPresent(value ->
+        value.delete(action.id()));
     }
     for (var condition : workflow.conditionIds()) {
       conditionDatabaseTable.deleteCondition(condition);

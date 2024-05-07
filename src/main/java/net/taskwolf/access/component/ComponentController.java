@@ -132,10 +132,13 @@ public final class ComponentController extends TaskwolfRestController {
     for (var variable : variables) {
       var variableInformation = Maps.<String, Object>newHashMap();
       variableInformation.put("identifier", variable.identifier());
-      variableInformation.put("name", coreModule.translate(user, variable.displayName()));
+      variableInformation.put("name", coreModule.translate(user,
+        variable.displayName()));
       if (variable instanceof InputComponentVariable inputVariable) {
         variableInformation.put("description", coreModule.translate(user,
           inputVariable.description()));
+        variableInformation.put("placeholder", coreModule.translate(user,
+          inputVariable.placeholder()));
         variableInformation.put("type", inputVariable.type());
         variableInformation.put("dataType", inputVariable.dataType());
       }

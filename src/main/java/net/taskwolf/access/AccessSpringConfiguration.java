@@ -1,6 +1,5 @@
 package net.taskwolf.access;
 
-import io.jsonwebtoken.SignatureAlgorithm;
 import jakarta.annotation.PostConstruct;
 import net.taskwolf.core.distribution.DistributionConfiguration;
 import net.taskwolf.core.distribution.Node;
@@ -11,10 +10,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.crypto.spec.SecretKeySpec;
 import java.net.http.HttpClient;
-import java.nio.charset.StandardCharsets;
-import java.security.Key;
 
 @Configuration
 public class AccessSpringConfiguration {

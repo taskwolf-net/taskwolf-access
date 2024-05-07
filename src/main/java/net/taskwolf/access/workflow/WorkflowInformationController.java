@@ -51,7 +51,8 @@ public final class WorkflowInformationController extends WorkflowController {
     ConditionInformationRepository conditionRepository,
     UserTargetDatabaseTable userTargetDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable, workflowDatabaseTable);
+    super(secretKey, userDatabaseTable, workflowDatabaseTable,
+      actionDatabaseTable, conditionDatabaseTable);
     this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;

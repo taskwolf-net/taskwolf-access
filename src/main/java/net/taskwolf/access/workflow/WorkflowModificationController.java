@@ -28,7 +28,6 @@ import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -50,7 +49,8 @@ public final class WorkflowModificationController extends WorkflowController {
     TimelineDatabaseTable timelineDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable, workflowDatabaseTable);
+    super(secretKey, userDatabaseTable, workflowDatabaseTable,
+      actionDatabaseTable, conditionDatabaseTable);
     this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
@@ -171,35 +171,6 @@ public final class WorkflowModificationController extends WorkflowController {
             description, executions, timelineEntries, state))));
   }
 
-  private CompletableFuture<List<UUID>> generateActionIds(int number) {
-    return generateMultipleIds(number, actionDatabaseTable::generateAvailableActionId);
-  }
-
-  private CompletableFuture<List<UUID>> generateConditionIds(int number) {
-    return generateMultipleIds(number, conditionDatabaseTable::generateAvailableConditionId);
-  }
-
-  private CompletableFuture<List<UUID>> generateMultipleIds(
-    int number, Callable<CompletableFuture<UUID>> generator
-  ) {
-    var futureResponse = new CompletableFuture<List<UUID>>();
-    var ids = Lists.<UUID>newArrayList();
-    if (number == 0) {
-      futureResponse.complete(ids);
-      return futureResponse;
-    }
-    for (int i = 0; i < number; i++) {
-      try {
-        generator.call().thenAccept(ids::add)
-          .thenApply(value -> ids.size() == number &&
-            futureResponse.complete(ids));
-      } catch (Exception exception) {
-        exception.printStackTrace();
-      }
-    }
-    return futureResponse;
-  }
-
   private void createWorkflow(
     UUID workflowId, UUID creatorId, UUID ownerId,
     UUID triggerId, TaskwolfRequestBody triggerData, List<UUID> actionIds,
@@ -290,7 +261,6 @@ public final class WorkflowModificationController extends WorkflowController {
     if (!checkWorkflowAuthorization(user, workflow)) {
       return;
     }
-
     deleteWorkflow(workflow);
   }
 

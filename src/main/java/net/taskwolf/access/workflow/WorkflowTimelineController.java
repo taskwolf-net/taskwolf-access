@@ -6,10 +6,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.action.ActionDatabaseTable;
+import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
-import net.taskwolf.core.workflow.Workflow;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
 import net.taskwolf.core.workflow.timeline.Timeline;
@@ -24,7 +24,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.security.Key;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -35,10 +34,13 @@ public final class WorkflowTimelineController extends WorkflowController {
 
   private WorkflowTimelineController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    WorkflowDatabaseTable workflowDatabaseTable, CoreModule coreModule,
+    WorkflowDatabaseTable workflowDatabaseTable,
+    ActionDatabaseTable actionDatabaseTable,
+    ConditionDatabaseTable conditionDatabaseTable, CoreModule coreModule,
     TimelineFactory timelineFactory, TimelineDatabaseTable timelineDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable, workflowDatabaseTable);
+    super(secretKey, userDatabaseTable, workflowDatabaseTable,
+      actionDatabaseTable, conditionDatabaseTable);
     this.coreModule = coreModule;
     this.timelineFactory = timelineFactory;
     this.timelineDatabaseTable = timelineDatabaseTable;

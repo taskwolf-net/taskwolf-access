@@ -105,8 +105,8 @@ public final class ProcessInformationController extends TaskwolfRestController {
     List<UUID> ownerIds
   ) {
     var futureResponse = new CompletableFuture<List<Process>>();
-    AsyncListIterator.execute(ownerIds, processDatabaseTable::findProcessesOfOwner,
-      ownerIds.size(), futureResponse::complete);
+    AsyncListIterator.execute(ownerIds, processDatabaseTable::findProcessesOfOwner)
+      .thenAccept(futureResponse::complete);
     return futureResponse;
   }
 
@@ -118,7 +118,7 @@ public final class ProcessInformationController extends TaskwolfRestController {
         Lists.newArrayList()));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(processes, this::gatherProcessInformation, processes.size(),
+    AsyncIterator.execute(processes, this::gatherProcessInformation).thenAccept(
       information -> futureResponse.complete(Map.of("processes", information)));
     return futureResponse;
   }

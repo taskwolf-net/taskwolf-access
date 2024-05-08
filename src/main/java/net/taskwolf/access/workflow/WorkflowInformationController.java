@@ -99,8 +99,8 @@ public final class WorkflowInformationController extends WorkflowController {
     List<UUID> ownerIds
   ) {
     var futureResponse = new CompletableFuture<List<WorkflowEntry>>();
-    AsyncListIterator.execute(ownerIds, workflowDatabaseTable()::findWorkflowsOfOwner,
-      ownerIds.size(), futureResponse::complete);
+    AsyncListIterator.execute(ownerIds, workflowDatabaseTable()::findWorkflowsOfOwner)
+      .thenAccept(futureResponse::complete);
     return futureResponse;
   }
 
@@ -113,8 +113,8 @@ public final class WorkflowInformationController extends WorkflowController {
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     AsyncIterator.execute(workflows, workflow ->
-        gatherWorkflowInformation(user, workflow), workflows.size(),
-      information -> futureResponse.complete(Map.of("workflows", information)));
+        gatherWorkflowInformation(user, workflow)).thenAccept(information ->
+      futureResponse.complete(Map.of("workflows", information)));
     return futureResponse;
   }
 
@@ -140,11 +140,10 @@ public final class WorkflowInformationController extends WorkflowController {
   ) {
     var futureResponse = new CompletableFuture<Map<ActionEntry, Map<String, Object>>>();
     AsyncIterator.execute(actions, action -> coreModule.findAction(action.module(),
-        action.type()).get().findContent(action.id()).thenApply(content ->
-        new AbstractMap.SimpleEntry(action, content)),
-      actions.size(), result -> futureResponse.complete(result.stream().collect(
-        Collectors.toMap(entry -> (ActionEntry) entry.getKey(),
-          entry -> (Map<String, Object>) entry.getValue()))));
+      action.type()).get().findContent(action.id()).thenApply(content ->
+      new AbstractMap.SimpleEntry(action, content))).thenAccept(result ->
+      futureResponse.complete(result.stream().collect(Collectors.toMap(entry ->
+        (ActionEntry) entry.getKey(), entry -> (Map<String, Object>) entry.getValue()))));
     return futureResponse;
   }
 

@@ -55,8 +55,8 @@ public final class TargetController extends TaskwolfRestController {
     User user, List<UUID> organizations, UUID applicantId, UUID currentTarget
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(organizations, this::gatherTargetInformation,
-      organizations.size(), information -> futureResponse.complete(
+    AsyncIterator.execute(organizations, this::gatherTargetInformation)
+      .thenAccept(information -> futureResponse.complete(
         finishTargetsInformation(user, information, applicantId, currentTarget)));
     return futureResponse;
   }

@@ -99,7 +99,7 @@ public final class StatisticsController extends TaskwolfRestController {
       .filter(module -> module.module().accountLink() != null)
       .filter(module -> !module.module().accountLink().registrationUrl(targetId, "").isEmpty()).toList();
     AsyncIterator.execute(modules.stream().map(module -> module.module().accountLink()).toList(),
-      link -> link.accountExists(targetId), modules.size(), existingAccounts ->
+      link -> link.accountExists(targetId)).thenAccept(existingAccounts ->
         findWorkflowsData(targetId, organizationMembers, maxOrganizationMembers,
           (int) existingAccounts.stream().filter(exists -> exists).count(),
           modules.size(), response));
@@ -133,8 +133,8 @@ public final class StatisticsController extends TaskwolfRestController {
     var moduleUsages = assignModuleUsagesToCreators(workflows);
     var staffs = Lists.newArrayList(moduleUsages.keySet());
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(staffs, staff -> userDatabaseTable().findUserIfExists(staff),
-      staffs.size(), staffUsers -> futureResponse.complete(
+    AsyncIterator.execute(staffs, staff -> userDatabaseTable().findUserIfExists(staff))
+      .thenAccept(staffUsers -> futureResponse.complete(
         assemblyStaffModuleUsages(staffUsers.stream().filter(staff ->
           !staff.email().equalsIgnoreCase("Unknown")).toList(), moduleUsages)));
     return futureResponse;
@@ -186,8 +186,8 @@ public final class StatisticsController extends TaskwolfRestController {
     List<WorkflowEntry> workflowEntries, CompletableFuture<Map<String, Object>> response
   ) {
     AsyncListIterator.execute(workflowEntries, workflow ->
-        workflowExecutionDatabaseTable.findWorkflowExecutions(workflow.id()),
-      workflowEntries.size(), executionDates -> response.complete(assemblyStatistics(
+        workflowExecutionDatabaseTable.findWorkflowExecutions(workflow.id()))
+      .thenAccept(executionDates -> response.complete(assemblyStatistics(
         workflows, maxWorkflows, failingWorkflows, organizationMembers,
         maxOrganizationMembers, linkedAccounts, maxLinkedAccounts, moduleUsage,
         staffModuleUsages, classifyWorkflowNumbers(workflowEntries),

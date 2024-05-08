@@ -62,7 +62,7 @@ public final class AccountController extends TaskwolfRestController {
     var futureResponse = new CompletableFuture<List<RegisteredModule>>();
     AsyncIterator.execute(modules, module -> module.module().accountLink()
         .accountExists(targetId).thenApply(exists ->
-          new AbstractMap.SimpleEntry<>(module, exists)), modules.size(),
+          new AbstractMap.SimpleEntry<>(module, exists))).thenAccept(
       entries -> futureResponse.complete(entries.stream().filter(
         AbstractMap.SimpleEntry::getValue).map(AbstractMap.SimpleEntry::getKey).toList()));
     return futureResponse;
@@ -120,7 +120,7 @@ public final class AccountController extends TaskwolfRestController {
   private void deleteAccounts(UUID targetId, List<AccountLink> accountLinks) {
     AsyncIterator.execute(accountLinks, accountLink ->
         accountLink.findAccounts(targetId).thenApply(identifier ->
-          new AbstractMap.SimpleEntry<>(accountLink, identifier)), accountLinks.size(),
+          new AbstractMap.SimpleEntry<>(accountLink, identifier))).thenAccept(
       accounts -> accounts.forEach(account -> account.getValue().forEach(identifier ->
         account.getKey().removeAccount(targetId, identifier))));
   }

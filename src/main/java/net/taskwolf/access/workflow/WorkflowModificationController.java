@@ -265,10 +265,9 @@ public final class WorkflowModificationController extends WorkflowController {
   }
 
   public void deleteWorkflow(WorkflowEntry workflow) {
-    AsyncIterator.execute(workflow.actionIds(), actionDatabaseTable::findAction,
-      workflow.actionIds().size(), actions ->
-        triggerDatabaseTable.findTrigger(workflow.triggerId()).thenAccept(
-          trigger -> deleteWorkflow(workflow, trigger, actions)));
+    AsyncIterator.execute(workflow.actionIds(), actionDatabaseTable::findAction)
+      .thenAccept(actions -> triggerDatabaseTable.findTrigger(workflow.triggerId())
+        .thenAccept(trigger -> deleteWorkflow(workflow, trigger, actions)));
   }
 
   private void deleteWorkflow(

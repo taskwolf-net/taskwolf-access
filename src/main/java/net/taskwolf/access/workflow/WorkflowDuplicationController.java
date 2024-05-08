@@ -115,8 +115,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
         actionDatabaseTable.findAction(actionId).thenCompose(action ->
           coreModule.findAction(action.module(), action.type())
             .get().findContent(actionId).thenAccept(content ->
-              actions.put(action, content))), workflow.actionIds().size(),
-      value -> duplicateWorkflowActions(duplicateWorkflowId, actions, actionIds));
+              actions.put(action, content))).thenAccept(
+      value -> duplicateWorkflowActions(duplicateWorkflowId, actions, actionIds)));
   }
 
   private void duplicateWorkflowActions(
@@ -140,9 +140,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
     WorkflowEntry workflow, UUID duplicateWorkflowId, List<UUID> conditionIds
   ) {
     AsyncIterator.execute(workflow.conditionIds(),
-      conditionDatabaseTable::findCondition, workflow.conditionIds().size(),
-      conditions -> duplicateWorkflowConditions(duplicateWorkflowId, conditions,
-        conditionIds));
+      conditionDatabaseTable::findCondition).thenAccept(conditions ->
+        duplicateWorkflowConditions(duplicateWorkflowId, conditions, conditionIds));
   }
 
   private void duplicateWorkflowConditions(

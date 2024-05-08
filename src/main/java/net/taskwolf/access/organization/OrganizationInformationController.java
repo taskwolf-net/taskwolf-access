@@ -75,9 +75,8 @@ public final class OrganizationInformationController extends TaskwolfRestControl
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     AsyncIterator.execute(organizations, organization ->
-        gatherOrganizationInformation(organization, applicantId),
-      organizations.size(), information -> futureResponse.complete(
-        Map.of("organizations", information)));
+      gatherOrganizationInformation(organization, applicantId)).thenAccept(
+        information -> futureResponse.complete(Map.of("organizations", information)));
     return futureResponse;
   }
 
@@ -99,25 +98,26 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     List<UUID> memberIds
   ) {
     var futureResponse = new CompletableFuture<List<User>>();
-    AsyncIterator.execute(memberIds, member -> userDatabaseTable().findUser(member),
-      memberIds.size(), futureResponse::complete);
+    AsyncIterator.execute(memberIds, member -> userDatabaseTable().findUser(member))
+      .thenAccept(futureResponse::complete);
     return futureResponse;
   }
 
-  private CompletableFuture<List<Map.Entry<UUID, String>>> findProfilePictures(
+  private CompletableFuture<List<AbstractMap.SimpleEntry<UUID, String>>> findProfilePictures(
     List<UUID> memberIds
   ) {
-    var futureResponse = new CompletableFuture<List<Map.Entry<UUID, String>>>();
+    var futureResponse = new CompletableFuture<List<AbstractMap.SimpleEntry<UUID, String>>>();
     AsyncIterator.execute(memberIds, member -> profilePictureDatabaseTable
         .findProfilePicture(member).thenApply(picture ->
-          new AbstractMap.SimpleEntry<>(member, picture)),
-      memberIds.size(), futureResponse::complete);
+          new AbstractMap.SimpleEntry<>(member, picture)))
+      .thenAccept(futureResponse::complete);
     return futureResponse;
   }
 
   private Map<String, Object> assemblyOrganizationInformation(
     Organization organization, User owner, String ownerProfilePicture,
-    List<User> members, List<Map.Entry<UUID, String>> memberProfilePictures,
+    List<User> members,
+    List<AbstractMap.SimpleEntry<UUID, String>> memberProfilePictures,
     UUID applicantId
   ) {
     var information = Maps.<String, Object>newHashMap();

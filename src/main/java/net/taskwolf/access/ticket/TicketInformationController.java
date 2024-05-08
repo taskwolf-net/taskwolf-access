@@ -54,8 +54,8 @@ public final class TicketInformationController extends TicketController {
     var ticketId = body.getUUID("ticket");
     var userId = findUserId(request);
     performTicketOperation(userId, ticketId, ticket -> AsyncIterator.execute(
-      ticket.messages(), ticketMessageDatabaseTable()::findTicketMessage,
-      ticket.messages().size(), messages -> detailedTicketInformation(userId,
+      ticket.messages(), ticketMessageDatabaseTable()::findTicketMessage)
+        .thenAccept(messages -> detailedTicketInformation(userId,
           ticket, messages).thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
@@ -74,9 +74,9 @@ public final class TicketInformationController extends TicketController {
     UUID userId, Ticket ticket, List<TicketMessage> messages
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(messages, message -> messageInformation(userId, message),
-      messages.size(), information ->
-        futureResponse.complete(assemblyDetailedTicketInformation(ticket, information)));
+    AsyncIterator.execute(messages, message -> messageInformation(userId, message))
+      .thenAccept(information -> futureResponse.complete(
+        assemblyDetailedTicketInformation(ticket, information)));
     return futureResponse;
   }
 

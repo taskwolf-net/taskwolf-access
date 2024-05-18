@@ -7,11 +7,11 @@ import net.taskwolf.access.account.AccountController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.worker.WorkerDistribution;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.device.structure.UserDeviceDatabaseTable;
 import net.taskwolf.process.access.ProcessModificationController;
@@ -32,7 +32,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class OrganizationModificationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
-  private final Distribution distribution;
+  private final WorkerDistribution distribution;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowModificationController workflowModificationController;
   private final ProcessDatabaseTable processDatabaseTable;
@@ -45,8 +45,8 @@ public final class OrganizationModificationController extends TaskwolfRestContro
 
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable, Distribution distribution,
-    WorkflowDatabaseTable workflowDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable,
+    WorkerDistribution distribution, WorkflowDatabaseTable workflowDatabaseTable,
     WorkflowModificationController workflowModificationController,
     ProcessDatabaseTable processDatabaseTable,
     ProcessModificationController processModificationController,
@@ -279,6 +279,5 @@ public final class OrganizationModificationController extends TaskwolfRestContro
       webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
     userDeviceDatabaseTable.deleteDevices(organization.id());
     accountController.deleteAllAccounts(organization.id());
-    distribution.removeUser(organization.id());
   }
 }

@@ -9,7 +9,6 @@ import net.taskwolf.access.ticket.TicketModificationController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
@@ -59,7 +58,6 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final DeviceDatabaseTable deviceDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final AccountController accountController;
-  private final Distribution distribution;
   private final GrafanaUserFactory grafanaUserFactory;
 
   private AccountSettingController(
@@ -83,8 +81,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     TicketModificationController ticketModificationController,
     DeviceDatabaseTable deviceDatabaseTable,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
-    AccountController accountController, Distribution distribution,
-    GrafanaUserFactory grafanaUserFactory
+    AccountController accountController, GrafanaUserFactory grafanaUserFactory
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
@@ -107,7 +104,6 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.deviceDatabaseTable = deviceDatabaseTable;
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.accountController = accountController;
-    this.distribution = distribution;
     this.grafanaUserFactory = grafanaUserFactory;
   }
 
@@ -298,7 +294,6 @@ public final class AccountSettingController extends TaskwolfRestController {
     profilePictureDatabaseTable.deleteProfilePicture(user.id());
     notificationDatabaseTable.deleteNotificationSettings(user.id());
     accountController.deleteAllAccounts(user.id());
-    distribution.removeUser(user.id());
     workflowDatabaseTable.findWorkflowsOfOwner(user.id()).thenAccept(workflows ->
       workflows.forEach(workflowModificationController::deleteWorkflow));
     processDatabaseTable.findProcessesOfOwner(user.id()).thenAccept(processes ->

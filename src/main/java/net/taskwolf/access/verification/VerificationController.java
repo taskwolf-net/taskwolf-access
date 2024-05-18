@@ -6,11 +6,11 @@ import com.google.common.hash.Hashing;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.distribution.Distribution;
 import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.user.*;
+import net.taskwolf.core.worker.WorkerDistribution;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,7 +33,7 @@ public final class VerificationController {
   private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
   private final String defaultProfilePicture;
   private final NotificationDatabaseTable notificationDatabaseTable;
-  private final Distribution distribution;
+  private final WorkerDistribution distribution;
   private final GrafanaUserFactory grafanaUserFactory;
 
   private VerificationController(
@@ -43,8 +43,8 @@ public final class VerificationController {
     UserTargetDatabaseTable userTargetDatabaseTable,
     ProfilePictureDatabaseTable profilePictureDatabaseTable,
     @Qualifier("defaultProfilePicture") String defaultProfilePicture,
-    NotificationDatabaseTable notificationDatabaseTable, Distribution distribution,
-    GrafanaUserFactory grafanaUserFactory
+    NotificationDatabaseTable notificationDatabaseTable,
+    WorkerDistribution distribution, GrafanaUserFactory grafanaUserFactory
   ) {
     this.secretKey = secretKey;
     this.verificationMail = verificationMail;

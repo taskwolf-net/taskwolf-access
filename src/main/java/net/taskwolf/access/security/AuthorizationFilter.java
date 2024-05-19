@@ -9,7 +9,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -25,11 +24,6 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     HttpServletRequest request, HttpServletResponse response,
     FilterChain filterChain
   ) throws ServletException, IOException {
-    prepareResponseHeaders(response);
-    if (request.getMethod().equals(RequestMethod.OPTIONS.name())) {
-      response.setStatus(HttpServletResponse.SC_OK);
-      return;
-    }
     var apiKey = request.getHeader("Authorization");
     if (apiKey == null) {
       response.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -61,14 +55,6 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     var url = request.getRequestURI();
     return controllers.contains(url) || url.contains("/team/") ||
       url.contains("/webhook/trigger/");
-  }
-
-  private void prepareResponseHeaders(HttpServletResponse response) {
-    response.setHeader("Content-Type", "application/json");
-    response.setHeader("Access-Control-Allow-Origin", "*");
-    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.setHeader("Access-Control-Max-Age", "3600");
-    response.setHeader("Access-Control-Allow-Headers", "content-type, authorization, whitelist-key");
   }
 
   private boolean validateApiKey(String apiKey) {

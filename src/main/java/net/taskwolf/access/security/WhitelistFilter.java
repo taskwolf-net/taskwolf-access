@@ -9,7 +9,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.whitelist.WhitelistConfiguration;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -24,11 +23,6 @@ public class WhitelistFilter extends OncePerRequestFilter {
     HttpServletRequest request, HttpServletResponse response,
     FilterChain filterChain
   ) throws ServletException, IOException {
-    prepareResponseHeaders(response);
-    if (request.getMethod().equals(RequestMethod.OPTIONS.name())) {
-      response.setStatus(HttpServletResponse.SC_OK);
-      return;
-    }
     if (!whitelistConfiguration.whitelistEnabled()) {
       filterChain.doFilter(request, response);
       return;
@@ -55,13 +49,5 @@ public class WhitelistFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/google/login/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");
     return controllers.contains(request.getRequestURI());
-  }
-
-  private void prepareResponseHeaders(HttpServletResponse response) {
-    response.setHeader("Content-Type", "application/json");
-    response.setHeader("Access-Control-Allow-Origin", "*");
-    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.setHeader("Access-Control-Max-Age", "3600");
-    response.setHeader("Access-Control-Allow-Headers", "content-type, authorization, whitelist-key");
   }
 }

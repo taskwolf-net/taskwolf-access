@@ -9,6 +9,7 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
+import net.taskwolf.core.tutorial.TutorialDatabaseTable;
 import net.taskwolf.core.user.*;
 import net.taskwolf.core.worker.WorkerDistribution;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,6 +36,7 @@ public final class VerificationController {
   private final NotificationDatabaseTable notificationDatabaseTable;
   private final WorkerDistribution distribution;
   private final GrafanaUserFactory grafanaUserFactory;
+  private final TutorialDatabaseTable tutorialDatabaseTable;
 
   private VerificationController(
     Key secretKey, @Qualifier("verificationMail") TaskwolfMail verificationMail,
@@ -44,7 +46,8 @@ public final class VerificationController {
     ProfilePictureDatabaseTable profilePictureDatabaseTable,
     @Qualifier("defaultProfilePicture") String defaultProfilePicture,
     NotificationDatabaseTable notificationDatabaseTable,
-    WorkerDistribution distribution, GrafanaUserFactory grafanaUserFactory
+    WorkerDistribution distribution, GrafanaUserFactory grafanaUserFactory,
+    TutorialDatabaseTable tutorialDatabaseTable
   ) {
     this.secretKey = secretKey;
     this.verificationMail = verificationMail;
@@ -56,6 +59,7 @@ public final class VerificationController {
     this.notificationDatabaseTable = notificationDatabaseTable;
     this.distribution = distribution;
     this.grafanaUserFactory = grafanaUserFactory;
+    this.tutorialDatabaseTable = tutorialDatabaseTable;
   }
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
@@ -119,6 +123,7 @@ public final class VerificationController {
     verificationMail.send(email, VERIFICATIION_EMAIL_TITLE, body);
     distribution.addUser(userId);
     grafanaUserFactory.createUser(userId).create("");
+    tutorialDatabaseTable.insertTutorial(userId, 0, 0);
   }
 
   @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)

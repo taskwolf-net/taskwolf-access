@@ -19,6 +19,8 @@ import net.taskwolf.core.template.TemplateDatabaseTable;
 import net.taskwolf.core.ticket.TicketDatabaseTable;
 import net.taskwolf.core.ticket.TicketMessageDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
+import net.taskwolf.core.tutorial.TutorialDatabaseTable;
+import net.taskwolf.core.tutorial.level.TutorialLevelRegistry;
 import net.taskwolf.core.user.*;
 import net.taskwolf.core.whitelist.WhitelistConfiguration;
 import net.taskwolf.core.worker.WorkerDistribution;
@@ -56,6 +58,8 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final TicketDatabaseTable ticketDatabaseTable;
   private final TicketMessageDatabaseTable ticketMessageDatabaseTable;
   private final NotificationDatabaseTable notificationDatabaseTable;
+  private final TutorialDatabaseTable tutorialDatabaseTable;
+  private final TutorialLevelRegistry tutorialLevelRegistry;
   private final WhitelistConfiguration whitelistConfiguration;
   private final WorkerDistribution distribution;
   private final WorkerProxyClient workerProxyClient;
@@ -89,6 +93,8 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("ticketDatabaseTable", ticketDatabaseTable);
     beanFactory.registerSingleton("ticketMessageDatabaseTable", ticketMessageDatabaseTable);
     beanFactory.registerSingleton("notificationDatabaseTable", notificationDatabaseTable);
+    beanFactory.registerSingleton("tutorialDatabaseTable", tutorialDatabaseTable);
+    beanFactory.registerSingleton("tutorialLevelRegistry", tutorialLevelRegistry);
     beanFactory.registerSingleton("whitelistConfiguration", whitelistConfiguration);
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("workerProxyClient", workerProxyClient);

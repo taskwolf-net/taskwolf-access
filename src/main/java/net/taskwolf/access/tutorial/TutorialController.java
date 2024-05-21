@@ -64,6 +64,8 @@ public final class TutorialController extends TaskwolfRestController {
     state.put("title", coreModule.translate(user, step.title()));
     state.put("description", coreModule.translate(user, step.description()));
     state.put("element", step.element());
+    state.put("position", step.position());
+    state.put("shiftContentDown", step.shiftContentDown());
     state.put("continue", coreModule.translate(user, "tutorial.continue"));
     state.put("cancel", coreModule.translate(user, "tutorial.cancel"));
     return state;

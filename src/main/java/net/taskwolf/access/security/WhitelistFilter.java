@@ -44,6 +44,7 @@ public class WhitelistFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
     var controllers = Lists.<String>newArrayList();
+    controllers.add("/" + CURRENT_API_VERSION + "/");
     controllers.add("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
     controllers.add("/" + CURRENT_API_VERSION + "/discord/guild/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/login/");

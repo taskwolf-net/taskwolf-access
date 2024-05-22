@@ -42,6 +42,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
     var controllers = Lists.<String>newArrayList();
+    controllers.add("/" + CURRENT_API_VERSION + "/");
     controllers.add("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/register/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/complete/");

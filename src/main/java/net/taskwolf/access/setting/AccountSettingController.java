@@ -15,6 +15,7 @@ import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.ticket.TicketDatabaseTable;
+import net.taskwolf.core.tutorial.TutorialDatabaseTable;
 import net.taskwolf.core.user.*;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.device.structure.DeviceDatabaseTable;
@@ -58,6 +59,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final DeviceDatabaseTable deviceDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final AccountController accountController;
+  private final TutorialDatabaseTable tutorialDatabaseTable;
   private final GrafanaUserFactory grafanaUserFactory;
 
   private AccountSettingController(
@@ -81,7 +83,9 @@ public final class AccountSettingController extends TaskwolfRestController {
     TicketModificationController ticketModificationController,
     DeviceDatabaseTable deviceDatabaseTable,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
-    AccountController accountController, GrafanaUserFactory grafanaUserFactory
+    AccountController accountController,
+    TutorialDatabaseTable tutorialDatabaseTable,
+    GrafanaUserFactory grafanaUserFactory
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
@@ -104,6 +108,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.deviceDatabaseTable = deviceDatabaseTable;
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.accountController = accountController;
+    this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.grafanaUserFactory = grafanaUserFactory;
   }
 
@@ -316,6 +321,7 @@ public final class AccountSettingController extends TaskwolfRestController {
       organizationDatabaseTable.findOrganization(organizationId).thenAccept(
         organization -> accountDeletionHandleOrganization(user, organization));
     }
+    tutorialDatabaseTable.deleteTutorial(user.id());
     grafanaUserFactory.createUser(user.id()).delete();
   }
 

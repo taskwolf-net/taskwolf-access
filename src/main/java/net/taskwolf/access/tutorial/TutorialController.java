@@ -56,9 +56,11 @@ public final class TutorialController extends TaskwolfRestController {
   private Map<String, Object> findTutorialState(
     User user, Tutorial tutorial
   ) {
-    var level = tutorialLevelRegistry.findLevel(tutorial.level()).get();
+    var level = tutorialLevelRegistry.findLevel(tutorial.level());
     var step = level.steps().get(tutorial.step());
     var state = Maps.<String, Object>newHashMap();
+    var isFinished = tutorial.level() == tutorialLevelRegistry.size() &&
+      tutorial.step() == level.steps().size() - 1;
     state.put("active", true);
     state.put("page", level.page());
     state.put("title", coreModule.translate(user, step.title()));
@@ -66,7 +68,8 @@ public final class TutorialController extends TaskwolfRestController {
     state.put("element", step.element());
     state.put("position", step.position());
     state.put("shiftContentDown", step.shiftContentDown());
-    state.put("continue", coreModule.translate(user, "tutorial.continue"));
+    state.put("continue", isFinished ? coreModule.translate(user, "tutorial.finish") :
+      coreModule.translate(user, "tutorial.continue"));
     state.put("cancel", coreModule.translate(user, "tutorial.cancel"));
     return state;
   }
@@ -93,14 +96,13 @@ public final class TutorialController extends TaskwolfRestController {
   private Map<String, Object> nextTutorialStep(
     User user, Tutorial tutorial
   ) {
-    var level = tutorialLevelRegistry.findLevel(tutorial.level()).get();
+    var level = tutorialLevelRegistry.findLevel(tutorial.level());
     if (tutorial.step() + 1 < level.steps().size()) {
       tutorial.updateStep(tutorial.step() + 1);
       tutorialDatabaseTable.updateTutorial(tutorial);
       return findTutorialState(user, tutorial);
     }
-    var highestLevelId = tutorialLevelRegistry.findHighestLevelId();
-    if (tutorial.level() + 1 > highestLevelId) {
+    if (tutorial.level() + 1 > tutorialLevelRegistry.size()) {
       tutorialDatabaseTable.deleteTutorial(user.id());
       return Map.of("active", false);
     }
@@ -141,10 +143,12 @@ public final class TutorialController extends TaskwolfRestController {
   private Map<String, Object> restartTutorial(
     User user, boolean exists
   ) {
+    var tutorial = Tutorial.create(user.id(), 0, 0);
     if (exists) {
-      return Map.of("success", false);
+      tutorialDatabaseTable.updateTutorial(tutorial);
+    } else {
+      tutorialDatabaseTable.insertTutorial(tutorial);
     }
-    tutorialDatabaseTable.insertTutorial(user.id(), 0, 0);
     return Map.of("success", true);
   }
 }

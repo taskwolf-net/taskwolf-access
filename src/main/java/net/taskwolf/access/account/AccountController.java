@@ -80,9 +80,9 @@ public final class AccountController extends TaskwolfRestController {
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var registeredModule = moduleLoader.findModule(body.getString("module"));
+    var registeredModule = moduleLoader.findRegisteredModuleById(body.getString("module"));
     return registeredModule.map(module ->
-      findAccounts(findUserId(request), module)).orElse(null);
+      findAccounts(findUserId(request), module.module())).orElse(null);
   }
 
   private CompletableFuture<String> findAccounts(UUID userId, Module module) {
@@ -101,13 +101,13 @@ public final class AccountController extends TaskwolfRestController {
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var registeredModule = moduleLoader.findModule(body.getString("module"));
+    var registeredModule = moduleLoader.findRegisteredModuleById(body.getString("module"));
     if (registeredModule.isEmpty()) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return;
     }
     userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
-      target -> registeredModule.get().accountLink().removeAccount(
+      target -> registeredModule.get().module().accountLink().removeAccount(
         target, body.getString("identifier")));
   }
 
@@ -131,9 +131,9 @@ public final class AccountController extends TaskwolfRestController {
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var registeredModule = moduleLoader.findModule(body.getString("module"));
+    var registeredModule = moduleLoader.findRegisteredModuleById(body.getString("module"));
     return registeredModule.map(module ->
-      findAccountInformation(request, module.accountLink())).orElse(null);
+      findAccountInformation(request, module.module().accountLink())).orElse(null);
   }
 
   private CompletableFuture<Map<String, Object>> findAccountInformation(

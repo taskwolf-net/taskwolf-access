@@ -1,11 +1,15 @@
 package net.taskwolf.access.module;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleLoader;
+import net.taskwolf.core.module.RegisteredModule;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,61 +18,74 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class ModuleController extends TaskwolfRestController {
   private final ModuleLoader moduleLoader;
+  private final CoreModule coreModule;
 
   private ModuleController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader
+    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
+    CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
     this.moduleLoader = moduleLoader;
+    this.coreModule = coreModule;
   }
 
   @RequestMapping(path = "/module/find/", method = RequestMethod.POST)
-  public Map<String, Object> findActions(
-    @RequestBody String payload, HttpServletResponse response
+  public CompletableFuture<Map<String, Object>> findActions(
+    HttpServletRequest request, @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    return moduleLoader.findModule(body.getString("module"))
-      .map(this::moduleInformation).orElseGet(Maps::newHashMap);
+    return findUser(request).thenApply(user ->
+      moduleLoader.findRegisteredModuleById(body.getString("module"))
+        .map(module -> moduleInformation(user, module)).orElseGet(Maps::newHashMap));
   }
 
   @RequestMapping(path = "/modules/available/", method = RequestMethod.POST)
-  public Map<String, Object> findAllModules(
-    @RequestBody String payload, HttpServletResponse response
+  public CompletableFuture<Map<String, Object>> findAllModules(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var componentType = body.getString("componentType");
-    return Map.of("modules", moduleLoader.allModules().stream()
-      .filter(module -> module.moduleInformation().type().isPublic())
-      .filter(module -> moduleFitsComponentType(module, componentType))
-      .map(this::moduleInformation).toList());
+    return findUser(request).thenApply(user ->
+      Map.of("modules", moduleLoader.allRegisteredModules().stream()
+        .filter(module -> module.module().moduleInformation().type().isPublic())
+        .filter(module -> moduleFitsComponentType(module, componentType))
+        .map(module -> moduleInformation(user, module)).toList()));
   }
 
-  private boolean moduleFitsComponentType(Module module, String componentType) {
+  private boolean moduleFitsComponentType(RegisteredModule module, String componentType) {
     if (componentType.equalsIgnoreCase("trigger")) {
-      return !module.triggerRepository().isEmpty();
+      return !module.module().triggerRepository().isEmpty();
     } else if(componentType.equalsIgnoreCase("action")) {
-      return !module.actionRepository().isEmpty();
+      return !module.module().actionRepository().isEmpty();
     }
     return false;
   }
 
   @RequestMapping(path = "/modules/all/", method = RequestMethod.GET)
-  public Map<String, Object> findAllModules() {
-    return Map.of("modules", moduleLoader.allModules().stream()
-      .filter(module -> module.moduleInformation().type().isPublic())
-      .map(this::moduleInformation).toList());
+  public CompletableFuture<Map<String, Object>> findAllModules(
+    HttpServletRequest request
+  ) {
+    return findUser(request).thenApply(user ->
+      Map.of("modules", moduleLoader.allRegisteredModules().stream()
+        .filter(module -> module.module().moduleInformation().type().isPublic())
+        .map(module -> moduleInformation(user, module)).toList()));
   }
 
-  private Map<String, Object> moduleInformation(Module module) {
+  private Map<String, Object> moduleInformation(User user, RegisteredModule module) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("name", module.moduleInformation().name());
-    information.put("description", module.moduleInformation().description());
-    information.put("novelty", module.moduleInformation().novelty());
-    information.put("logo", module.moduleInformation().logo());
+    information.put("id", module.name());
+    information.put("name", coreModule.translate(user,
+      module.module().moduleInformation().name()));
+    information.put("description", coreModule.translate(user,
+      module.module().moduleInformation().description()));
+    information.put("novelty", module.module().moduleInformation().novelty());
+    information.put("logo", module.module().moduleInformation().logo());
     return information;
   }
 }

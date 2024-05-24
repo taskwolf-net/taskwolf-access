@@ -50,14 +50,14 @@ public final class ComponentController extends TaskwolfRestController {
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var registeredModule = moduleLoader.findModule(body.getString("module"));
+    var registeredModule = moduleLoader.findRegisteredModuleById(body.getString("module"));
     if (registeredModule.isEmpty()) {
       return CompletableFuture.completedFuture(Map.of("components", Lists.newArrayList()));
     }
     return findUser(request).thenApply(user ->
       body.getString("componentType").equalsIgnoreCase("trigger") ?
-        findTriggerComponents(user, registeredModule.get()) :
-        findActionComponents(user, registeredModule.get()));
+        findTriggerComponents(user, registeredModule.get().module()) :
+        findActionComponents(user, registeredModule.get().module()));
   }
 
   private Map<String, Object> findTriggerComponents(User user, Module module) {

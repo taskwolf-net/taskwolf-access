@@ -172,9 +172,10 @@ public final class ComponentController extends TaskwolfRestController {
       .entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
         entry -> (String) entry.getValue()));;
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
-      target -> select.get().select().compile(target, previousInputs)
-        .thenAccept(items -> futureResponse.complete(Map.of("items", items))));
+    findUser(request).thenAccept(user ->
+      userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
+        select.get().select().compile(user, target, previousInputs)
+          .thenAccept(items -> futureResponse.complete(Map.of("items", items)))));
     return futureResponse;
   }
 }

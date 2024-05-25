@@ -84,15 +84,15 @@ public final class StatisticsController extends TaskwolfRestController {
       return;
     }
     if (user.id().equals(targetId)) {
-      findLinkedAccountsData(targetId, 1, 1, response);
+      findLinkedAccountsData(user, targetId, 1, 1, response);
     }
     organizationDatabaseTable.findOrganization(targetId).thenAccept(organization ->
-      findLinkedAccountsData(targetId, organization.members().size() + 1,
+      findLinkedAccountsData(user, targetId, organization.members().size() + 1,
         MAX_ORGANIZATION_MEMBERS, response));
   }
 
   private void findLinkedAccountsData(
-    UUID targetId, int organizationMembers, int maxOrganizationMembers,
+    User user, UUID targetId, int organizationMembers, int maxOrganizationMembers,
     CompletableFuture<Map<String, Object>> response
   ) {
     var modules = moduleLoader.allRegisteredModules().stream()
@@ -100,31 +100,33 @@ public final class StatisticsController extends TaskwolfRestController {
       .filter(module -> !module.module().accountLink().registrationUrl(targetId, "").isEmpty()).toList();
     AsyncIterator.execute(modules.stream().map(module -> module.module().accountLink()).toList(),
       link -> link.accountExists(targetId)).thenAccept(existingAccounts ->
-        findWorkflowsData(targetId, organizationMembers, maxOrganizationMembers,
+        findWorkflowsData(user, targetId, organizationMembers, maxOrganizationMembers,
           (int) existingAccounts.stream().filter(exists -> exists).count(),
           modules.size(), response));
   }
 
   private void findWorkflowsData(
-    UUID targetId, int organizationMembers, int maxOrganizationMembers,
+    User user, UUID targetId, int organizationMembers, int maxOrganizationMembers,
     int linkedAccounts, int maxLinkedAccounts,
     CompletableFuture<Map<String, Object>> response
   ) {
     workflowDatabaseTable.findWorkflowsOfOwner(targetId).thenAccept(workflows ->
-      findModuleUsageData(workflows.size(), MAX_WORKFLOWS, (int) workflows.stream()
+      findModuleUsageData(user, workflows.size(), MAX_WORKFLOWS, (int) workflows.stream()
           .filter(workflow -> workflow.state().isFailing()).count(), organizationMembers,
         maxOrganizationMembers, linkedAccounts, maxLinkedAccounts, workflows, response));
   }
 
   private void findModuleUsageData(
-    int workflows, int maxWorkflows, int failingWorkflows, int organizationMembers,
-    int maxOrganizationMembers, int linkedAccounts, int maxLinkedAccounts,
-    List<WorkflowEntry> workflowEntries, CompletableFuture<Map<String, Object>> response
+    User user, int workflows, int maxWorkflows, int failingWorkflows,
+    int organizationMembers, int maxOrganizationMembers, int linkedAccounts,
+    int maxLinkedAccounts, List<WorkflowEntry> workflowEntries,
+    CompletableFuture<Map<String, Object>> response
   ) {
     findStaffModuleUsages(workflowEntries).thenAccept(staffModuleUsages ->
       findWorkflowTimeDependentData(workflows, maxWorkflows, failingWorkflows,
         organizationMembers, maxOrganizationMembers, linkedAccounts, maxLinkedAccounts,
-        findModuleUsage(workflowEntries), staffModuleUsages, workflowEntries, response));
+        findModuleUsage(user, workflowEntries), staffModuleUsages, workflowEntries,
+        response));
   }
 
   private CompletableFuture<Map<String, Object>> findStaffModuleUsages(
@@ -164,7 +166,7 @@ public final class StatisticsController extends TaskwolfRestController {
     return moduleUsages;
   }
 
-  private Map<String, Long> findModuleUsage(List<WorkflowEntry> workflows) {
+  private Map<String, Long> findModuleUsage(User user, List<WorkflowEntry> workflows) {
     var modules = Lists.<String>newArrayList();
     for (var workflow : workflows) {
       modules.addAll(workflow.modules());
@@ -173,7 +175,8 @@ public final class StatisticsController extends TaskwolfRestController {
       Collectors.counting()));
     var result = Maps.<String, Long>newHashMapWithExpectedSize(moduleUsage.size());
     for (var entry : moduleUsage.entrySet()) {
-      result.put(coreModule.findModuleInformation(entry.getKey()).get().name(),
+      result.put(coreModule.translate(user,
+          coreModule.findModuleInformation(entry.getKey()).get().name()),
         entry.getValue());
     }
     return result;

@@ -67,6 +67,36 @@ public final class ModuleController extends TaskwolfRestController {
     return false;
   }
 
+  @RequestMapping(path = "/modules/trigger/hot/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findHotTriggerModules(
+    HttpServletRequest request
+  ) {
+    var modules = Lists.<RegisteredModule>newArrayList();
+    modules.add(moduleLoader.findRegisteredModuleById("manual").get());
+    modules.add(moduleLoader.findRegisteredModuleById("scheduler").get());
+    modules.add(moduleLoader.findRegisteredModuleById("webhook").get());
+    modules.add(moduleLoader.findRegisteredModuleById("process").get());
+    modules.add(moduleLoader.findRegisteredModuleById("device").get());
+    modules.add(moduleLoader.findRegisteredModuleById("table").get());
+    return findUser(request).thenApply(user -> Map.of("modules",
+      modules.stream().map(module -> moduleInformation(user, module)).toList()));
+  }
+
+  @RequestMapping(path = "/modules/action/hot/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findHotActionModules(
+    HttpServletRequest request
+  ) {
+    var modules = Lists.<RegisteredModule>newArrayList();
+    modules.add(moduleLoader.findRegisteredModuleById("table").get());
+    modules.add(moduleLoader.findRegisteredModuleById("discord").get());
+    modules.add(moduleLoader.findRegisteredModuleById("gmail").get());
+    modules.add(moduleLoader.findRegisteredModuleById("device").get());
+    modules.add(moduleLoader.findRegisteredModuleById("google-calendar").get());
+    modules.add(moduleLoader.findRegisteredModuleById("google-drive").get());
+    return findUser(request).thenApply(user -> Map.of("modules",
+      modules.stream().map(module -> moduleInformation(user, module)).toList()));
+  }
+
   @RequestMapping(path = "/modules/all/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findAllModules(
     HttpServletRequest request

@@ -131,11 +131,9 @@ public final class VerificationController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
     var userId = body.getUUID("user");
-    userVerificationDatabaseTable.verificationExists(userId).thenApply(exists ->
-      complete(userId, body.getString("token"), exists));
-    return futureResponse;
+    return userVerificationDatabaseTable.verificationExists(userId)
+      .thenCompose(exists -> complete(userId, body.getString("token"), exists));
   }
 
   private CompletableFuture<Map<String, Object>> complete(
@@ -144,20 +142,21 @@ public final class VerificationController {
     if (!tokenExists) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userVerificationDatabaseTable.findVerification(userId)
+    return userVerificationDatabaseTable.findVerification(userId)
       .thenApply(originalToken -> complete(userId, submittedToken, originalToken));
-    return futureResponse;
   }
 
-  private CompletableFuture<Map<String, Object>> complete(
+  private Map<String, Object> complete(
     UUID userId, String submittedToken, String originalToken
   ) {
     if (!submittedToken.equals(originalToken)) {
-      return CompletableFuture.completedFuture(Map.of("success", false));
+      return Map.of("success", false);
     }
     userVerificationDatabaseTable.deleteVerification(userId);
-    return CompletableFuture.completedFuture(Map.of("success", true));
+    var apiKey = Verification.create(userDatabaseTable, secretKey, "", "")
+      .generateApiKey(userId);
+    grafanaUserFactory.createUser(userId).updateApiKey(apiKey);
+    return Map.of("success", true, "token", apiKey);
   }
 
   @RequestMapping(path = "/verification/login/", method = RequestMethod.POST)

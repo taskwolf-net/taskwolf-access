@@ -70,8 +70,9 @@ public final class AccountController extends TaskwolfRestController {
 
   private String finishAccountAppFinding(List<RegisteredModule> modules) {
     return new JSONObject(Map.of("apps", modules.stream().map(entry ->
-      entry.module().moduleInformation()).map(entry -> new JSONObject(Map.of(
-      "logo", entry.logo(), "name", entry.name()))).toList())).toString();
+        new JSONObject(Map.of("logo", entry.module().moduleInformation().logo(),
+          "name", entry.module().moduleInformation().name(), "id", entry.name())))
+      .toList())).toString();
   }
 
   @RequestMapping(path = "/accounts/", method = RequestMethod.POST)

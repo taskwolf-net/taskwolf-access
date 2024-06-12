@@ -13,6 +13,7 @@ import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
 
 import java.security.Key;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -99,7 +100,7 @@ public class WorkflowController extends TaskwolfRestController {
     int number, Callable<CompletableFuture<UUID>> generator
   ) {
     var futureResponse = new CompletableFuture<List<UUID>>();
-    var ids = Lists.<UUID>newArrayList();
+    var ids = Collections.synchronizedList(Lists.<UUID>newArrayList());
     if (number == 0) {
       futureResponse.complete(ids);
       return futureResponse;

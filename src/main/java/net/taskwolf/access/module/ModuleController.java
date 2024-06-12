@@ -9,12 +9,8 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.module.RegisteredModule;
-import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
 import java.util.Map;
@@ -41,7 +37,8 @@ public final class ModuleController extends TaskwolfRestController {
     var body = TaskwolfRequestBody.of(payload, response);
     return findUser(request).thenApply(user ->
       moduleLoader.findRegisteredModuleById(body.getString("module"))
-        .map(module -> moduleInformation(user, module)).orElseGet(Maps::newHashMap));
+        .map(module -> moduleInformation(user.language(), module))
+        .orElseGet(Maps::newHashMap));
   }
 
   @RequestMapping(path = "/modules/available/", method = RequestMethod.POST)
@@ -55,7 +52,7 @@ public final class ModuleController extends TaskwolfRestController {
       Map.of("modules", moduleLoader.allRegisteredModules().stream()
         .filter(module -> module.module().moduleInformation().type().isPublic())
         .filter(module -> moduleFitsComponentType(module, componentType))
-        .map(module -> moduleInformation(user, module)).toList()));
+        .map(module -> moduleInformation(user.language(), module)).toList()));
   }
 
   private boolean moduleFitsComponentType(RegisteredModule module, String componentType) {
@@ -78,8 +75,8 @@ public final class ModuleController extends TaskwolfRestController {
     modules.add(moduleLoader.findRegisteredModuleById("process").get());
     modules.add(moduleLoader.findRegisteredModuleById("device").get());
     modules.add(moduleLoader.findRegisteredModuleById("table").get());
-    return findUser(request).thenApply(user -> Map.of("modules",
-      modules.stream().map(module -> moduleInformation(user, module)).toList()));
+    return findUser(request).thenApply(user -> Map.of("modules", modules.stream()
+      .map(module -> moduleInformation(user.language(), module)).toList()));
   }
 
   @RequestMapping(path = "/modules/action/hot/", method = RequestMethod.GET)
@@ -93,8 +90,8 @@ public final class ModuleController extends TaskwolfRestController {
     modules.add(moduleLoader.findRegisteredModuleById("device").get());
     modules.add(moduleLoader.findRegisteredModuleById("google-calendar").get());
     modules.add(moduleLoader.findRegisteredModuleById("google-drive").get());
-    return findUser(request).thenApply(user -> Map.of("modules",
-      modules.stream().map(module -> moduleInformation(user, module)).toList()));
+    return findUser(request).thenApply(user -> Map.of("modules", modules.stream()
+      .map(module -> moduleInformation(user.language(), module)).toList()));
   }
 
   @RequestMapping(path = "/modules/all/", method = RequestMethod.GET)
@@ -104,15 +101,27 @@ public final class ModuleController extends TaskwolfRestController {
     return findUser(request).thenApply(user ->
       Map.of("modules", moduleLoader.allRegisteredModules().stream()
         .filter(module -> module.module().moduleInformation().type().isPublic())
-        .map(module -> moduleInformation(user, module)).toList()));
+        .map(module -> moduleInformation(user.language(), module)).toList()));
   }
 
-  private Map<String, Object> moduleInformation(User user, RegisteredModule module) {
+  @RequestMapping(path = "/modules/all/unauthorized/{language}/",
+    method = RequestMethod.POST)
+  public Map<String, Object> findAllModulesUnauthorized(
+    @PathVariable("language") String language
+  ) {
+    return Map.of("modules", moduleLoader.allRegisteredModules().stream()
+        .filter(module -> module.module().moduleInformation().type().isPublic())
+        .map(module -> moduleInformation(language, module)).toList());
+  }
+
+  private Map<String, Object> moduleInformation(
+    String language, RegisteredModule module
+  ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", module.name());
-    information.put("name", coreModule.translate(user,
+    information.put("name", coreModule.translate(language,
       module.module().moduleInformation().name()));
-    information.put("description", coreModule.translate(user,
+    information.put("description", coreModule.translate(language,
       module.module().moduleInformation().description()));
     information.put("novelty", module.module().moduleInformation().novelty());
     information.put("logo", module.module().moduleInformation().logo());

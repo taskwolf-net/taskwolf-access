@@ -55,7 +55,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/password/reset/complete/");
     var url = request.getRequestURI();
     return controllers.contains(url) || url.contains("/team/") ||
-      url.contains("/webhook/trigger/");
+      url.contains("/webhook/trigger/") || url.contains("/modules/all/unauthorized/");
   }
 
   private boolean validateApiKey(String apiKey) {

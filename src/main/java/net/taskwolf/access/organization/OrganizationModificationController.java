@@ -4,9 +4,11 @@ import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.access.account.AccountController;
+import net.taskwolf.access.bundle.BundleController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
@@ -42,6 +44,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
   private final WebhookDatabaseTable webhookDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final AccountController accountController;
+  private final BundleDatabaseTable bundleDatabaseTable;
 
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -54,7 +57,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     TableModificationController tableModificationController,
     WebhookDatabaseTable webhookDatabaseTable,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
-    AccountController accountController
+    AccountController accountController, BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
@@ -68,6 +71,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     this.webhookDatabaseTable = webhookDatabaseTable;
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.accountController = accountController;
+    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   @RequestMapping(path = "/organization/create/", method = RequestMethod.POST)
@@ -279,5 +283,6 @@ public final class OrganizationModificationController extends TaskwolfRestContro
       webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
     userDeviceDatabaseTable.deleteDevices(organization.id());
     accountController.deleteAllAccounts(organization.id());
+    bundleDatabaseTable.deleteBundle(organization.id());
   }
 }

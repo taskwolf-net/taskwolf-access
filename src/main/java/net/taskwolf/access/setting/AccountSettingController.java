@@ -9,6 +9,7 @@ import net.taskwolf.access.ticket.TicketModificationController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
@@ -59,6 +60,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final DeviceDatabaseTable deviceDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final AccountController accountController;
+  private final BundleDatabaseTable bundleDatabaseTable;
   private final TutorialDatabaseTable tutorialDatabaseTable;
   private final GrafanaUserFactory grafanaUserFactory;
 
@@ -85,7 +87,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     UserDeviceDatabaseTable userDeviceDatabaseTable,
     AccountController accountController,
     TutorialDatabaseTable tutorialDatabaseTable,
-    GrafanaUserFactory grafanaUserFactory
+    GrafanaUserFactory grafanaUserFactory, BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
@@ -110,6 +112,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.accountController = accountController;
     this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.grafanaUserFactory = grafanaUserFactory;
+    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   @RequestMapping(path = "/settings/account/unlocked/", method = RequestMethod.GET)
@@ -321,6 +324,7 @@ public final class AccountSettingController extends TaskwolfRestController {
       organizationDatabaseTable.findOrganization(organizationId).thenAccept(
         organization -> accountDeletionHandleOrganization(user, organization));
     }
+    bundleDatabaseTable.deleteBundle(user.id());
     tutorialDatabaseTable.deleteTutorial(user.id());
     grafanaUserFactory.createUser(user.id()).delete();
   }

@@ -77,7 +77,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
   private CompletableFuture<Boolean> checkWorkflowNumberLimit(UUID target) {
     return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
       workflowDatabaseTable().findWorkflowsOfOwner(target).thenApply(
-        workflows -> workflows.size() >= bundle.workflowNumberLimit()));
+        workflows -> bundle.workflowNumberLimit() > 0 &&
+          workflows.size() >= bundle.workflowNumberLimit()));
   }
 
   private void duplicateWorkflow(

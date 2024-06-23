@@ -7,6 +7,7 @@ import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.action.ActionEntry;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
@@ -39,6 +40,7 @@ public final class WorkflowModificationController extends WorkflowController {
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final TimelineDatabaseTable timelineDatabaseTable;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
 
   private WorkflowModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
@@ -47,7 +49,8 @@ public final class WorkflowModificationController extends WorkflowController {
     ConditionDatabaseTable conditionDatabaseTable,
     WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable,
     TimelineDatabaseTable timelineDatabaseTable,
-    UserTargetDatabaseTable userTargetDatabaseTable
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable);
@@ -58,29 +61,48 @@ public final class WorkflowModificationController extends WorkflowController {
     this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
     this.timelineDatabaseTable = timelineDatabaseTable;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   private static final long MAX_WORKFLOW_BYTES = 500 * 1000;
 
   @RequestMapping(path = "/workflow/add/", method = RequestMethod.POST)
-  public void addWorkflow(
+  public CompletableFuture<Void> addWorkflow(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     if (payload.getBytes().length > MAX_WORKFLOW_BYTES) {
       response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
     var body = TaskwolfRequestBody.of(payload, response);
+    return findUser(request).thenCompose(user ->
+      userTargetDatabaseTable.findTargetSecured(user.id()).thenCompose(target ->
+        checkWorkflowNumberLimit(target).thenAccept(limitReached ->
+          addWorkflow(user, target, body, limitReached, response))));
+  }
+
+  private CompletableFuture<Boolean> checkWorkflowNumberLimit(UUID target) {
+    return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
+      workflowDatabaseTable().findWorkflowsOfOwner(target).thenApply(
+        workflows -> workflows.size() >= bundle.workflowNumberLimit()));
+  }
+
+  private void addWorkflow(
+    User user, UUID target, TaskwolfRequestBody body, boolean limitReached,
+    HttpServletResponse response
+  ) {
+    if (limitReached) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return;
+    }
     var created = System.currentTimeMillis();
-    findUser(request).thenAccept(user ->
-      userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
-        createWorkflowCreateTimelineEntry(user).thenAccept(workflowCreateEntry ->
-          createWorkflow(user, target, body.getObject("trigger"),
-            body.getObjectList("actions"), body.getObjectList("conditions"),
-            created, body.getString("name"), body.getString("description"),
-            Lists.newArrayList(), Lists.newArrayList(workflowCreateEntry),
-            WorkflowState.OPERATIONAL))));
+    createWorkflowCreateTimelineEntry(user).thenAccept(workflowCreateEntry ->
+      createWorkflow(user, target, body.getObject("trigger"),
+        body.getObjectList("actions"), body.getObjectList("conditions"),
+        created, body.getString("name"), body.getString("description"),
+        Lists.newArrayList(), Lists.newArrayList(workflowCreateEntry),
+        WorkflowState.OPERATIONAL));
   }
 
   private CompletableFuture<TimelineDatabaseEntry> createWorkflowCreateTimelineEntry(

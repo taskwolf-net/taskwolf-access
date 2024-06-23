@@ -8,6 +8,7 @@ import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.action.ActionEntry;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.condition.ConditionEntry;
 import net.taskwolf.core.iterator.AsyncIterator;
@@ -15,9 +16,11 @@ import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
 import net.taskwolf.core.workflow.WorkflowExecutionDatabaseTable;
+import net.taskwolf.core.workflow.WorkflowState;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -27,6 +30,7 @@ import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class WorkflowDuplicationController extends WorkflowController {
@@ -35,13 +39,17 @@ public final class WorkflowDuplicationController extends WorkflowController {
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
 
   private WorkflowDuplicationController(
     Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
     WorkflowDatabaseTable workflowDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
-    WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable
+    WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable,
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable);
@@ -50,15 +58,37 @@ public final class WorkflowDuplicationController extends WorkflowController {
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
     this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   @RequestMapping(path = "/workflow/duplicate/", method = RequestMethod.POST)
-  public void duplicateWorkflow(
+  public CompletableFuture<Void> duplicateWorkflow(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    findUser(request).thenAccept(user -> performWorkflowOperation(user.id(),
+    return findUser(request).thenCompose(user ->
+      userTargetDatabaseTable.findTargetSecured(user.id()).thenCompose(target ->
+        checkWorkflowNumberLimit(target).thenAccept(limitReached ->
+          duplicateWorkflow(user, body, limitReached, response))));
+  }
+
+  private CompletableFuture<Boolean> checkWorkflowNumberLimit(UUID target) {
+    return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
+      workflowDatabaseTable().findWorkflowsOfOwner(target).thenApply(
+        workflows -> workflows.size() >= bundle.workflowNumberLimit()));
+  }
+
+  private void duplicateWorkflow(
+    User user, TaskwolfRequestBody body, boolean limitReached,
+    HttpServletResponse response
+  ) {
+    if (limitReached) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return;
+    }
+    performWorkflowOperation(user.id(),
       body.getUUID("workflow"), workflow ->
         workflowDatabaseTable().generateAvailableWorkflowId()
           .thenAccept(workflowId -> triggerDatabaseTable.generateAvailableTriggerId()
@@ -66,7 +96,7 @@ public final class WorkflowDuplicationController extends WorkflowController {
               .thenAccept(actionIds -> generateConditionIds(workflow.conditionIds().size())
                 .thenAccept(conditionIds -> duplicateWorkflow(user, workflow,
                   workflowId, triggerId, actionIds, conditionIds))))),
-      () -> {}));
+      () -> {});
   }
 
   private void duplicateWorkflow(

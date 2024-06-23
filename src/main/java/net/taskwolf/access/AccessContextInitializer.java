@@ -6,6 +6,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.action.ActionDatabaseTable;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.database.DatabaseConnection;
@@ -67,6 +68,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final TimelineFactory timelineFactory;
   private final GrafanaDatabaseTable grafanaDatabaseTable;
   private final GrafanaUserFactory grafanaUserFactory;
+  private final BundleDatabaseTable bundleDatabaseTable;
   private final CoreModule coreModule;
 
   @Override
@@ -102,6 +104,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("timelineFactory", timelineFactory);
     beanFactory.registerSingleton("grafanaDatabaseTable", grafanaDatabaseTable);
     beanFactory.registerSingleton("grafanaUserFactory", grafanaUserFactory);
+    beanFactory.registerSingleton("bundleDatabaseTable", bundleDatabaseTable);
     beanFactory.registerSingleton("coreModule", coreModule);
   }
 }

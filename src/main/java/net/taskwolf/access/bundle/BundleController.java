@@ -56,7 +56,6 @@ public final class BundleController extends TaskwolfRestController {
     information.put("organizationAccess", bundle.organizationAccess());
     information.put("organizationMemberLimit", bundle.organizationMemberLimit());
     information.put("deviceAccess", bundle.deviceAccess());
-    information.put("deviceNumberLimit", bundle.deviceNumberLimit());
     information.put("accountsAccess", bundle.accountsAccess());
     information.put("accountsNumberLimit", bundle.accountsNumberLimit());
     return information;

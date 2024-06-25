@@ -10,7 +10,10 @@ import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.tutorial.TutorialDatabaseTable;
-import net.taskwolf.core.user.*;
+import net.taskwolf.core.user.User;
+import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
+import net.taskwolf.core.user.UserVerificationDatabaseTable;
 import net.taskwolf.core.worker.WorkerDistribution;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,7 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class VerificationController {
+public final class VerificationRegistrationController {
   private final Key secretKey;
   private final TaskwolfMail verificationMail;
   private final UserDatabaseTable userDatabaseTable;
@@ -36,7 +39,7 @@ public final class VerificationController {
   private final GrafanaUserFactory grafanaUserFactory;
   private final TutorialDatabaseTable tutorialDatabaseTable;
 
-  private VerificationController(
+  private VerificationRegistrationController(
     Key secretKey, @Qualifier("verificationMail") TaskwolfMail verificationMail,
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
@@ -182,70 +185,9 @@ public final class VerificationController {
     return Map.of("success", true, "token", apiKey);
   }
 
-  @RequestMapping(path = "/verification/login/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> login(
-    @RequestBody String payload, HttpServletResponse response
-  ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    var verification = Verification.create(userDatabaseTable, secretKey,
-      body.getString("email").replace(" ", ""),
-      hashPassword(body.getString("password")));
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    verification.isAuthenticated().thenAccept(isAuthenticated ->
-      checkAuthorization(response, verification, futureResponse, isAuthenticated));
-    return futureResponse;
-  }
-
-  private void checkAuthorization(
-    HttpServletResponse servletResponse, Verification verification,
-    CompletableFuture<Map<String, Object>> futureResponse, boolean isAuthenticated
-  ) {
-    if (!isAuthenticated) {
-      servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-      futureResponse.complete(Maps.newHashMap());
-      return;
-    }
-    userDatabaseTable.findUser(verification.email()).thenAccept(user ->
-      userVerificationDatabaseTable.verificationExists(user.id())
-        .thenAccept(completionPending -> completeLogin(servletResponse, verification,
-          futureResponse, user, completionPending)));
-  }
-
-  private void completeLogin(
-    HttpServletResponse servletResponse, Verification verification,
-    CompletableFuture<Map<String, Object>> futureResponse, User user,
-    boolean completionPending
-  ) {
-    if (completionPending) {
-      servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-      futureResponse.complete(Maps.newHashMap());
-      return;
-    }
-    var apiKey = verification.generateApiKey(user.id());
-    grafanaUserFactory.createUser(user.id()).updateApiKey(apiKey);
-    futureResponse.complete(Map.of("apiKey", apiKey));
-  }
-
-  @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> isValid(
-    @RequestBody String payload, HttpServletResponse response
-  ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    try {
-      var userId = UUID.fromString(Jwts.parser()
-        .setSigningKey(secretKey)
-        .build()
-        .parseClaimsJws(body.getString("token"))
-        .getPayload().get("id", String.class));
-      return userDatabaseTable.userExists(userId).thenApply(exists ->
-        Map.of("isValid", exists ? "true" : "false"));
-    } catch (Exception exception) {
-      return CompletableFuture.completedFuture(Map.of("isValid", "false"));
-    }
-  }
-
   private String hashPassword(String password) {
     return Hashing.sha256().hashString(password, StandardCharsets.UTF_8)
       .toString();
   }
 }
+

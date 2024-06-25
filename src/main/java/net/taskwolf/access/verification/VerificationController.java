@@ -31,8 +31,6 @@ public final class VerificationController {
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
-  private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
-  private final String defaultProfilePicture;
   private final NotificationDatabaseTable notificationDatabaseTable;
   private final WorkerDistribution distribution;
   private final GrafanaUserFactory grafanaUserFactory;
@@ -43,8 +41,6 @@ public final class VerificationController {
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
-    ProfilePictureDatabaseTable profilePictureDatabaseTable,
-    @Qualifier("defaultProfilePicture") String defaultProfilePicture,
     NotificationDatabaseTable notificationDatabaseTable,
     WorkerDistribution distribution, GrafanaUserFactory grafanaUserFactory,
     TutorialDatabaseTable tutorialDatabaseTable
@@ -54,8 +50,6 @@ public final class VerificationController {
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
-    this.profilePictureDatabaseTable = profilePictureDatabaseTable;
-    this.defaultProfilePicture = defaultProfilePicture;
     this.notificationDatabaseTable = notificationDatabaseTable;
     this.distribution = distribution;
     this.grafanaUserFactory = grafanaUserFactory;
@@ -114,7 +108,6 @@ public final class VerificationController {
     userDatabaseTable.insertUser(userId, name, email, passwordHash, "en",
       Lists.newArrayList());
     userTargetDatabaseTable.insertTarget(userId, userId);
-    profilePictureDatabaseTable.insertProfilePicture(userId, defaultProfilePicture);
     var token = UUID.randomUUID().toString();
     notificationDatabaseTable.insertNotificationSettings(userId, true, true);
     userVerificationDatabaseTable.insertVerification(userId, token);

@@ -44,7 +44,6 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
-  private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
   private final NotificationDatabaseTable notificationDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final OrganizationModificationController organizationModificationController;
@@ -70,7 +69,6 @@ public final class AccountSettingController extends TaskwolfRestController {
     UserTargetDatabaseTable userTargetDatabaseTable,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
     UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
-    ProfilePictureDatabaseTable profilePictureDatabaseTable,
     NotificationDatabaseTable notificationDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     OrganizationModificationController organizationModificationController,
@@ -94,7 +92,6 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
     this.userEmailChangeDatabaseTable = userEmailChangeDatabaseTable;
-    this.profilePictureDatabaseTable = profilePictureDatabaseTable;
     this.notificationDatabaseTable = notificationDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.organizationModificationController = organizationModificationController;
@@ -299,7 +296,6 @@ public final class AccountSettingController extends TaskwolfRestController {
     userTargetDatabaseTable.deleteTarget(user.id());
     userPasswordResetDatabaseTable.deleteResetToken(user.id());
     userEmailChangeDatabaseTable.deleteChange(user.id());
-    profilePictureDatabaseTable.deleteProfilePicture(user.id());
     notificationDatabaseTable.deleteNotificationSettings(user.id());
     accountController.deleteAllAccounts(user.id());
     workflowDatabaseTable.findWorkflowsOfOwner(user.id()).thenAccept(workflows ->

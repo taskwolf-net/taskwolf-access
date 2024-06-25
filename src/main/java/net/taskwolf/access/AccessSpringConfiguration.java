@@ -3,7 +3,6 @@ package net.taskwolf.access;
 import jakarta.annotation.PostConstruct;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.mail.TaskwolfMailConfiguration;
-import net.taskwolf.core.user.ProfilePictureConfiguration;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,11 +47,5 @@ public class AccessSpringConfiguration {
       mailConfiguration.smtpMailHost(), mailConfiguration.smtpMailPort(),
       mailConfiguration.imapMailHost(), mailConfiguration.imapMailPort(),
       mailConfiguration.mailUser(), mailConfiguration.mailPassword());
-  }
-
-  @PostConstruct
-  private void initializeDefaultProfilePicture() throws Exception {
-    defaultProfilePicture = ProfilePictureConfiguration.createAndLoad()
-      .defaultProfilePicture();
   }
 }

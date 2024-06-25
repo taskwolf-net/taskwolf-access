@@ -9,7 +9,6 @@ import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
-import net.taskwolf.core.user.ProfilePictureDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,16 +26,13 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class OrganizationInformationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
-  private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
 
   private OrganizationInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable,
-     ProfilePictureDatabaseTable profilePictureDatabaseTable
+    OrganizationDatabaseTable organizationDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
-    this.profilePictureDatabaseTable = profilePictureDatabaseTable;
   }
 
   @RequestMapping(path = "/organization/selected/", method = RequestMethod.POST)
@@ -87,10 +83,8 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     organizationDatabaseTable.findOrganization(organizationId).thenAccept(organization ->
       userDatabaseTable().findUser(organization.owner()).thenAccept(owner ->
         findOrganizationMembers(organization.members()).thenAccept(members ->
-          profilePictureDatabaseTable.findProfilePicture(owner.id()).thenAccept(
-            ownerPicture -> findProfilePictures(organization.members()).thenAccept(
-              pictures -> futureResponse.complete(assemblyOrganizationInformation(
-                organization, owner, ownerPicture, members, pictures, applicantId)))))));
+          futureResponse.complete(assemblyOrganizationInformation(
+                organization, owner, members, applicantId)))));
     return futureResponse;
   }
 
@@ -103,36 +97,19 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     return futureResponse;
   }
 
-  private CompletableFuture<List<AbstractMap.SimpleEntry<UUID, String>>> findProfilePictures(
-    List<UUID> memberIds
-  ) {
-    var futureResponse = new CompletableFuture<List<AbstractMap.SimpleEntry<UUID, String>>>();
-    AsyncIterator.execute(memberIds, member -> profilePictureDatabaseTable
-        .findProfilePicture(member).thenApply(picture ->
-          new AbstractMap.SimpleEntry<>(member, picture)))
-      .thenAccept(futureResponse::complete);
-    return futureResponse;
-  }
-
   private Map<String, Object> assemblyOrganizationInformation(
-    Organization organization, User owner, String ownerProfilePicture,
-    List<User> members,
-    List<AbstractMap.SimpleEntry<UUID, String>> memberProfilePictures,
-    UUID applicantId
+    Organization organization, User owner, List<User> members, UUID applicantId
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", organization.id());
     information.put("name", organization.name());
     information.put("owner", owner.name());
-    information.put("ownerProfilePicture", ownerProfilePicture);
     information.put("isOwner", applicantId.equals(owner.id()));
     var membersInformation = Lists.<Map<String, Object>>newArrayList();
     for (var member : members) {
       var memberInformation = Maps.<String, Object>newHashMap();
       memberInformation.put("id", member.id());
       memberInformation.put("name", member.name());
-      memberInformation.put("profilePicture", memberProfilePictures.stream().filter(
-        entry -> entry.getKey().equals(member.id())).findFirst().get().getValue());
       membersInformation.add(memberInformation);
     }
     information.put("members", membersInformation);

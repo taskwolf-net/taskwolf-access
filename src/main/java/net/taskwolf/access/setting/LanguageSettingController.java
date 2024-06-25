@@ -4,7 +4,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.user.ProfilePictureDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,8 +17,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class LanguageSettingController extends TaskwolfRestController {
   private LanguageSettingController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
-    ProfilePictureDatabaseTable profilePictureDatabaseTable
+    Key secretKey, UserDatabaseTable userDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
   }

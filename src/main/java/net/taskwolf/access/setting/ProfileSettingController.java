@@ -4,7 +4,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.user.ProfilePictureDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,14 +16,10 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class ProfileSettingController extends TaskwolfRestController {
-  private final ProfilePictureDatabaseTable profilePictureDatabaseTable;
-
   private ProfileSettingController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
-    ProfilePictureDatabaseTable profilePictureDatabaseTable
+    Key secretKey, UserDatabaseTable userDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
-    this.profilePictureDatabaseTable = profilePictureDatabaseTable;
   }
 
   @RequestMapping(path = "/settings/profile/username/", method = RequestMethod.GET)
@@ -42,26 +37,5 @@ public final class ProfileSettingController extends TaskwolfRestController {
     var body = TaskwolfRequestBody.of(payload, response);
     findUser(request).thenAccept(user -> userDatabaseTable().changeUserName(
       user.id(), body.getString("username")));
-  }
-
-  @RequestMapping(path = "/settings/profile/picture/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> profilePicture(
-    HttpServletRequest request
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> profilePictureDatabaseTable.findProfilePicture(
-      user.id()).thenAccept(picture -> futureResponse.complete(Map.of("picture", picture))));
-    return futureResponse;
-  }
-
-  @RequestMapping(path = "/settings/profile/picture/change/", method = RequestMethod.POST)
-  public void changeProfilePicture(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
-  ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    findUser(request).thenAccept(user ->
-      profilePictureDatabaseTable.changeProfilePicture(user.id(),
-        body.getString("picture")));
   }
 }

@@ -119,6 +119,36 @@ public final class VerificationController {
     tutorialDatabaseTable.insertTutorial(userId, 0, 0);
   }
 
+  @RequestMapping(path = "/verification/email/resend/", method = RequestMethod.POST)
+  public void resendEmail(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var email = body.getString("email").replace(" ", "");
+    userDatabaseTable.userExists(email).thenAccept(userExists ->
+      resendEmailCheckUser(email, userExists));
+  }
+
+  private void resendEmailCheckUser(String email, boolean userExists) {
+    if (!userExists) {
+      return;
+    }
+    userDatabaseTable.findUser(email).thenAccept(user ->
+      userVerificationDatabaseTable.verificationExists(user.id())
+        .thenAccept(verificationExists ->
+          resendEmailCheckRegistration(user, verificationExists)));
+  }
+
+  private void resendEmailCheckRegistration(User user, boolean verificationExists) {
+    if (!verificationExists) {
+      return;
+    }
+    userVerificationDatabaseTable.findVerification(user.id()).thenAccept(token ->
+      verificationMail.send(user.email(), VERIFICATIION_EMAIL_TITLE,
+        String.format(VERIFICATION_EMAIL_BODY, user.name(),
+          String.format(VERIFICATION_URL, user.id().toString(), token))));
+  }
+
   @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> complete(
     @RequestBody String payload, HttpServletResponse response

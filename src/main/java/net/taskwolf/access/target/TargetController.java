@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -67,7 +68,7 @@ public final class TargetController extends TaskwolfRestController {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     organizationDatabaseTable.findOrganization(organizationId).thenAccept(
       organization -> futureResponse.complete(Map.of("id", organization.id(),
-        "name", organization.name())));
+        "name", organization.name(), "type", "ORGANIZATION")));
     return futureResponse;
   }
 
@@ -77,7 +78,9 @@ public final class TargetController extends TaskwolfRestController {
   ) {
     var targets = Lists.<Map<String, Object>>newArrayList();
     targets.add(Map.of("id", applicantId, "name", coreModule.translate(user,
-      "target.you")));
+      "target.you"), "type", "PERSONAL"));
+    organizations.sort(Comparator.comparing(firstOrganization ->
+      ((String) firstOrganization.get("name"))));
     targets.addAll(organizations);
     return Map.of("targets", targets, "currentTarget", currentTarget);
   }

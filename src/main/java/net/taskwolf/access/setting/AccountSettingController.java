@@ -10,7 +10,6 @@ import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
-import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
@@ -61,7 +60,6 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final AccountController accountController;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TutorialDatabaseTable tutorialDatabaseTable;
-  private final GrafanaUserFactory grafanaUserFactory;
 
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -85,7 +83,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     UserDeviceDatabaseTable userDeviceDatabaseTable,
     AccountController accountController,
     TutorialDatabaseTable tutorialDatabaseTable,
-    GrafanaUserFactory grafanaUserFactory, BundleDatabaseTable bundleDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
@@ -108,7 +106,6 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.accountController = accountController;
     this.tutorialDatabaseTable = tutorialDatabaseTable;
-    this.grafanaUserFactory = grafanaUserFactory;
     this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
@@ -322,7 +319,6 @@ public final class AccountSettingController extends TaskwolfRestController {
     }
     bundleDatabaseTable.deleteBundle(user.id());
     tutorialDatabaseTable.deleteTutorial(user.id());
-    grafanaUserFactory.createUser(user.id()).delete();
   }
 
   private void accountDeletionHandleOrganization(User user, Organization organization) {

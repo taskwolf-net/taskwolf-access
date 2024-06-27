@@ -3,10 +3,8 @@ package net.taskwolf.access.verification;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.hash.Hashing;
-import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.tutorial.TutorialDatabaseTable;
@@ -36,7 +34,6 @@ public final class VerificationRegistrationController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final NotificationDatabaseTable notificationDatabaseTable;
   private final WorkerDistribution distribution;
-  private final GrafanaUserFactory grafanaUserFactory;
   private final TutorialDatabaseTable tutorialDatabaseTable;
 
   private VerificationRegistrationController(
@@ -45,8 +42,7 @@ public final class VerificationRegistrationController {
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     NotificationDatabaseTable notificationDatabaseTable,
-    WorkerDistribution distribution, GrafanaUserFactory grafanaUserFactory,
-    TutorialDatabaseTable tutorialDatabaseTable
+    WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable
   ) {
     this.secretKey = secretKey;
     this.verificationMail = verificationMail;
@@ -55,7 +51,6 @@ public final class VerificationRegistrationController {
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.notificationDatabaseTable = notificationDatabaseTable;
     this.distribution = distribution;
-    this.grafanaUserFactory = grafanaUserFactory;
     this.tutorialDatabaseTable = tutorialDatabaseTable;
   }
 
@@ -118,7 +113,6 @@ public final class VerificationRegistrationController {
       String.format(VERIFICATION_URL, userId.toString(), token));
     verificationMail.send(email, VERIFICATIION_EMAIL_TITLE, body);
     distribution.addUser(userId);
-    grafanaUserFactory.createUser(userId).create("");
     tutorialDatabaseTable.insertTutorial(userId, 0, 0);
   }
 
@@ -181,7 +175,6 @@ public final class VerificationRegistrationController {
     userVerificationDatabaseTable.deleteVerification(userId);
     var apiKey = Verification.create(userDatabaseTable, secretKey, "", "")
       .generateApiKey(userId);
-    grafanaUserFactory.createUser(userId).updateApiKey(apiKey);
     return Map.of("success", true, "token", apiKey);
   }
 

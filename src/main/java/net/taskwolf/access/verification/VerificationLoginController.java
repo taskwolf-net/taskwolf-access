@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.bundle.Bundle;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
-import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -29,18 +28,16 @@ public final class VerificationLoginController {
   private final Key secretKey;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
-  private final GrafanaUserFactory grafanaUserFactory;
   private final BundleDatabaseTable bundleDatabaseTable;
 
   private VerificationLoginController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
-    GrafanaUserFactory grafanaUserFactory, BundleDatabaseTable bundleDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable
   ) {
     this.secretKey = secretKey;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
-    this.grafanaUserFactory = grafanaUserFactory;
     this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
@@ -112,7 +109,6 @@ public final class VerificationLoginController {
       return;
     }
     var apiKey = verification.generateApiKey(user.id());
-    grafanaUserFactory.createUser(user.id()).updateApiKey(apiKey);
     futureResponse.complete(Map.of("success", true, "apiKey", apiKey));
   }
 

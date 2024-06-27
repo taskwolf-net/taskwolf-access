@@ -46,7 +46,7 @@ public final class BundleController extends TaskwolfRestController {
     information.put("expiration", bundle.expiration());
     information.put("workflowAccess", bundle.workflowAccess());
     information.put("workflowNumberLimit", bundle.workflowNumberLimit());
-    information.put("workflowExecutionLimit", bundle.workflowExecutionLimit());
+    information.put("workflowOperationLimit", bundle.workflowOperationLimit());
     information.put("workflowTemplateAccess", bundle.workflowTemplateAccess());
     information.put("databaseAccess", bundle.databaseAccess());
     information.put("databaseNumberLimit", bundle.databaseNumberLimit());
@@ -56,7 +56,6 @@ public final class BundleController extends TaskwolfRestController {
     information.put("organizationAccess", bundle.organizationAccess());
     information.put("organizationMemberLimit", bundle.organizationMemberLimit());
     information.put("deviceAccess", bundle.deviceAccess());
-    information.put("deviceNumberLimit", bundle.deviceNumberLimit());
     information.put("accountsAccess", bundle.accountsAccess());
     information.put("accountsNumberLimit", bundle.accountsNumberLimit());
     return information;

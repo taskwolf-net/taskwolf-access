@@ -6,8 +6,6 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.grafana.GrafanaDatabaseTable;
-import net.taskwolf.core.grafana.GrafanaUserFactory;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.iterator.AsyncListIterator;
 import net.taskwolf.core.module.ModuleLoader;
@@ -38,17 +36,13 @@ public final class StatisticsController extends TaskwolfRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
-  private final GrafanaDatabaseTable grafanaDatabaseTable;
-  private final GrafanaUserFactory grafanaUserFactory;
 
   private StatisticsController(
     Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
     CoreModule coreModule, OrganizationDatabaseTable organizationDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
-    WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable,
-    GrafanaDatabaseTable grafanaDatabaseTable,
-    GrafanaUserFactory grafanaUserFactory
+    WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.moduleLoader = moduleLoader;
@@ -57,8 +51,6 @@ public final class StatisticsController extends TaskwolfRestController {
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
-    this.grafanaDatabaseTable = grafanaDatabaseTable;
-    this.grafanaUserFactory = grafanaUserFactory;
   }
 
   //TODO: NO LONGER MAKE THESE VALUES STATIC, BUT DEPENDENT ON THE PACKAGE / PRODUCT BOOKED
@@ -243,18 +235,5 @@ public final class StatisticsController extends TaskwolfRestController {
     information.put("workflowNumberGrowth", workflowNumberGrowth);
     information.put("workflowExecutionsOccurrence", workflowExecutionsOccurrence);
     return information;
-  }
-
-  private static final String DASHBOARD_URL = "https://analytics.taskwolf.net%s?kiosk";
-
-  @RequestMapping(path = "/dashboard/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findDashboard(
-    HttpServletRequest request
-  ) {
-    var user = findUserId(request);
-    return grafanaDatabaseTable.findAccount(user).thenCompose(account ->
-      grafanaUserFactory.createUser(user).login().thenApply(token ->
-        Map.of("url", String.format(DASHBOARD_URL, account.dashboardUrl()),
-          "token", token)));
   }
 }

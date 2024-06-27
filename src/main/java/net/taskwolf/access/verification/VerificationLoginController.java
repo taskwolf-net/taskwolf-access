@@ -83,7 +83,8 @@ public final class VerificationLoginController {
     bundleDatabaseTable.bundleExists(user.id()).thenAccept(hasPersonalBundle ->
       findLatestBundleExpiration(user, hasPersonalBundle).thenAccept(
         latestExpiration -> completeLogin(servletResponse, verification,
-          futureResponse, user, latestExpiration > System.currentTimeMillis())));
+          futureResponse, user, latestExpiration > System.currentTimeMillis(),
+          latestExpiration)));
   }
 
   private CompletableFuture<Long> findLatestBundleExpiration(
@@ -101,14 +102,14 @@ public final class VerificationLoginController {
   private void completeLogin(
     HttpServletResponse servletResponse, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse, User user,
-    boolean bundleEnabled
+    boolean bundleEnabled, long expiration
   ) {
     if (!bundleEnabled) {
       servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
       futureResponse.complete(Map.of("success", false, "error", 1002));
       return;
     }
-    var apiKey = verification.generateApiKey(user.id());
+    var apiKey = verification.generateApiKey(user.id(), expiration);
     futureResponse.complete(Map.of("success", true, "apiKey", apiKey));
   }
 

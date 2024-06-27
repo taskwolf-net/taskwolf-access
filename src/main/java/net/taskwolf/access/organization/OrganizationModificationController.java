@@ -177,23 +177,37 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     User user, UUID organizationId, boolean organizationExists, String token
   ) {
     if (!organizationExists) {
-      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1000));
     }
     if (user.organizations().contains(organizationId)){
-      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1001));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     organizationDatabaseTable.findOrganization(organizationId).thenAccept(
-      organization -> futureResponse.complete(joinOrganization(user,
-        organization, token)));
+      organization -> checkOrganizationSizeLimit(organization).thenAccept(
+        limitReached -> futureResponse.complete(joinOrganization(user,
+          organization, token, limitReached))));
     return futureResponse;
   }
 
+  private CompletableFuture<Boolean> checkOrganizationSizeLimit(
+    Organization organization
+  ) {
+    return bundleDatabaseTable.findBundle(organization.id()).thenApply(
+      bundle -> bundle.organizationMemberLimit() > 0 &&
+        organization.members().size() >= bundle.organizationMemberLimit());
+  }
+
   private Map<String, Object> joinOrganization(
-    User user, Organization organization, String token
+    User user, Organization organization, String token, boolean limitReached
   ) {
     if (!organization.invitationToken().equals(token)) {
       return Map.of("success", false, "errorCode", 1002);
+    }
+    if (limitReached) {
+      return Map.of("success", false, "errorCode", 1003);
     }
     organizationDatabaseTable.addOrganizationMember(organization.id(), user.id());
     userDatabaseTable().addUserOrganization(user.id(), organization.id());

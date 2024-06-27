@@ -42,12 +42,18 @@ public final class Verification {
     return futureResponse;
   }
 
-  private static final long EXPIRATION_TIME = 1000L * 60 * 60 * 24 * 30;
+  private static final long MAXIMUM_EXPIRATION_TIME = 1000L * 60 * 60 * 24 * 30;
 
   public String generateApiKey(UUID userId) {
-    var expiration = new Date(System.currentTimeMillis() + EXPIRATION_TIME);
-    return Jwts.builder()
-      .setExpiration(expiration)
+    return generateApiKey(userId, System.currentTimeMillis() + MAXIMUM_EXPIRATION_TIME);
+  }
+
+  public String generateApiKey(UUID userId, long expiration) {
+    if (expiration - System.currentTimeMillis() > MAXIMUM_EXPIRATION_TIME) {
+      expiration = System.currentTimeMillis() + MAXIMUM_EXPIRATION_TIME;
+    }
+    var expirationDate = new Date(expiration);
+    return Jwts.builder().expiration(expirationDate)
       .claim("id", userId.toString())
       .signWith(secret)
       .compact();

@@ -8,6 +8,8 @@ import net.taskwolf.core.ticket.TicketDatabaseTable;
 import net.taskwolf.core.ticket.TicketMessage;
 import net.taskwolf.core.ticket.TicketMessageDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.activity.ActivityType;
+import net.taskwolf.core.user.activity.UserActivityDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -19,13 +21,17 @@ import java.util.UUID;
 
 @RestController
 public final class TicketModificationController extends TicketController {
+  private final UserActivityDatabaseTable activityDatabaseTable;
+
   private TicketModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TicketDatabaseTable ticketDatabaseTable,
-    TicketMessageDatabaseTable ticketMessageDatabaseTable
+    TicketMessageDatabaseTable ticketMessageDatabaseTable,
+    UserActivityDatabaseTable activityDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, ticketDatabaseTable,
       ticketMessageDatabaseTable);
+    this.activityDatabaseTable = activityDatabaseTable;
   }
 
   @RequestMapping(path = "/ticket/create/", method = RequestMethod.POST)
@@ -50,6 +56,8 @@ public final class TicketModificationController extends TicketController {
       Ticket.Type.valueOf(type), Ticket.Status.OPEN, -1, List.of(messageId)));
     ticketMessageDatabaseTable().insertTicketMessage(TicketMessage.create(messageId,
       ticketId, userId, message, System.currentTimeMillis()));
+    activityDatabaseTable.insertActivity(userId, "activity.ticket.new.title",
+      "activity.ticket.new.description", ActivityType.TICKET);
   }
 
   @RequestMapping(path = "/ticket/rename/", method = RequestMethod.POST)
@@ -81,6 +89,8 @@ public final class TicketModificationController extends TicketController {
     for (var message : ticket.messages()) {
       ticketMessageDatabaseTable().deleteTicketMessage(message);
     }
+    activityDatabaseTable.insertActivity(ticket.creator(), "activity.ticket.delete.title",
+      "activity.ticket.delete.description", ActivityType.TICKET);
   }
 
   @RequestMapping(path = "/ticket/message/add/", method = RequestMethod.POST)

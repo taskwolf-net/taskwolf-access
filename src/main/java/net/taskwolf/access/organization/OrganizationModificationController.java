@@ -4,7 +4,6 @@ import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.access.account.AccountController;
-import net.taskwolf.access.bundle.BundleController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
@@ -13,6 +12,8 @@ import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.activity.ActivityType;
+import net.taskwolf.core.user.activity.UserActivityDatabaseTable;
 import net.taskwolf.core.worker.WorkerDistribution;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.device.structure.UserDeviceDatabaseTable;
@@ -45,6 +46,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final AccountController accountController;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final UserActivityDatabaseTable activityDatabaseTable;
 
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -57,7 +59,8 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     TableModificationController tableModificationController,
     WebhookDatabaseTable webhookDatabaseTable,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
-    AccountController accountController, BundleDatabaseTable bundleDatabaseTable
+    AccountController accountController, BundleDatabaseTable bundleDatabaseTable,
+    UserActivityDatabaseTable activityDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
@@ -72,6 +75,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.accountController = accountController;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.activityDatabaseTable = activityDatabaseTable;
   }
 
   @RequestMapping(path = "/organization/create/", method = RequestMethod.POST)
@@ -211,6 +215,8 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     }
     organizationDatabaseTable.addOrganizationMember(organization.id(), user.id());
     userDatabaseTable().addUserOrganization(user.id(), organization.id());
+    activityDatabaseTable.insertActivity(user.id(), "activity.organization.join.title",
+      "activity.organization.join.description", ActivityType.ORGANIZATION);
     return Map.of("success", true);
   }
 
@@ -242,6 +248,8 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     }
     userDatabaseTable().removeUserOrganization(targetId, organization.id());
     organizationDatabaseTable.removeOrganizationMember(organization.id(), targetId);
+    activityDatabaseTable.insertActivity(targetId, "activity.organization.kick.title",
+      "activity.organization.kick.description", ActivityType.ORGANIZATION);
   }
 
   @RequestMapping(path = "/organization/leave/", method = RequestMethod.POST)
@@ -260,6 +268,8 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     }
     organizationDatabaseTable.removeOrganizationMember(organizationId, user.id());
     userDatabaseTable().removeUserOrganization(user.id(), organizationId);
+    activityDatabaseTable.insertActivity(user.id(), "activity.organization.leave.title",
+      "activity.organization.leave.description", ActivityType.ORGANIZATION);
   }
 
   @RequestMapping(path = "/organization/delete/", method = RequestMethod.POST)

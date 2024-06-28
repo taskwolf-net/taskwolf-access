@@ -21,6 +21,7 @@ import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.tutorial.TutorialDatabaseTable;
 import net.taskwolf.core.tutorial.level.TutorialLevelRegistry;
 import net.taskwolf.core.user.*;
+import net.taskwolf.core.user.activity.UserActivityDatabaseTable;
 import net.taskwolf.core.whitelist.WhitelistConfiguration;
 import net.taskwolf.core.worker.WorkerDistribution;
 import net.taskwolf.core.worker.client.WorkerProxyClient;
@@ -64,6 +65,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final ConditionInformationRepository conditionRepository;
   private final TimelineFactory timelineFactory;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final UserActivityDatabaseTable activityDatabaseTable;
   private final CoreModule coreModule;
 
   @Override
@@ -97,6 +99,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("conditionRepository", conditionRepository);
     beanFactory.registerSingleton("timelineFactory", timelineFactory);
     beanFactory.registerSingleton("bundleDatabaseTable", bundleDatabaseTable);
+    beanFactory.registerSingleton("activityDatabaseTable", activityDatabaseTable);
     beanFactory.registerSingleton("coreModule", coreModule);
   }
 }

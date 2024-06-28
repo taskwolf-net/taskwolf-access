@@ -12,6 +12,8 @@ import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.user.UserVerificationDatabaseTable;
+import net.taskwolf.core.user.activity.ActivityType;
+import net.taskwolf.core.user.activity.UserActivityDatabaseTable;
 import net.taskwolf.core.worker.WorkerDistribution;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,6 +37,7 @@ public final class VerificationRegistrationController {
   private final NotificationDatabaseTable notificationDatabaseTable;
   private final WorkerDistribution distribution;
   private final TutorialDatabaseTable tutorialDatabaseTable;
+  private final UserActivityDatabaseTable activityDatabaseTable;
 
   private VerificationRegistrationController(
     Key secretKey, @Qualifier("verificationMail") TaskwolfMail verificationMail,
@@ -42,7 +45,8 @@ public final class VerificationRegistrationController {
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     NotificationDatabaseTable notificationDatabaseTable,
-    WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable
+    WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable,
+    UserActivityDatabaseTable activityDatabaseTable
   ) {
     this.secretKey = secretKey;
     this.verificationMail = verificationMail;
@@ -52,6 +56,7 @@ public final class VerificationRegistrationController {
     this.notificationDatabaseTable = notificationDatabaseTable;
     this.distribution = distribution;
     this.tutorialDatabaseTable = tutorialDatabaseTable;
+    this.activityDatabaseTable = activityDatabaseTable;
   }
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
@@ -175,6 +180,8 @@ public final class VerificationRegistrationController {
     userVerificationDatabaseTable.deleteVerification(userId);
     var apiKey = Verification.create(userDatabaseTable, secretKey, "", "")
       .generateApiKey(userId);
+    activityDatabaseTable.insertActivity(userId, "activity.setting.registration.title",
+      "activity.setting.registration.description", ActivityType.SETTING);
     return Map.of("success", true, "token", apiKey);
   }
 

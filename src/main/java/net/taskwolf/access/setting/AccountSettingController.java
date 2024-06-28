@@ -17,6 +17,8 @@ import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.ticket.TicketDatabaseTable;
 import net.taskwolf.core.tutorial.TutorialDatabaseTable;
 import net.taskwolf.core.user.*;
+import net.taskwolf.core.user.activity.ActivityType;
+import net.taskwolf.core.user.activity.UserActivityDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.device.structure.DeviceDatabaseTable;
 import net.taskwolf.device.structure.UserDeviceDatabaseTable;
@@ -60,6 +62,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final AccountController accountController;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TutorialDatabaseTable tutorialDatabaseTable;
+  private final UserActivityDatabaseTable activityDatabaseTable;
 
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -83,7 +86,8 @@ public final class AccountSettingController extends TaskwolfRestController {
     UserDeviceDatabaseTable userDeviceDatabaseTable,
     AccountController accountController,
     TutorialDatabaseTable tutorialDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable,
+    UserActivityDatabaseTable activityDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
@@ -107,6 +111,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.accountController = accountController;
     this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.activityDatabaseTable = activityDatabaseTable;
   }
 
   @RequestMapping(path = "/settings/account/unlocked/", method = RequestMethod.GET)
@@ -171,6 +176,8 @@ public final class AccountSettingController extends TaskwolfRestController {
       return Map.of("success", false);
     }
     userDatabaseTable().changeUserPassword(user.id(), hashPassword(newPassword));
+    activityDatabaseTable.insertActivity(user.id(), "activity.setting.password.title",
+      "activity.setting.password.description", ActivityType.SETTING);
     return Map.of("success", true);
   }
 
@@ -263,6 +270,8 @@ public final class AccountSettingController extends TaskwolfRestController {
     }
     userEmailChangeDatabaseTable.deleteChange(userId);
     userDatabaseTable().changeUserEmail(userId, changeParameters.getKey());
+    activityDatabaseTable.insertActivity(userId, "activity.setting.email.title",
+      "activity.setting.email.description", ActivityType.SETTING);
     return CompletableFuture.completedFuture(Map.of("success", true));
   }
 
@@ -319,6 +328,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     }
     bundleDatabaseTable.deleteBundle(user.id());
     tutorialDatabaseTable.deleteTutorial(user.id());
+    activityDatabaseTable.deleteActivity(user.id());
   }
 
   private void accountDeletionHandleOrganization(User user, Organization organization) {

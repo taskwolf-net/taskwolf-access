@@ -40,7 +40,7 @@ public final class ActivityController extends TaskwolfRestController {
     return findUser(request).thenCompose(user ->
       activityDatabaseTable.findActivitiesOfUser(user.id()).thenApply(activities ->
         Map.of("activities", activities.stream()
-          .sorted(Comparator.comparing(Activity::time).reversed()).limit(10)
+          .sorted(Comparator.comparing(Activity::time).reversed()).limit(3)
           .map(activity -> assemblyActivityInformation(user, activity)).toList())));
   }
 

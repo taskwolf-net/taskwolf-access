@@ -65,7 +65,10 @@ public final class BundleController extends TaskwolfRestController {
 
   private Map<String, Object> assemblyBundleInformation(Bundle bundle) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("type", bundle.type().toString());
+    information.put("type", bundle.bundleType().toString());
+    information.put("class", bundle.bundleClass().toString());
+    information.put("runtime", bundle.bundleRuntime().toString());
+    information.put("price", bundle.price());
     information.put("expiration", bundle.expiration());
     information.put("workflowAccess", bundle.workflowAccess());
     information.put("workflowNumberLimit", bundle.workflowNumberLimit());

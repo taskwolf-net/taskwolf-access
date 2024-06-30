@@ -7,27 +7,50 @@ import net.taskwolf.core.bundle.Bundle;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
+import net.taskwolf.core.workflow.WorkflowDatabaseTable;
+import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
+import net.taskwolf.table.structure.TableDatabaseTable;
+import net.taskwolf.table.structure.TableEntry;
+import net.taskwolf.webhook.structure.WebhookDatabaseTable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.security.Key;
+import java.text.DecimalFormat;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RestController
 public final class BundleController extends TaskwolfRestController {
   private final BundleDatabaseTable bundleDatabaseTable;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final OperationDatabaseTable operationDatabaseTable;
+  private final TableDatabaseTable tableDatabaseTable;
+  private final WebhookDatabaseTable webhookDatabaseTable;
 
   private BundleController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
-    UserTargetDatabaseTable userTargetDatabaseTable
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    WorkflowDatabaseTable workflowDatabaseTable,
+    OperationDatabaseTable operationDatabaseTable,
+    TableDatabaseTable tableDatabaseTable,
+    WebhookDatabaseTable webhookDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.workflowDatabaseTable = workflowDatabaseTable;
+    this.operationDatabaseTable = operationDatabaseTable;
+    this.tableDatabaseTable = tableDatabaseTable;
+    this.webhookDatabaseTable = webhookDatabaseTable;
   }
 
   @RequestMapping(path = "/bundle/", method = RequestMethod.GET)
@@ -50,7 +73,8 @@ public final class BundleController extends TaskwolfRestController {
     information.put("workflowTemplateAccess", bundle.workflowTemplateAccess());
     information.put("databaseAccess", bundle.databaseAccess());
     information.put("databaseNumberLimit", bundle.databaseNumberLimit());
-    information.put("databaseDataLimit", bundle.databaseDataLimit());
+    information.put("databaseDataLimit", new DecimalFormat("#.#").format(
+      bundle.databaseDataLimit()));
     information.put("webhookAccess", bundle.webhookAccess());
     information.put("webhookNumberLimit", bundle.webhookNumberLimit());
     information.put("organizationAccess", bundle.organizationAccess());
@@ -59,5 +83,37 @@ public final class BundleController extends TaskwolfRestController {
     information.put("accountsAccess", bundle.accountsAccess());
     information.put("accountsNumberLimit", bundle.accountsNumberLimit());
     return information;
+  }
+
+  @RequestMapping(path = "/bundle/usage/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> fundBundleUsage(
+    HttpServletRequest request
+  ) {
+    return userTargetDatabaseTable.findTargetSecured(findUserId(request))
+      .thenCompose(target -> findWorkflowUsage(target)
+        .thenCompose(workflowUsage -> findDatabaseUsage(target)
+          .thenCompose(databaseUsage -> findWebhookUsage(target)
+            .thenApply(webhookUsage -> Stream.of(workflowUsage.entrySet(),
+                databaseUsage.entrySet(), webhookUsage.entrySet()).flatMap(Set::stream)
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))));
+  }
+
+  private CompletableFuture<Map<String, Object>> findWorkflowUsage(UUID targetId) {
+    return workflowDatabaseTable.findWorkflowsOfOwner(targetId).thenCompose(
+      workflows -> operationDatabaseTable.findOperations(targetId).thenApply(
+        operations -> Map.of("workflowNumberUsage", workflows.size(),
+          "workflowOperationUsage", operations.operations())));
+  }
+
+  private CompletableFuture<Map<String, Object>> findDatabaseUsage(UUID targetId) {
+    return tableDatabaseTable.findTablesOfOwner(targetId).thenApply(tables ->
+      Map.of("databaseNumberUsage", tables.size(), "databaseDataUsage",
+        new DecimalFormat("#.###").format(tables.stream()
+          .mapToLong(TableEntry::size).sum() * Math.pow(10, -9))));
+  }
+
+  private CompletableFuture<Map<String, Object>> findWebhookUsage(UUID targetId) {
+    return webhookDatabaseTable.findWebhooksByOwner(targetId).thenApply(
+      webhooks -> Map.of("webhookNumberUsage", webhooks.size()));
   }
 }

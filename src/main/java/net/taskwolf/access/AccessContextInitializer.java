@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
+import net.taskwolf.core.bundle.BundlePresetRepository;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.database.DatabaseConnection;
@@ -67,6 +68,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final ConditionInformationRepository conditionRepository;
   private final TimelineFactory timelineFactory;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final BundlePresetRepository bundlePresetRepository;
   private final UserActivityDatabaseTable activityDatabaseTable;
   private final CoreModule coreModule;
 
@@ -102,6 +104,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("conditionRepository", conditionRepository);
     beanFactory.registerSingleton("timelineFactory", timelineFactory);
     beanFactory.registerSingleton("bundleDatabaseTable", bundleDatabaseTable);
+    beanFactory.registerSingleton("bundlePresetRepository", bundlePresetRepository);
     beanFactory.registerSingleton("activityDatabaseTable", activityDatabaseTable);
     beanFactory.registerSingleton("coreModule", coreModule);
   }

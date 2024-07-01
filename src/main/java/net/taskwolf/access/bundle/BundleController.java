@@ -2,9 +2,10 @@ package net.taskwolf.access.bundle;
 
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.bundle.Bundle;
-import net.taskwolf.core.bundle.BundleDatabaseTable;
+import net.taskwolf.core.bundle.*;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
@@ -12,6 +13,7 @@ import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
 import net.taskwolf.table.structure.TableDatabaseTable;
 import net.taskwolf.table.structure.TableEntry;
 import net.taskwolf.webhook.structure.WebhookDatabaseTable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +31,7 @@ import java.util.stream.Stream;
 @RestController
 public final class BundleController extends TaskwolfRestController {
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final BundlePresetRepository bundlePresetRepository;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
@@ -38,6 +41,7 @@ public final class BundleController extends TaskwolfRestController {
   private BundleController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
+    BundlePresetRepository bundlePresetRepository,
     UserTargetDatabaseTable userTargetDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     OperationDatabaseTable operationDatabaseTable,
@@ -46,11 +50,59 @@ public final class BundleController extends TaskwolfRestController {
   ) {
     super(secretKey, userDatabaseTable);
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.bundlePresetRepository = bundlePresetRepository;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.operationDatabaseTable = operationDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
     this.webhookDatabaseTable = webhookDatabaseTable;
+  }
+
+  @RequestMapping(path = "/bundle/preset/", method = RequestMethod.POST)
+  public Map<String, Object> fundBundlePreset(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var bundleType = BundleType.valueOf(body.getString("type"));
+    var bundleClass = BundleClass.valueOf(body.getString("class"));
+    var bundleRuntime = BundleRuntime.valueOf(body.getString("runtime"));
+    if (bundleType.isTrial()) {
+      return assemblyBundlePresetInformation(
+        bundlePresetRepository.findPreset(bundleType).get(), BundleRuntime.WEEKLY);
+    }
+    return assemblyBundlePresetInformation(
+      bundlePresetRepository.findPreset(bundleType, bundleClass).get(),
+      bundleRuntime);
+  }
+
+  private Map<String, Object> assemblyBundlePresetInformation(
+    BundlePreset preset, BundleRuntime runtime
+  ) {
+    var information = Maps.<String, Object>newHashMap();
+    if (preset.bundleType().isTrial()) {
+      information.put("price", 0);
+    } else {
+      information.put("price", preset.hasPrice() ? (runtime.isMonthly() ?
+        preset.monthlyPrice() : preset.yearlyPrice()) : "NEGOTIABLE");
+    }
+    information.put("workflowAccess", preset.workflowAccess());
+    information.put("workflowNumberLimit", preset.workflowNumberLimit());
+    information.put("workflowOperationLimit", preset.hasWorkflowOperationLimit() ?
+      preset.workflowOperationLimit() : "NEGOTIABLE");
+    information.put("workflowTemplateAccess", preset.workflowTemplateAccess());
+    information.put("databaseAccess", preset.databaseAccess());
+    information.put("databaseNumberLimit", preset.databaseNumberLimit());
+    information.put("databaseDataLimit", preset.hasDatabaseDataLimit() ?
+      new DecimalFormat("#.#").format(preset.databaseDataLimit()) : "NEGOTIABLE");
+    information.put("webhookAccess", preset.webhookAccess());
+    information.put("webhookNumberLimit", preset.webhookNumberLimit());
+    information.put("organizationAccess", preset.organizationAccess());
+    information.put("organizationMemberLimit", preset.organizationMemberLimit());
+    information.put("deviceAccess", preset.deviceAccess());
+    information.put("accountsAccess", preset.accountsAccess());
+    information.put("accountsNumberLimit", preset.accountsNumberLimit());
+    return information;
   }
 
   @RequestMapping(path = "/bundle/", method = RequestMethod.GET)

@@ -168,21 +168,20 @@ public final class VerificationRegistrationController {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
     return userVerificationDatabaseTable.findVerification(userId)
-      .thenApply(originalToken -> complete(userId, submittedToken, originalToken));
+      .thenCompose(originalToken -> complete(userId, submittedToken, originalToken));
   }
 
-  private Map<String, Object> complete(
+  private CompletableFuture<Map<String, Object>> complete(
     UUID userId, String submittedToken, String originalToken
   ) {
     if (!submittedToken.equals(originalToken)) {
-      return Map.of("success", false);
+      return CompletableFuture.completedFuture(Map.of("success", false));
     }
     userVerificationDatabaseTable.deleteVerification(userId);
-    var apiKey = Verification.create(userDatabaseTable, secretKey, "", "")
-      .generateApiKey(userId);
     activityDatabaseTable.insertActivity(userId, "activity.setting.registration.title",
       "activity.setting.registration.description", ActivityType.SETTING);
-    return Map.of("success", true, "token", apiKey);
+    return userDatabaseTable.findUser(userId).thenApply(user ->
+      Map.of("success", true, "email", user.email()));
   }
 
   private String hashPassword(String password) {

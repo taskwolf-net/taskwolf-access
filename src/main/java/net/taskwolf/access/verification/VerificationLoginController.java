@@ -90,6 +90,9 @@ public final class VerificationLoginController {
   private CompletableFuture<Long> findLatestBundleExpiration(
     User user, boolean hasPersonalBundle
   ) {
+    if (!hasPersonalBundle && user.organizations().isEmpty()) {
+      return CompletableFuture.completedFuture(-10L);
+    }
     var targets = Lists.newArrayList(user.organizations());
     if (hasPersonalBundle) {
       targets.add(user.id());
@@ -104,9 +107,14 @@ public final class VerificationLoginController {
     CompletableFuture<Map<String, Object>> futureResponse, User user,
     boolean bundleEnabled, long expiration
   ) {
-    if (!bundleEnabled) {
+    if (expiration == -10) {
       servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
       futureResponse.complete(Map.of("success", false, "error", 1002));
+      return;
+    }
+    if (!bundleEnabled) {
+      servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      futureResponse.complete(Map.of("success", false, "error", 1003));
       return;
     }
     var apiKey = verification.generateApiKey(user.id(), expiration);

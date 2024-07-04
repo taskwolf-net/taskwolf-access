@@ -95,6 +95,8 @@ dependencies {
   compileOnly("io.jsonwebtoken:jjwt:0.12.5")
 
   compileOnly("com.sun.mail:javax.mail:1.6.2")
+
+  compileOnly("com.stripe:stripe-java:26.1.0")
 }
 
 tasks.test {

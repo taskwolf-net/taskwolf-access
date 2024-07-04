@@ -15,6 +15,8 @@ import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.stripe.StripeConfiguration;
+import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.template.TemplateDatabaseTable;
 import net.taskwolf.core.ticket.TicketDatabaseTable;
 import net.taskwolf.core.ticket.TicketMessageDatabaseTable;
@@ -70,6 +72,8 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final BundleDatabaseTable bundleDatabaseTable;
   private final BundlePresetRepository bundlePresetRepository;
   private final UserActivityDatabaseTable activityDatabaseTable;
+  private final StripeConfiguration stripeConfiguration;
+  private final StripeDatabaseTable stripeDatabaseTable;
   private final CoreModule coreModule;
 
   @Override
@@ -106,6 +110,8 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("bundleDatabaseTable", bundleDatabaseTable);
     beanFactory.registerSingleton("bundlePresetRepository", bundlePresetRepository);
     beanFactory.registerSingleton("activityDatabaseTable", activityDatabaseTable);
+    beanFactory.registerSingleton("stripeConfiguration", stripeConfiguration);
+    beanFactory.registerSingleton("stripeDatabaseTable", stripeDatabaseTable);
     beanFactory.registerSingleton("coreModule", coreModule);
   }
 }

@@ -51,6 +51,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/verification/complete/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/login/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/isValid/");
+    controllers.add("/" + CURRENT_API_VERSION + "/email/exists/");
     controllers.add("/" + CURRENT_API_VERSION + "/discord/guild/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/login/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");

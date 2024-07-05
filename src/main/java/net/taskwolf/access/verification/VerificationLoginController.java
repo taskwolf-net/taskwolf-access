@@ -143,4 +143,13 @@ public final class VerificationLoginController {
     return Hashing.sha256().hashString(password, StandardCharsets.UTF_8)
       .toString();
   }
+
+  @RequestMapping(path = "/email/exists/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> emailExists(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    return userDatabaseTable.userExists(body.getString("email"))
+      .thenApply(exists -> Map.of("exists", exists));
+  }
 }

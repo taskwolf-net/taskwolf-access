@@ -1,12 +1,13 @@
 package net.taskwolf.access.stripe;
 
-import com.stripe.model.Event;
 import com.stripe.model.Customer;
+import com.stripe.model.Event;
 import com.stripe.model.Subscription;
 import com.stripe.net.Webhook;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.log.Log;
 import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -22,15 +23,17 @@ import java.util.Optional;
 public final class StripeController extends TaskwolfRestController {
   private final StripeConfiguration stripeConfiguration;
   private final StripeDatabaseTable stripeDatabaseTable;
+  private final Log log;
 
   private StripeController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeConfiguration stripeConfiguration,
-    StripeDatabaseTable stripeDatabaseTable
+    StripeDatabaseTable stripeDatabaseTable, Log log
   ) {
     super(secretKey, userDatabaseTable);
     this.stripeConfiguration = stripeConfiguration;
     this.stripeDatabaseTable = stripeDatabaseTable;
+    this.log = log;
   }
 
   @RequestMapping(path = "/stripe/", method = RequestMethod.POST)
@@ -70,10 +73,24 @@ public final class StripeController extends TaskwolfRestController {
   }
 
   private void processCustomerCreation(Event event, Customer customer) {
-    System.out.println("Customer create: " + customer.getId());
+    userDatabaseTable().findUser(customer.getEmail()).thenAccept(user ->
+      stripeDatabaseTable.insertStripeAccount(user.id(), customer.getId()));
   }
 
   private void processSubscriptionCreation(Event event, Subscription subscription) {
-    System.out.println("Subscript create: " + subscription.getId());
+    stripeDatabaseTable.stripeAccountExistsById(subscription.getCustomer())
+      .thenAccept(exists -> saveSubscription(subscription, exists));
+  }
+
+  private void saveSubscription(Subscription subscription, boolean accountExists) {
+    if (!accountExists) {
+      log.severe("An error has occurred during the payment process: " +
+        "The subscription " + subscription.getId() + " could not be assigned correctly. " +
+        "This is because no account with the customer ID could be found in our database.");
+      return;
+    }
+    stripeDatabaseTable.findStripeAccountById(subscription.getCustomer())
+      .thenAccept(account -> stripeDatabaseTable.updateStripeAccountSubscription(
+        account, subscription.getId()));
   }
 }

@@ -1,16 +1,24 @@
 package net.taskwolf.access.stripe;
 
+import com.google.common.collect.Lists;
+import com.stripe.StripeClient;
 import com.stripe.model.Customer;
 import com.stripe.model.Event;
 import com.stripe.model.Subscription;
 import com.stripe.net.Webhook;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.log.Log;
+import net.taskwolf.core.bundle.*;
+import net.taskwolf.core.organization.Organization;
+import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.stripe.StripeAccount;
 import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.worker.WorkerDistribution;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -18,22 +26,35 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class StripeController extends TaskwolfRestController {
   private final StripeConfiguration stripeConfiguration;
   private final StripeDatabaseTable stripeDatabaseTable;
-  private final Log log;
+  private final StripeClient stripeClient;
+  private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
+  private final WorkerDistribution distribution;
+  private final CoreModule coreModule;
 
   private StripeController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeConfiguration stripeConfiguration,
-    StripeDatabaseTable stripeDatabaseTable, Log log
+    StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
+    OrganizationDatabaseTable organizationDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable,  WorkerDistribution distribution,
+    CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
     this.stripeConfiguration = stripeConfiguration;
     this.stripeDatabaseTable = stripeDatabaseTable;
-    this.log = log;
+    this.stripeClient = stripeClient;
+    this.organizationDatabaseTable = organizationDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
+    this.distribution = distribution;
+    this.coreModule = coreModule;
   }
 
   @RequestMapping(path = "/stripe/", method = RequestMethod.POST)
@@ -52,11 +73,8 @@ public final class StripeController extends TaskwolfRestController {
       return;
     }
     var stripeObject = dataObjectDeserializer.getObject().get();
-    switch (event.get().getType()) {
-      case "customer.created":
-        processCustomerCreation(event.get(), (Customer) stripeObject);
-      case "customer.subscription.created":
-        processSubscriptionCreation(event.get(), (Subscription) stripeObject);
+    if (event.get().getType().equals("customer.subscription.created")) {
+      processSubscriptionCreation(event.get(), (Subscription) stripeObject);
     }
   }
 
@@ -72,25 +90,138 @@ public final class StripeController extends TaskwolfRestController {
     }
   }
 
-  private void processCustomerCreation(Event event, Customer customer) {
-    userDatabaseTable().findUser(customer.getEmail()).thenAccept(user ->
-      stripeDatabaseTable.insertStripeAccount(user.id(), customer.getId()));
-  }
-
   private void processSubscriptionCreation(Event event, Subscription subscription) {
     stripeDatabaseTable.stripeAccountExistsById(subscription.getCustomer())
-      .thenAccept(exists -> saveSubscription(subscription, exists));
+      .thenAcceptAsync(exists -> findCustomer(subscription, exists)
+        .thenAccept(customer -> applySubscription(customer, subscription)));
   }
 
-  private void saveSubscription(Subscription subscription, boolean accountExists) {
-    if (!accountExists) {
-      log.severe("An error has occurred during the payment process: " +
-        "The subscription " + subscription.getId() + " could not be assigned correctly. " +
-        "This is because no account with the customer ID could be found in our database.");
+  private CompletableFuture<Customer> findCustomer(Subscription subscription, boolean exists) {
+    try {
+      var customer = stripeClient.customers().retrieve(subscription.getCustomer());
+      if (exists) {
+        return CompletableFuture.completedFuture(customer);
+      }
+      return userDatabaseTable().findUser(customer.getEmail())
+        .thenCompose(user -> stripeDatabaseTable.insertStripeAccount(
+          user.id(), customer.getId()).thenApply(value -> customer));
+    } catch (Exception exception) {
+      exception.printStackTrace();
+      return null;
+    }
+  }
+
+  private void applySubscription(
+    Customer customer, Subscription subscription
+  ) {
+    var accountFuture = stripeDatabaseTable.findStripeAccountById(subscription.getCustomer());
+    accountFuture.thenAccept(account -> stripeDatabaseTable.updateStripeAccountSubscription(
+      account, subscription.getId()));
+    accountFuture.thenAccept(account -> applyBundle(account, subscription));
+    //TODO: SEND EMAIL
+  }
+
+  private void applyBundle(StripeAccount account, Subscription subscription) {
+    try {
+      var bundlePreset = findBundlePreset(subscription);
+      if (bundlePreset == null) {
+        return;
+      }
+      var bundleRuntime = findBundleRuntime(subscription);
+      findBundleTarget(account, bundlePreset).thenAccept(target ->
+        bundleDatabaseTable.bundleExists(target).thenAccept(exists ->
+          applyBundle(target, bundlePreset, bundleRuntime, exists)));
+    } catch (Exception exception) {
+      exception.printStackTrace();
+    }
+  }
+
+  private void applyBundle(
+    UUID target, BundlePreset bundlePreset, BundleRuntime bundleRuntime,
+    boolean bundleExists
+  ) {
+    if (bundleExists) {
+      bundleDatabaseTable.updateBundle(Bundle.of(target, bundlePreset, bundleRuntime));
       return;
     }
-    stripeDatabaseTable.findStripeAccountById(subscription.getCustomer())
-      .thenAccept(account -> stripeDatabaseTable.updateStripeAccountSubscription(
-        account, subscription.getId()));
+    bundleDatabaseTable.insertBundle(Bundle.of(target, bundlePreset, bundleRuntime));
+  }
+
+  private CompletableFuture<UUID> findBundleTarget(
+    StripeAccount account, BundlePreset preset
+  ) {
+    if (preset.bundleType() == BundleType.PROFESSIONAL) {
+      return CompletableFuture.completedFuture(account.userId());
+    }
+    return userDatabaseTable().findUser(account.userId()).thenCompose(user ->
+      organizationDatabaseTable.organizationExistsByOwner(user.id()).thenCompose(
+        exists -> findOrganization(user, exists)));
+  }
+
+  private CompletableFuture<UUID> findOrganization(
+    User user, boolean organizationExists
+  ) {
+    if (organizationExists) {
+      return organizationDatabaseTable.findOrganizationByOwner(user.id())
+        .thenApply(Organization::id);
+    }
+    var organizationIdFuture = organizationDatabaseTable
+      .generateAvailableOrganizationId();
+    var organizationName = String.format(coreModule.translate(user,
+      "organization.default.name"), user.name());
+    organizationIdFuture.thenAccept(organizationId ->
+      createOrganization(organizationId, organizationName, user.id()));
+    return organizationIdFuture;
+  }
+
+  private void createOrganization(UUID organizationId, String name, UUID userId) {
+    organizationDatabaseTable.insertOrganization(organizationId, name, userId,
+      Lists.newArrayList(), UUID.randomUUID().toString());
+    userDatabaseTable().addUserOrganization(userId, organizationId);
+    distribution.addUser(organizationId);
+  }
+
+  private BundlePreset findBundlePreset(Subscription subscription) throws Exception {
+    var product = subscription.getItems().getData().get(0).getPrice().getProduct();
+    if (product.equals(stripeConfiguration.professionalBeginnerMonthlyProductId()) ||
+      product.equals(stripeConfiguration.professionalBeginnerYearlyProductId())
+    ) {
+      return BundlePreset.createAndLoad(BundleType.PROFESSIONAL, BundleClass.BEGINNER);
+    } else if (product.equals(stripeConfiguration.professionalAdvancedMonthlyProductId()) ||
+      product.equals(stripeConfiguration.professionalAdvancedYearlyProductId())
+    ) {
+      return BundlePreset.createAndLoad(BundleType.PROFESSIONAL, BundleClass.ADVANCED);
+    } else if (product.equals(stripeConfiguration.professionalExpertMonthlyProductId()) ||
+      product.equals(stripeConfiguration.professionalExpertYearlyProductId())
+    ) {
+      return BundlePreset.createAndLoad(BundleType.PROFESSIONAL, BundleClass.EXPERT);
+    } else if (product.equals(stripeConfiguration.teamBeginnerMonthlyProductId()) ||
+      product.equals(stripeConfiguration.teamBeginnerYearlyProductId())
+    ) {
+      return BundlePreset.createAndLoad(BundleType.TEAM, BundleClass.BEGINNER);
+    } else if (product.equals(stripeConfiguration.teamAdvancedMonthlyProductId()) ||
+      product.equals(stripeConfiguration.teamAdvancedYearlyProductId())
+    ) {
+      return BundlePreset.createAndLoad(BundleType.TEAM, BundleClass.ADVANCED);
+    } else if (product.equals(stripeConfiguration.teamExpertMonthlyProductId()) ||
+      product.equals(stripeConfiguration.teamExpertYearlyProductId())
+    ) {
+      return BundlePreset.createAndLoad(BundleType.TEAM, BundleClass.EXPERT);
+    }
+    return null;
+  }
+
+  private BundleRuntime findBundleRuntime(Subscription subscription) {
+    var product = subscription.getItems().getData().get(0).getPrice().getProduct();
+    if (product.equals(stripeConfiguration.professionalBeginnerMonthlyProductId()) ||
+      product.equals(stripeConfiguration.professionalAdvancedMonthlyProductId()) ||
+      product.equals(stripeConfiguration.professionalExpertMonthlyProductId()) ||
+      product.equals(stripeConfiguration.teamBeginnerMonthlyProductId()) ||
+      product.equals(stripeConfiguration.teamAdvancedMonthlyProductId()) ||
+      product.equals(stripeConfiguration.teamExpertMonthlyProductId())
+    ) {
+      return BundleRuntime.MONTHLY;
+    }
+    return BundleRuntime.YEARLY;
   }
 }

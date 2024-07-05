@@ -2,6 +2,7 @@ package net.taskwolf.access.stripe;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.stripe.StripeClient;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.stripe.StripeConfiguration;
@@ -14,11 +15,13 @@ import org.springframework.context.ConfigurableApplicationContext;
 public class StripeContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
   private final StripeConfiguration stripeConfiguration;
   private final StripeDatabaseTable stripeDatabaseTable;
+  private final StripeClient stripeClient;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
     var beanFactory = applicationContext.getBeanFactory();
     beanFactory.registerSingleton("stripeConfiguration", stripeConfiguration);
     beanFactory.registerSingleton("stripeDatabaseTable", stripeDatabaseTable);
+    beanFactory.registerSingleton("stripeClient", stripeClient);
   }
 }

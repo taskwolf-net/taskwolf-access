@@ -1,20 +1,35 @@
 package net.taskwolf.access;
 
-import com.google.common.collect.Lists;
 import com.google.inject.Injector;
+import jnr.ffi.annotations.In;
+import net.taskwolf.access.activity.ActivityContextInitializer;
+import net.taskwolf.access.bundle.BundleContextInitializer;
+import net.taskwolf.access.organization.OrganizationContextInitializer;
+import net.taskwolf.access.setting.SettingContextInitializer;
+import net.taskwolf.access.stripe.StripeContextInitializer;
+import net.taskwolf.access.target.TargetContextInitializer;
+import net.taskwolf.access.template.TemplateContextInitializer;
+import net.taskwolf.access.ticket.TicketContextInitializer;
+import net.taskwolf.access.tutorial.TutorialContextInitializer;
+import net.taskwolf.access.verification.VerificationContextInitializer;
+import net.taskwolf.access.whitelist.WhitelistContextInitializer;
+import net.taskwolf.access.workflow.WorkflowContextInitializer;
+import net.taskwolf.core.CoreModule;
+import net.taskwolf.core.database.DatabaseConnection;
+import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.log.Log;
+import net.taskwolf.core.module.*;
 import net.taskwolf.core.module.Module;
-import net.taskwolf.core.module.ModuleDescription;
-import net.taskwolf.core.module.ModuleInformation;
-import net.taskwolf.core.module.ModuleLoadPriority;
+import net.taskwolf.core.worker.WorkerDistribution;
+import net.taskwolf.core.worker.client.WorkerProxyClient;
 import org.springframework.boot.SpringApplication;
+
+import java.security.Key;
 
 @ModuleDescription(name = "access", version = "1.0.0-SNAPSHOT",
   priority = ModuleLoadPriority.HIGH)
 public final class AccessModule extends Module {
   private Log log;
-  private SpringApplication springApplication;
-  private AccessContextInitializer contextInitializer;
 
   public AccessModule(Injector injector) {
     super(injector);
@@ -25,16 +40,34 @@ public final class AccessModule extends Module {
     System.setProperty("jdk.httpclient.allowRestrictedHeaders",
       "host,connection,content-length,upgrade");
     log = injector().getInstance(Log.class).subLog("Access");
-    springApplication = injector().getInstance(SpringApplication.class);
-    contextInitializer = injector().getInstance(AccessContextInitializer.class);
-    springApplication.addInitializers(contextInitializer);
+    registerContextInitializers(injector().getInstance(SpringApplication.class));
+  }
+
+  private void registerContextInitializers(SpringApplication application) {
+    application.addInitializers(AccessContextInitializer.create(log,
+      injector().getInstance(Key.class), injector().getInstance(ModuleLoader.class),
+      injector().getInstance(DatabaseConnection.class),
+      injector().getInstance(DatabaseKeyspace.class),
+      injector().getInstance(WorkerDistribution.class),
+      injector().getInstance(WorkerProxyClient.class),
+      injector().getInstance(CoreModule.class)));
+    application.addInitializers(injector().getInstance(WhitelistContextInitializer.class));
+    application.addInitializers(injector().getInstance(VerificationContextInitializer.class));
+    application.addInitializers(injector().getInstance(StripeContextInitializer.class));
+    application.addInitializers(injector().getInstance(TargetContextInitializer.class));
+    application.addInitializers(injector().getInstance(WorkflowContextInitializer.class));
+    application.addInitializers(injector().getInstance(TemplateContextInitializer.class));
+    application.addInitializers(injector().getInstance(OrganizationContextInitializer.class));
+    application.addInitializers(injector().getInstance(BundleContextInitializer.class));
+    application.addInitializers(injector().getInstance(TutorialContextInitializer.class));
+    application.addInitializers(injector().getInstance(TicketContextInitializer.class));
+    application.addInitializers(injector().getInstance(SettingContextInitializer.class));
+    application.addInitializers(injector().getInstance(ActivityContextInitializer.class));
   }
 
   @Override
   public void disable() {
-    var initializers = Lists.newArrayList(springApplication.getInitializers());
-    initializers.remove(contextInitializer);
-    springApplication.setInitializers(initializers);
+
   }
 
   @Override

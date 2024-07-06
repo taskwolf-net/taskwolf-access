@@ -46,45 +46,62 @@ public final class VerificationLoginController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
+    var loginFuture = login(body.getString("email"), body.getString("password"));
+    loginFuture.thenAccept(result -> applyLoginResponseStatus(response, result));
+    return loginFuture;
+  }
+
+  private void applyLoginResponseStatus(
+    HttpServletResponse response, Map<String, Object> result
+  ) {
+    if ((boolean) result.get("success")) {
+      response.setStatus(HttpServletResponse.SC_OK);
+      return;
+    }
+    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+  }
+
+  private CompletableFuture<Map<String, Object>> login(String email, String password) {
     var verification = Verification.create(userDatabaseTable, secretKey,
-      body.getString("email").replace(" ", ""),
-      hashPassword(body.getString("password")));
+      email.replace(" ", ""), hashPassword(password));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
-      checkAuthorization(response, verification, futureResponse, isAuthenticated));
+      checkAuthorization(verification, futureResponse, isAuthenticated));
     return futureResponse;
   }
 
   private void checkAuthorization(
-    HttpServletResponse servletResponse, Verification verification,
-    CompletableFuture<Map<String, Object>> futureResponse, boolean isAuthenticated
+    Verification verification, CompletableFuture<Map<String, Object>> futureResponse,
+    boolean isAuthenticated
   ) {
     if (!isAuthenticated) {
-      servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
       futureResponse.complete(Map.of("success", false, "error", 1000));
       return;
     }
+    processAuthorizedLogin(verification, futureResponse);
+  }
+
+  public void processAuthorizedLogin(
+    Verification verification, CompletableFuture<Map<String, Object>> futureResponse
+  ) {
     userDatabaseTable.findUser(verification.email()).thenAccept(user ->
       userVerificationDatabaseTable.verificationExists(user.id())
-        .thenAccept(completionPending -> checkBundle(servletResponse, verification,
-          futureResponse, user, completionPending)));
+        .thenAccept(completionPending -> checkBundle(verification, futureResponse,
+          user, completionPending)));
   }
 
   private void checkBundle(
-    HttpServletResponse servletResponse, Verification verification,
-    CompletableFuture<Map<String, Object>> futureResponse, User user,
-    boolean completionPending
+    Verification verification, CompletableFuture<Map<String, Object>> futureResponse,
+    User user, boolean completionPending
   ) {
     if (completionPending) {
-      servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
       futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
     bundleDatabaseTable.bundleExists(user.id()).thenAccept(hasPersonalBundle ->
       findLatestBundleExpiration(user, hasPersonalBundle).thenAccept(
-        latestExpiration -> completeLogin(servletResponse, verification,
-          futureResponse, user, latestExpiration > System.currentTimeMillis(),
-          latestExpiration)));
+        latestExpiration -> completeLogin(verification, futureResponse, user,
+          latestExpiration > System.currentTimeMillis(), latestExpiration)));
   }
 
   private CompletableFuture<Long> findLatestBundleExpiration(
@@ -103,17 +120,14 @@ public final class VerificationLoginController {
   }
 
   private void completeLogin(
-    HttpServletResponse servletResponse, Verification verification,
-    CompletableFuture<Map<String, Object>> futureResponse, User user,
-    boolean bundleEnabled, long expiration
+    Verification verification, CompletableFuture<Map<String, Object>> futureResponse,
+    User user, boolean bundleEnabled, long expiration
   ) {
     if (expiration == -10) {
-      servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
       futureResponse.complete(Map.of("success", false, "error", 1002));
       return;
     }
     if (!bundleEnabled) {
-      servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
       futureResponse.complete(Map.of("success", false, "error", 1003));
       return;
     }

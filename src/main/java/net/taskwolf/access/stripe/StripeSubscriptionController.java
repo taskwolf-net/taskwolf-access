@@ -38,7 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class StripeController extends TaskwolfRestController {
+public final class StripeSubscriptionController extends TaskwolfRestController {
   private final StripeConfiguration stripeConfiguration;
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeClient stripeClient;
@@ -49,7 +49,7 @@ public final class StripeController extends TaskwolfRestController {
   private final WorkerDistribution distribution;
   private final CoreModule coreModule;
 
-  private StripeController(
+  private StripeSubscriptionController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,

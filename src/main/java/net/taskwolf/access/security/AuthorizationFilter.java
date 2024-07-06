@@ -46,6 +46,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
     controllers.add("/" + CURRENT_API_VERSION + "/bundle/preset/");
     controllers.add("/" + CURRENT_API_VERSION + "/stripe/");
+    controllers.add("/" + CURRENT_API_VERSION + "/trial/use/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/register/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/email/resend/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/complete/");

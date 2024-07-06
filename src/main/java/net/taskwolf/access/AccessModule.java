@@ -10,6 +10,7 @@ import net.taskwolf.access.stripe.StripeContextInitializer;
 import net.taskwolf.access.target.TargetContextInitializer;
 import net.taskwolf.access.template.TemplateContextInitializer;
 import net.taskwolf.access.ticket.TicketContextInitializer;
+import net.taskwolf.access.trial.TrialContextInitializer;
 import net.taskwolf.access.tutorial.TutorialContextInitializer;
 import net.taskwolf.access.verification.VerificationContextInitializer;
 import net.taskwolf.access.whitelist.WhitelistContextInitializer;
@@ -54,6 +55,7 @@ public final class AccessModule extends Module {
     application.addInitializers(injector().getInstance(WhitelistContextInitializer.class));
     application.addInitializers(injector().getInstance(VerificationContextInitializer.class));
     application.addInitializers(injector().getInstance(StripeContextInitializer.class));
+    application.addInitializers(injector().getInstance(TrialContextInitializer.class));
     application.addInitializers(injector().getInstance(TargetContextInitializer.class));
     application.addInitializers(injector().getInstance(WorkflowContextInitializer.class));
     application.addInitializers(injector().getInstance(TemplateContextInitializer.class));

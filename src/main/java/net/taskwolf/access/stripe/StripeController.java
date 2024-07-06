@@ -21,6 +21,7 @@ import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.worker.WorkerDistribution;
+import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,6 +45,7 @@ public final class StripeController extends TaskwolfRestController {
   private final TaskwolfMail orderMail;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final OperationDatabaseTable operationDatabaseTable;
   private final WorkerDistribution distribution;
   private final CoreModule coreModule;
 
@@ -53,7 +55,8 @@ public final class StripeController extends TaskwolfRestController {
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
     @Qualifier("orderMail") TaskwolfMail orderMail,
     OrganizationDatabaseTable organizationDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable,  WorkerDistribution distribution,
+    BundleDatabaseTable bundleDatabaseTable,
+    OperationDatabaseTable operationDatabaseTable, WorkerDistribution distribution,
     CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
@@ -63,6 +66,7 @@ public final class StripeController extends TaskwolfRestController {
     this.orderMail = orderMail;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.operationDatabaseTable = operationDatabaseTable;
     this.distribution = distribution;
     this.coreModule = coreModule;
   }
@@ -154,6 +158,7 @@ public final class StripeController extends TaskwolfRestController {
     UUID target, BundlePreset bundlePreset, BundleRuntime bundleRuntime,
     boolean bundleExists
   ) {
+    operationDatabaseTable.insertOperations(target);
     if (bundleExists) {
       bundleDatabaseTable.updateBundle(Bundle.of(target, bundlePreset, bundleRuntime));
       return;

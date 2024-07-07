@@ -7,6 +7,8 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentListParams;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.bundle.Bundle;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
@@ -25,16 +27,19 @@ public final class StripePaymentController extends TaskwolfRestController {
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeClient stripeClient;
   private final UserTargetDatabaseTable targetDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
 
   private StripePaymentController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
-    UserTargetDatabaseTable targetDatabaseTable
+    UserTargetDatabaseTable targetDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.stripeDatabaseTable = stripeDatabaseTable;
     this.stripeClient = stripeClient;
     this.targetDatabaseTable = targetDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   @RequestMapping(path = "/payments/", method = RequestMethod.GET)
@@ -42,11 +47,15 @@ public final class StripePaymentController extends TaskwolfRestController {
     HttpServletRequest request
   ) {
     return targetDatabaseTable.findTarget(findUserId(request)).thenCompose(target ->
-      stripeDatabaseTable.findStripeAccount(target).thenApplyAsync(account ->
-        findPayments(account.accountId())));
+      bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
+        stripeDatabaseTable.findStripeAccount(target).thenApplyAsync(account ->
+          findPayments(bundle, account.accountId()))));
   }
 
-  private Map<String, Object> findPayments(String accountId) {
+  private Map<String, Object> findPayments(Bundle bundle, String accountId) {
+    if (bundle.bundleType().isTrial()) {
+      return Map.of("payments", Lists.newArrayList());
+    }
     try {
       var parameters = PaymentIntentListParams.builder()
         .setCustomer(accountId).build();

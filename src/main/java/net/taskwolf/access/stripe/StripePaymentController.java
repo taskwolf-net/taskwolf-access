@@ -20,6 +20,7 @@ import java.security.Key;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -46,16 +47,23 @@ public final class StripePaymentController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findPayments(
     HttpServletRequest request
   ) {
-    return targetDatabaseTable.findTarget(findUserId(request)).thenCompose(target ->
-      bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
-        stripeDatabaseTable.findStripeAccount(target).thenApplyAsync(account ->
-          findPayments(bundle, account.accountId()))));
+    return targetDatabaseTable.findTarget(findUserId(request))
+      .thenCompose(target -> bundleDatabaseTable.findBundle(target)
+        .thenCompose(bundle -> findPayments(target, bundle)));
   }
 
-  private Map<String, Object> findPayments(Bundle bundle, String accountId) {
+  private CompletableFuture<Map<String, Object>> findPayments(
+    UUID target, Bundle bundle
+  ) {
     if (bundle.bundleType().isTrial()) {
-      return Map.of("payments", Lists.newArrayList());
+      return CompletableFuture.completedFuture(Map.of("payments",
+        Lists.newArrayList()));
     }
+    return stripeDatabaseTable.findStripeAccount(target)
+      .thenApplyAsync(account -> findPayments(account.accountId()));
+  }
+
+  private Map<String, Object> findPayments(String accountId) {
     try {
       var parameters = PaymentIntentListParams.builder()
         .setCustomer(accountId).build();

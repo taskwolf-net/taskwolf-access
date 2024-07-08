@@ -59,11 +59,11 @@ public final class StripeTerminationController extends TaskwolfRestController {
         "terminated", false));
     }
     return stripeDatabaseTable.findStripeAccount(target).thenComposeAsync(
-      account -> findTerminationStatus(target, account.accountId()));
+      account -> findTerminationStatus(target, bundle, account.accountId()));
   }
 
   private CompletableFuture<Map<String, Object>> findTerminationStatus(
-    UUID target, String stripeAccountId
+    UUID target, Bundle bundle, String stripeAccountId
   ) {
     try {
       var subscriptions = stripeClient.customers().retrieve(stripeAccountId)
@@ -73,11 +73,21 @@ public final class StripeTerminationController extends TaskwolfRestController {
           "terminated", true));
       }
       return terminationDatabaseTable.terminationExists(target)
-        .thenApply(exists -> Map.of("terminable", true, "terminated", exists));
+        .thenApply(exists -> findTerminationStatus(bundle, exists));
     } catch (Exception exception) {
       exception.printStackTrace();
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
+  }
+
+  private Map<String, Object> findTerminationStatus(
+    Bundle bundle, boolean terminationExists
+  ) {
+    if (!terminationExists) {
+      return Map.of("terminable", true, "terminated", false);
+    }
+    return Map.of("terminable", true, "terminated", false, "directlyEffective",
+      bundle.expiration() - System.currentTimeMillis() < 1000L * 60 * 60 * 24 * 30);
   }
 
   @RequestMapping(path = "/terminate/", method = RequestMethod.GET)

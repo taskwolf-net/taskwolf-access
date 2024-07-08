@@ -181,6 +181,13 @@ public final class AccountSettingController extends TaskwolfRestController {
     return Map.of("success", true);
   }
 
+  @RequestMapping(path = "/settings/account/email/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findEmail(
+    HttpServletRequest request
+  ) {
+    return findUser(request).thenApply(user -> Map.of("email", user.email()));
+  }
+
   @RequestMapping(path = "/settings/account/email/change/request/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> requestEmailChange(
     HttpServletRequest request, @RequestBody String payload,

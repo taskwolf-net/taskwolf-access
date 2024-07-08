@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import com.stripe.StripeClient;
 import com.stripe.model.Customer;
 import com.stripe.model.Event;
+import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
 import com.stripe.net.Webhook;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +19,7 @@ import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.stripe.StripeAccount;
 import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
+import net.taskwolf.core.stripe.TerminationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.worker.WorkerDistribution;
@@ -42,6 +44,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   private final StripeConfiguration stripeConfiguration;
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeClient stripeClient;
+  private final TerminationDatabaseTable terminationDatabaseTable;
   private final TaskwolfMail orderMail;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
@@ -53,6 +56,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
+    TerminationDatabaseTable terminationDatabaseTable,
     @Qualifier("orderMail") TaskwolfMail orderMail,
     OrganizationDatabaseTable organizationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
@@ -63,6 +67,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     this.stripeConfiguration = stripeConfiguration;
     this.stripeDatabaseTable = stripeDatabaseTable;
     this.stripeClient = stripeClient;
+    this.terminationDatabaseTable = terminationDatabaseTable;
     this.orderMail = orderMail;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
@@ -89,6 +94,8 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     var stripeObject = dataObjectDeserializer.getObject().get();
     if (event.get().getType().equals("customer.subscription.created")) {
       processSubscriptionCreation(event.get(), (Subscription) stripeObject);
+    } else if (event.get().getType().equals("payment_intent.created")) {
+      processPaymentCreation(event.get(), (PaymentIntent) stripeObject);
     }
   }
 
@@ -280,6 +287,37 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     int bytesRead;
     while ((bytesRead = inputStream.read(dataBuffer, 0, 1024)) != -1) {
       fileOutputStream.write(dataBuffer, 0, bytesRead);
+    }
+  }
+
+  private void processPaymentCreation(Event event, PaymentIntent paymentIntent) {
+    stripeDatabaseTable.findStripeAccountById(paymentIntent.getCustomer())
+      .thenApply(StripeAccount::userId)
+      .thenAccept(userId -> bundleDatabaseTable.findBundle(userId)
+        .thenAccept(bundle -> terminationDatabaseTable.terminationExists(userId)
+          .thenAccept(exists -> processPaymentCreation(paymentIntent, userId,
+            bundle, exists))));
+  }
+
+  private void processPaymentCreation(
+    PaymentIntent paymentIntent, UUID userId, Bundle bundle,
+    boolean terminationExists
+  ) {
+    if (!terminationExists) {
+      return;
+    }
+    var timeDifference = Math.abs((System.currentTimeMillis() +
+      1000L * 60 * 60 * 24 * 30) - bundle.expiration());
+    if (timeDifference > 1000L * 60 * 60 * 24) {
+      return;
+    }
+    terminationDatabaseTable.deleteTermination(userId);
+    try {
+      var subscriptions = stripeClient.customers().retrieve(paymentIntent.getCustomer())
+        .getSubscriptions().getData();
+      subscriptions.get(0).cancel();
+    } catch (Exception exception) {
+      exception.printStackTrace();
     }
   }
 }

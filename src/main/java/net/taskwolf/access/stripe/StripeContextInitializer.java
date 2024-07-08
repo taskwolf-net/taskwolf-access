@@ -7,6 +7,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
+import net.taskwolf.core.stripe.TerminationDatabaseTable;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 
@@ -16,6 +17,7 @@ public class StripeContextInitializer implements ApplicationContextInitializer<C
   private final StripeConfiguration stripeConfiguration;
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeClient stripeClient;
+  private final TerminationDatabaseTable terminationDatabaseTable;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -23,5 +25,6 @@ public class StripeContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("stripeConfiguration", stripeConfiguration);
     beanFactory.registerSingleton("stripeDatabaseTable", stripeDatabaseTable);
     beanFactory.registerSingleton("stripeClient", stripeClient);
+    beanFactory.registerSingleton("terminationDatabaseTable", terminationDatabaseTable);
   }
 }

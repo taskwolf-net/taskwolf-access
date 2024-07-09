@@ -7,6 +7,7 @@ import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
 import com.stripe.net.Webhook;
+import com.stripe.param.SubscriptionCancelParams;
 import com.stripe.param.SubscriptionListParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -113,14 +114,22 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   }
 
   private void processSubscriptionCreation(Event event, Subscription subscription) {
-    stripeDatabaseTable.stripeAccountExistsById(subscription.getCustomer())
-      .thenAcceptAsync(exists -> findCustomer(subscription, exists)
-        .thenAcceptAsync(customer -> applySubscription(customer, subscription)));
+    findStripeAccount(subscription.getCustomer()).thenAccept(account ->
+      userDatabaseTable().findUser(account.userId()).thenAccept(user ->
+        bundleDatabaseTable.bundleExists(user.id()).thenAccept(bundleExists ->
+          processPreviousSubscriptions(user.id(), account.accountId(), bundleExists)
+            .thenAcceptAsync(value -> applySubscription(user, subscription, account)))));
   }
 
-  private CompletableFuture<Customer> findCustomer(Subscription subscription, boolean exists) {
+  private CompletableFuture<StripeAccount> findStripeAccount(String accountId) {
+    return stripeDatabaseTable.stripeAccountExistsById(accountId)
+      .thenComposeAsync(exists -> findCustomer(accountId, exists)
+        .thenCompose(customer -> stripeDatabaseTable.findStripeAccountById(accountId)));
+  }
+
+  private CompletableFuture<Customer> findCustomer(String accountId, boolean exists) {
     try {
-      var customer = stripeClient.customers().retrieve(subscription.getCustomer());
+      var customer = stripeClient.customers().retrieve(accountId);
       if (exists) {
         return CompletableFuture.completedFuture(customer);
       }
@@ -133,28 +142,55 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     }
   }
 
-  private void applySubscription(
-    Customer customer, Subscription subscription
+  private CompletableFuture<Void> processPreviousSubscriptions(
+    UUID userId, String accountId, boolean bundleExists
   ) {
-    var accountFuture = stripeDatabaseTable.findStripeAccountById(subscription.getCustomer());
-    accountFuture.thenAccept(account -> stripeDatabaseTable.updateStripeAccountSubscription(
-      account, subscription.getId()));
-    accountFuture.thenAccept(account -> applyBundle(account, subscription));
+    if (!bundleExists) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return bundleDatabaseTable.findBundle(userId)
+      .thenComposeAsync(bundle -> processPreviousSubscriptions(accountId, bundle));
+  }
+
+  private CompletableFuture<Void> processPreviousSubscriptions(
+    String accountId, Bundle bundle
+  ) {
     try {
-      sendPaymentEmail(customer, subscription);
+      var subscriptions = stripeClient.subscriptions()
+        .list(SubscriptionListParams.builder().setCustomer(accountId).build())
+        .getData();
+      if (subscriptions.isEmpty()) {
+        return CompletableFuture.completedFuture(null);
+      }
+      subscriptions.get(0).cancel(SubscriptionCancelParams.builder()
+        .setProrate(true).build());
+      return bundleDatabaseTable.deleteBundle(bundle.ownerId());
+    } catch (Exception exception) {
+      exception.printStackTrace();
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private void applySubscription(
+    User user, Subscription subscription, StripeAccount account
+  ) {
+    stripeDatabaseTable.updateStripeAccountSubscription(account, subscription.getId());
+    applyBundle(user, subscription);
+    try {
+      sendPaymentEmail(user, subscription);
     } catch (Exception exception) {
       exception.printStackTrace();
     }
   }
 
-  private void applyBundle(StripeAccount account, Subscription subscription) {
+  private void applyBundle(User user, Subscription subscription) {
     try {
       var bundlePreset = findBundlePreset(subscription);
       if (bundlePreset == null) {
         return;
       }
       var bundleRuntime = findBundleRuntime(subscription);
-      findBundleTarget(account, bundlePreset).thenAccept(target ->
+      findBundleTarget(user, bundlePreset).thenAccept(target ->
         bundleDatabaseTable.bundleExists(target).thenAccept(exists ->
           applyBundle(target, bundlePreset, bundleRuntime, exists)));
     } catch (Exception exception) {
@@ -175,14 +211,13 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   }
 
   private CompletableFuture<UUID> findBundleTarget(
-    StripeAccount account, BundlePreset preset
+    User user, BundlePreset preset
   ) {
     if (preset.bundleType() == BundleType.PROFESSIONAL) {
-      return CompletableFuture.completedFuture(account.userId());
+      return CompletableFuture.completedFuture(user.id());
     }
-    return userDatabaseTable().findUser(account.userId()).thenCompose(user ->
-      organizationDatabaseTable.organizationExistsByOwner(user.id()).thenCompose(
-        exists -> findOrganization(user, exists)));
+    return organizationDatabaseTable.organizationExistsByOwner(user.id())
+      .thenCompose(exists -> findOrganization(user, exists));
   }
 
   private CompletableFuture<UUID> findOrganization(
@@ -267,7 +302,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     "We look forward to working with you!";
 
   private void sendPaymentEmail(
-    Customer customer, Subscription subscription
+    User user, Subscription subscription
   ) throws Exception {
     var invoice = stripeClient.invoices().retrieve(subscription.getLatestInvoice());
     var invoiceFile = new File(System.getProperty("user.dir") + "/invoices/" +
@@ -275,8 +310,8 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     invoiceFile.getParentFile().mkdirs();
     invoiceFile.createNewFile();
     downloadInvoice(invoice.getInvoicePdf(), invoiceFile.getAbsoluteFile());
-    orderMail.send(customer.getEmail(), PAYMENT_EMAIL_TITLE,
-        String.format(PAYMENT_EMAIL_BODY, customer.getName()),
+    orderMail.send(user.email(), PAYMENT_EMAIL_TITLE,
+        String.format(PAYMENT_EMAIL_BODY, user.name()),
         Lists.newArrayList(TaskwolfMailAttachment.create("Invoice.pdf", invoiceFile)))
       .thenAccept(value -> invoiceFile.delete());
   }

@@ -46,6 +46,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeClient stripeClient;
   private final TerminationDatabaseTable terminationDatabaseTable;
+  private final StripeTerminationController stripeTerminationController;
   private final TaskwolfMail orderMail;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
@@ -58,6 +59,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
     TerminationDatabaseTable terminationDatabaseTable,
+    StripeTerminationController stripeTerminationController,
     @Qualifier("orderMail") TaskwolfMail orderMail,
     OrganizationDatabaseTable organizationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
@@ -69,6 +71,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     this.stripeDatabaseTable = stripeDatabaseTable;
     this.stripeClient = stripeClient;
     this.terminationDatabaseTable = terminationDatabaseTable;
+    this.stripeTerminationController = stripeTerminationController;
     this.orderMail = orderMail;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
@@ -94,9 +97,11 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     }
     var stripeObject = dataObjectDeserializer.getObject().get();
     if (event.get().getType().equals("customer.subscription.created")) {
-      processSubscriptionCreation(event.get(), (Subscription) stripeObject);
+      new Thread(() -> processSubscriptionCreation(event.get(),
+        (Subscription) stripeObject)).start();
     } else if (event.get().getType().equals("payment_intent.created")) {
-      processPaymentCreation(event.get(), (PaymentIntent) stripeObject);
+      new Thread(() -> processPaymentCreation(event.get(),
+        (PaymentIntent) stripeObject)).start();
     }
   }
 
@@ -113,81 +118,48 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   }
 
   private void processSubscriptionCreation(Event event, Subscription subscription) {
-    findStripeAccount(subscription).thenAccept(account ->
-      userDatabaseTable().findUser(account.userId()).thenAccept(user ->
-        bundleDatabaseTable.bundleExists(user.id()).thenAccept(bundleExists ->
-          processPreviousSubscriptions(user, subscription, bundleExists)
-            .thenAcceptAsync(value -> applySubscription(user, subscription)))));
+    try {
+      processPreviousSubscriptions(subscription).thenAccept(value ->
+        findStripeAccount(subscription).thenAccept(account ->
+          userDatabaseTable().findUser(account.userId()).thenAccept(user ->
+            applySubscription(user, subscription))));
+    } catch (Exception exception) {
+      exception.printStackTrace();
+    }
   }
 
-  private CompletableFuture<StripeAccount> findStripeAccount(
+  private CompletableFuture<Void> processPreviousSubscriptions(
     Subscription subscription
-  ) {
-    var accountId = subscription.getCustomer();
-    return stripeDatabaseTable.stripeAccountExistsById(accountId).thenComposeAsync(
-      exists -> findAndStoreCustomer(accountId, subscription, exists).thenCompose(
-        customer -> stripeDatabaseTable.findStripeAccountById(accountId)));
-  }
-
-  private CompletableFuture<Customer> findAndStoreCustomer(
-    String accountId, Subscription subscription, boolean exists
-  ) {
-    try {
-      var customer = stripeClient.customers().retrieve(accountId);
-      return userDatabaseTable().findUser(customer.getEmail())
-        .thenCompose(user -> exists ?
-          stripeDatabaseTable.updateStripeAccount(user.id(), accountId,
-            subscription.getId()) :
-          stripeDatabaseTable.insertStripeAccount(user.id(), accountId,
-            subscription.getId()))
-        .thenApply(value -> customer);
-    } catch (Exception exception) {
-      exception.printStackTrace();
-      return CompletableFuture.completedFuture(null);
-    }
+  ) throws Exception {
+    var customerEmail = stripeClient.customers()
+      .retrieve(subscription.getCustomer()).getEmail();
+    return userDatabaseTable().findUser(customerEmail).thenCompose(user ->
+      stripeDatabaseTable.stripeAccountExistsByUser(user.id()).thenCompose(exists ->
+        processPreviousSubscriptions(user, exists)));
   }
 
   private CompletableFuture<Void> processPreviousSubscriptions(
-    User user, Subscription subscription, boolean bundleExists
+    User user, boolean previouslyExisted
   ) {
-    if (!bundleExists) {
+    if (!previouslyExisted) {
       return CompletableFuture.completedFuture(null);
     }
-    return bundleDatabaseTable.findBundle(user.id()).thenComposeAsync(bundle ->
-      processPreviousSubscriptions(user, subscription, bundle));
-  }
-
-  private CompletableFuture<Void> processPreviousSubscriptions(
-    User user, Subscription subscription, Bundle bundle
-  ) {
-    try {
-      var customers = stripeClient.customers()
-        .list(CustomerListParams.builder().setEmail(user.email()).build())
-        .getData();
-      for (var customer : customers) {
-        if (!customer.getId().equals(subscription.getCustomer())) {
-          terminatePreviousSubscriptions(user, customer.getId(), subscription);
-          customer.delete();
-        }
-      }
-      return bundleDatabaseTable.deleteBundle(bundle.ownerId());
-    } catch (Exception exception) {
-      exception.printStackTrace();
-      return CompletableFuture.completedFuture(null);
-    }
+    return stripeDatabaseTable.findStripeAccountByUser(user.id())
+      .thenAcceptAsync(account -> terminatePreviousSubscriptions(user,
+        account.accountId(), account.subscriptionId()));
   }
 
   private void terminatePreviousSubscriptions(
-    User user, String accountId, Subscription subscription
-  ) throws Exception {
-    var subscriptions = stripeClient.subscriptions()
-      .list(SubscriptionListParams.builder().setCustomer(accountId).build())
-      .getData();
-    for (var customerSubscription : subscriptions) {
-      if (!customerSubscription.getId().equals(subscription.getId())) {
-        refundLastPayment(user, accountId);
-        customerSubscription.cancel();
-      }
+    User user, String accountId, String subscriptionId
+  ) {
+    try {
+      var customer = stripeClient.customers().retrieve(accountId);
+      var subscription = stripeClient.subscriptions().retrieve(subscriptionId);
+      refundLastPayment(user, customer.getId());
+      subscription.cancel();
+      customer.delete();
+    } catch (Exception exception) {
+      exception.printStackTrace();
     }
   }
 
@@ -221,6 +193,33 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
       .build());
     orderMail.send(user.email(), UPGRADE_EMAIL_TITLE,
       String.format(UPGRADE_EMAIL_BODY, user.name(), payment.getAmount() / 100D));
+  }
+
+  private CompletableFuture<StripeAccount> findStripeAccount(
+    Subscription subscription
+  ) {
+    var accountId = subscription.getCustomer();
+    return stripeDatabaseTable.stripeAccountExists(accountId).thenComposeAsync(
+      exists -> findAndStoreCustomer(accountId, subscription, exists).thenCompose(
+        customer -> stripeDatabaseTable.findStripeAccount(accountId)));
+  }
+
+  private CompletableFuture<Customer> findAndStoreCustomer(
+    String accountId, Subscription subscription, boolean exists
+  ) {
+    try {
+      var customer = stripeClient.customers().retrieve(accountId);
+      return userDatabaseTable().findUser(customer.getEmail())
+        .thenCompose(user -> exists ?
+          stripeDatabaseTable.updateStripeAccount(accountId, user.id(),
+            subscription.getId()) :
+          stripeDatabaseTable.insertStripeAccount(accountId, user.id(),
+            subscription.getId()))
+        .thenApply(value -> customer);
+    } catch (Exception exception) {
+      exception.printStackTrace();
+      return CompletableFuture.completedFuture(null);
+    }
   }
 
   private void applySubscription(User user, Subscription subscription) {
@@ -257,39 +256,6 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
       return;
     }
     bundleDatabaseTable.insertBundle(Bundle.of(target, bundlePreset, bundleRuntime));
-  }
-
-  private CompletableFuture<UUID> findBundleTarget(
-    User user, BundlePreset preset
-  ) {
-    if (preset.bundleType() == BundleType.PROFESSIONAL) {
-      return CompletableFuture.completedFuture(user.id());
-    }
-    return organizationDatabaseTable.organizationExistsByOwner(user.id())
-      .thenCompose(exists -> findOrganization(user, exists));
-  }
-
-  private CompletableFuture<UUID> findOrganization(
-    User user, boolean organizationExists
-  ) {
-    if (organizationExists) {
-      return organizationDatabaseTable.findOrganizationByOwner(user.id())
-        .thenApply(Organization::id);
-    }
-    var organizationIdFuture = organizationDatabaseTable
-      .generateAvailableOrganizationId();
-    var organizationName = String.format(coreModule.translate(user,
-      "organization.default.name"), user.name());
-    organizationIdFuture.thenAccept(organizationId ->
-      createOrganization(organizationId, organizationName, user.id()));
-    return organizationIdFuture;
-  }
-
-  private void createOrganization(UUID organizationId, String name, UUID userId) {
-    organizationDatabaseTable.insertOrganization(organizationId, name, userId,
-      Lists.newArrayList(), UUID.randomUUID().toString());
-    userDatabaseTable().addUserOrganization(userId, organizationId);
-    distribution.addUser(organizationId);
   }
 
   private BundlePreset findBundlePreset(Subscription subscription) throws Exception {
@@ -376,16 +342,25 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   }
 
   private void processPaymentCreation(Event event, PaymentIntent paymentIntent) {
-    stripeDatabaseTable.findStripeAccountById(paymentIntent.getCustomer())
-      .thenApply(StripeAccount::userId)
-      .thenAccept(userId -> bundleDatabaseTable.findBundle(userId)
-        .thenAccept(bundle -> terminationDatabaseTable.terminationExists(userId)
-          .thenAccept(exists -> processPaymentCreation(paymentIntent, userId,
-            bundle, exists))));
+    try {
+      var subscription = stripeClient.subscriptions()
+        .list(SubscriptionListParams.builder()
+          .setCustomer(paymentIntent.getCustomer()).build())
+        .getData().get(0);
+      var customer = stripeClient.customers().retrieve(paymentIntent.getCustomer());
+      userDatabaseTable().findUser(customer.getEmail())
+        .thenAccept(user -> findBundleTarget(user, subscription)
+          .thenAccept(target -> bundleDatabaseTable.findBundle(target)
+            .thenAccept(bundle -> terminationDatabaseTable.terminationExists(target)
+              .thenAccept(exists -> processPaymentCreation(paymentIntent, target,
+                bundle, exists)))));
+    } catch (Exception exception) {
+      exception.printStackTrace();
+    }
   }
 
   private void processPaymentCreation(
-    PaymentIntent paymentIntent, UUID userId, Bundle bundle,
+    PaymentIntent paymentIntent, UUID targetId, Bundle bundle,
     boolean terminationExists
   ) {
     if (!terminationExists) {
@@ -396,15 +371,57 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     if (timeDifference > 1000L * 60 * 60 * 24) {
       return;
     }
-    terminationDatabaseTable.deleteTermination(userId);
-    try {
-      var subscriptions = stripeClient.subscriptions()
-        .list(SubscriptionListParams.builder()
-          .setCustomer(paymentIntent.getCustomer()).build())
-        .getData();
-      subscriptions.get(0).cancel();
-    } catch (Exception exception) {
-      exception.printStackTrace();
+    terminationDatabaseTable.deleteTermination(targetId);
+    stripeTerminationController.cancelSubscription(paymentIntent.getCustomer());
+  }
+
+  private CompletableFuture<UUID> findBundleTarget(
+    User user, BundlePreset preset
+  ) {
+    if (preset.bundleType() == BundleType.PROFESSIONAL) {
+      return CompletableFuture.completedFuture(user.id());
     }
+    return organizationDatabaseTable.organizationExistsByOwner(user.id())
+      .thenCompose(exists -> findOrganization(user, exists));
+  }
+
+  private CompletableFuture<UUID> findBundleTarget(
+    User user, Subscription subscription
+  ) {
+    var product = subscription.getItems().getData().get(0).getPrice().getProduct();
+    if (product.equals(stripeConfiguration.professionalBeginnerMonthlyProductId()) ||
+      product.equals(stripeConfiguration.professionalAdvancedMonthlyProductId()) ||
+      product.equals(stripeConfiguration.professionalExpertMonthlyProductId()) ||
+      product.equals(stripeConfiguration.professionalBeginnerYearlyProductId()) ||
+      product.equals(stripeConfiguration.professionalAdvancedYearlyProductId()) ||
+      product.equals(stripeConfiguration.professionalExpertYearlyProductId())
+    ) {
+      return CompletableFuture.completedFuture(user.id());
+    }
+    return organizationDatabaseTable.organizationExistsByOwner(user.id())
+      .thenCompose(exists -> findOrganization(user, exists));
+  }
+
+  private CompletableFuture<UUID> findOrganization(
+    User user, boolean organizationExists
+  ) {
+    if (organizationExists) {
+      return organizationDatabaseTable.findOrganizationByOwner(user.id())
+        .thenApply(Organization::id);
+    }
+    var organizationIdFuture = organizationDatabaseTable
+      .generateAvailableOrganizationId();
+    var organizationName = String.format(coreModule.translate(user,
+      "organization.default.name"), user.name());
+    organizationIdFuture.thenAccept(organizationId ->
+      createOrganization(organizationId, organizationName, user.id()));
+    return organizationIdFuture;
+  }
+
+  private void createOrganization(UUID organizationId, String name, UUID userId) {
+    organizationDatabaseTable.insertOrganization(organizationId, name, userId,
+      Lists.newArrayList(), UUID.randomUUID().toString());
+    userDatabaseTable().addUserOrganization(userId, organizationId);
+    distribution.addUser(organizationId);
   }
 }

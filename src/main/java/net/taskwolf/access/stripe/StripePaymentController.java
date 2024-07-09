@@ -47,19 +47,20 @@ public final class StripePaymentController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findPayments(
     HttpServletRequest request
   ) {
-    return targetDatabaseTable.findTarget(findUserId(request))
+    var userId = findUserId(request);
+    return targetDatabaseTable.findTarget(userId)
       .thenCompose(target -> bundleDatabaseTable.findBundle(target)
-        .thenCompose(bundle -> findPayments(target, bundle)));
+        .thenCompose(bundle -> findPayments(userId, bundle)));
   }
 
   private CompletableFuture<Map<String, Object>> findPayments(
-    UUID target, Bundle bundle
+    UUID userId, Bundle bundle
   ) {
     if (bundle.bundleType().isTrial()) {
       return CompletableFuture.completedFuture(Map.of("payments",
         Lists.newArrayList()));
     }
-    return stripeDatabaseTable.findStripeAccount(target)
+    return stripeDatabaseTable.findStripeAccountByUser(userId)
       .thenApplyAsync(account -> findPayments(account.accountId()));
   }
 

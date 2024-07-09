@@ -2,6 +2,7 @@ package net.taskwolf.access.stripe;
 
 import com.google.common.collect.Maps;
 import com.stripe.StripeClient;
+import com.stripe.param.SubscriptionListParams;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.Bundle;
@@ -66,8 +67,9 @@ public final class StripeTerminationController extends TaskwolfRestController {
     UUID target, Bundle bundle, String stripeAccountId
   ) {
     try {
-      var subscriptions = stripeClient.customers().retrieve(stripeAccountId)
-        .getSubscriptions().getData();
+      var subscriptions = stripeClient.subscriptions()
+        .list(SubscriptionListParams.builder().setCustomer(stripeAccountId).build())
+        .getData();
       if (subscriptions.isEmpty()) {
         return CompletableFuture.completedFuture(Map.of("terminable", true,
           "terminated", true));
@@ -129,8 +131,9 @@ public final class StripeTerminationController extends TaskwolfRestController {
 
   private void cancelSubscription(String stripeAccountId) {
     try {
-      var subscriptions = stripeClient.customers().retrieve(stripeAccountId)
-        .getSubscriptions().getData();
+      var subscriptions = stripeClient.subscriptions()
+        .list(SubscriptionListParams.builder().setCustomer(stripeAccountId).build())
+        .getData();
       if (subscriptions.isEmpty()) {
         return;
       }

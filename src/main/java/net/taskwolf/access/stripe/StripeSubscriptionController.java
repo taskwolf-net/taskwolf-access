@@ -7,6 +7,7 @@ import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
 import com.stripe.net.Webhook;
+import com.stripe.param.SubscriptionListParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
@@ -313,8 +314,10 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     }
     terminationDatabaseTable.deleteTermination(userId);
     try {
-      var subscriptions = stripeClient.customers().retrieve(paymentIntent.getCustomer())
-        .getSubscriptions().getData();
+      var subscriptions = stripeClient.subscriptions()
+        .list(SubscriptionListParams.builder()
+          .setCustomer(paymentIntent.getCustomer()).build())
+        .getData();
       subscriptions.get(0).cancel();
     } catch (Exception exception) {
       exception.printStackTrace();

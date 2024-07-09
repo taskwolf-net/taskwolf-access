@@ -154,19 +154,19 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
       return CompletableFuture.completedFuture(null);
     }
     return bundleDatabaseTable.findBundle(user.id()).thenComposeAsync(bundle ->
-      processPreviousSubscriptions(user.email(), subscription, bundle));
+      processPreviousSubscriptions(user, subscription, bundle));
   }
 
   private CompletableFuture<Void> processPreviousSubscriptions(
-    String email, Subscription subscription, Bundle bundle
+    User user, Subscription subscription, Bundle bundle
   ) {
     try {
       var customers = stripeClient.customers()
-        .list(CustomerListParams.builder().setEmail(email).build())
+        .list(CustomerListParams.builder().setEmail(user.email()).build())
         .getData();
       for (var customer : customers) {
         if (!customer.getId().equals(subscription.getCustomer())) {
-          terminatePreviousSubscriptions(customer.getId(), subscription);
+          terminatePreviousSubscriptions(user, customer.getId(), subscription);
           customer.delete();
         }
       }
@@ -178,29 +178,49 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   }
 
   private void terminatePreviousSubscriptions(
-    String accountId, Subscription subscription
+    User user, String accountId, Subscription subscription
   ) throws Exception {
     var subscriptions = stripeClient.subscriptions()
       .list(SubscriptionListParams.builder().setCustomer(accountId).build())
       .getData();
     for (var customerSubscription : subscriptions) {
       if (!customerSubscription.getId().equals(subscription.getId())) {
-        refundLastPayment(accountId);
+        refundLastPayment(user, accountId);
         customerSubscription.cancel();
       }
     }
   }
 
-  private void refundLastPayment(String accountId) throws Exception  {
-    var payment = stripeClient.paymentIntents()
+  private static final String UPGRADE_EMAIL_TITLE = "Upgrade";
+  private static final String UPGRADE_EMAIL_BODY = "Hey %s,\n" +
+    "\n" +
+    "We have noticed that you have upgraded your Taskwolf package.\n" +
+    "\n" +
+    "As a result of the upgrade, we have canceled your old subscription and " +
+    "activated the subscription for the new package.\n" +
+    "\n" +
+    "In the course of canceling your old package (by upgrading the package) " +
+    "we have refunded you the last payment for this month in the amount of %s €.\n" +
+    "\n" +
+    "It may take a few days for the refund to reach you. If you have any " +
+    "problems with this, you can contact support at support@taskwolf.net " +
+    "at any time.\n" +
+    "\n" +
+    "We hope you enjoy your new package and thank you for your purchase.";
+
+  private void refundLastPayment(User user, String accountId) throws Exception  {
+    var payments = stripeClient.paymentIntents()
       .list(PaymentIntentListParams.builder().setCustomer(accountId).build())
       .getData();
-    if (payment.isEmpty()) {
+    if (payments.isEmpty()) {
       return;
     }
+    var payment = payments.get(0);
     stripeClient.refunds().create(RefundCreateParams.builder()
-      .setPaymentIntent(payment.get(0).getId())
+      .setPaymentIntent(payment.getId())
       .build());
+    orderMail.send(user.email(), UPGRADE_EMAIL_TITLE,
+      String.format(UPGRADE_EMAIL_BODY, user.name(), payment.getAmount() / 100D));
   }
 
   private void applySubscription(User user, Subscription subscription) {

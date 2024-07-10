@@ -88,10 +88,10 @@ public final class StripeTerminationController extends TaskwolfRestController {
     Bundle bundle, boolean terminationExists
   ) {
     if (!terminationExists) {
-      return Map.of("terminable", true, "terminated", false);
+      return Map.of("terminable", true, "terminated", false, "directlyEffective",
+        bundle.expiration() - System.currentTimeMillis() < 1000L * 60 * 60 * 24 * 30);
     }
-    return Map.of("terminable", true, "terminated", false, "directlyEffective",
-      bundle.expiration() - System.currentTimeMillis() < 1000L * 60 * 60 * 24 * 30);
+    return Map.of("terminable", true, "terminated", true);
   }
 
   @RequestMapping(path = "/terminate/", method = RequestMethod.GET)

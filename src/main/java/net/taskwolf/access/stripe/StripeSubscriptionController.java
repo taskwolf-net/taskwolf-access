@@ -152,6 +152,9 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   private void terminatePreviousSubscriptions(
     User user, String accountId, String subscriptionId
   ) {
+    if (subscriptionId.isEmpty()) {
+      return;
+    }
     try {
       var customer = stripeClient.customers().retrieve(accountId);
       var subscription = stripeClient.subscriptions().retrieve(subscriptionId);

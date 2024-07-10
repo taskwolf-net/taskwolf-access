@@ -7,9 +7,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.*;
+import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.stripe.StripeAccount;
 import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,16 +27,22 @@ public final class StripeCheckoutController extends TaskwolfRestController {
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeConfiguration stripeConfiguration;
   private final StripeClient stripeClient;
+  private final BundleDatabaseTable bundleDatabaseTable;
+  private final OrganizationDatabaseTable organizationDatabaseTable;
 
   private StripeCheckoutController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable,
-    StripeConfiguration stripeConfiguration, StripeClient stripeClient
+    StripeConfiguration stripeConfiguration, StripeClient stripeClient,
+    BundleDatabaseTable bundleDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.stripeDatabaseTable = stripeDatabaseTable;
     this.stripeConfiguration = stripeConfiguration;
     this.stripeClient = stripeClient;
+    this.bundleDatabaseTable = bundleDatabaseTable;
+    this.organizationDatabaseTable = organizationDatabaseTable;
   }
 
   @RequestMapping(path = "/checkout/", method = RequestMethod.POST)
@@ -55,17 +63,35 @@ public final class StripeCheckoutController extends TaskwolfRestController {
     String email, BundleType bundleType, BundleClass bundleClass,
     BundleRuntime bundleRuntime, boolean userExists
   ) {
-    if (!userExists || bundleType.isTrial() || bundleType.isEnterprise()) {
-      return CompletableFuture.completedFuture(Map.of("success", false));
+    if (!userExists) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
+    }
+    if (bundleType.isTrial() || bundleType.isEnterprise()) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
     }
     return userDatabaseTable().findUser(email)
-      .thenCompose(user -> stripeDatabaseTable.stripeAccountExistsByUser(user.id())
-        .thenCompose(exists -> exists ?
-          stripeDatabaseTable.findStripeAccountByUser(user.id())
-            .thenApply(StripeAccount::accountId) :
-          CompletableFuture.completedFuture(""))
-        .thenApplyAsync(accountId -> checkout(email, bundleType, bundleClass,
-          bundleRuntime, accountId)));
+      .thenCompose(user -> checkBundleUsability(user, bundleType, bundleClass)
+        .thenCompose(bundleUsability -> checkout(email, bundleType,
+          bundleClass, bundleRuntime, user, bundleUsability)));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkout(
+    String email, BundleType bundleType, BundleClass bundleClass,
+    BundleRuntime bundleRuntime, User user, boolean bundleUsability
+  ) {
+    if (!bundleUsability) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
+    }
+    return stripeDatabaseTable.stripeAccountExistsByUser(user.id())
+      .thenCompose(exists -> exists ?
+        stripeDatabaseTable.findStripeAccountByUser(user.id())
+          .thenApply(StripeAccount::accountId) :
+        CompletableFuture.completedFuture(""))
+      .thenApplyAsync(accountId -> checkout(email, bundleType, bundleClass,
+        bundleRuntime, accountId));
   }
 
   private Map<String, Object> checkout(
@@ -94,5 +120,54 @@ public final class StripeCheckoutController extends TaskwolfRestController {
       exception.printStackTrace();
       return Map.of("success", false);
     }
+  }
+
+  private CompletableFuture<Boolean> checkBundleUsability(
+    User user, BundleType bundleType, BundleClass bundleClass
+  ) {
+    if (bundleType.isProfessional()) {
+      return checkPersonalBundleUsability(user, bundleClass);
+    }
+    if (bundleType.isTeam()) {
+      return checkTeamBundleUsability(user, bundleClass);
+    }
+    return CompletableFuture.completedFuture(false);
+  }
+
+  private CompletableFuture<Boolean> checkPersonalBundleUsability(
+    User user, BundleClass bundleClass
+  ) {
+    return bundleDatabaseTable.bundleExists(user.id()).thenCompose(exists ->
+      checkPersonalBundleUsability(user, bundleClass, exists));
+  }
+
+  private CompletableFuture<Boolean> checkPersonalBundleUsability(
+    User user, BundleClass bundleClass,
+    boolean bundleExists
+  ) {
+    if (!bundleExists) {
+      return CompletableFuture.completedFuture(true);
+    }
+    return bundleDatabaseTable.findBundle(user.id()).thenApply(bundle ->
+      bundle.bundleClass().weight() < bundleClass.weight());
+  }
+
+  private CompletableFuture<Boolean> checkTeamBundleUsability(
+    User user, BundleClass bundleClass
+  ) {
+    return organizationDatabaseTable.organizationExistsByOwner(user.id())
+      .thenCompose(exists -> checkTeamBundleUsability(user, bundleClass, exists));
+  }
+
+  private CompletableFuture<Boolean> checkTeamBundleUsability(
+    User user, BundleClass bundleClass,
+    boolean hasOrganization
+  ) {
+    if (!hasOrganization) {
+      return CompletableFuture.completedFuture(true);
+    }
+    return organizationDatabaseTable.findOrganizationByOwner(user.id())
+      .thenCompose(organization -> bundleDatabaseTable.findBundle(organization.id())
+        .thenApply(bundle -> bundle.bundleClass().weight() < bundleClass.weight()));
   }
 }

@@ -6,6 +6,7 @@ import com.stripe.model.Customer;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
+import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
 import com.stripe.param.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,6 +37,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.net.URL;
 import java.security.Key;
+import java.util.Comparator;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -96,9 +98,9 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
       return;
     }
     var stripeObject = dataObjectDeserializer.getObject().get();
-    if (event.get().getType().equals("customer.subscription.created")) {
-      new Thread(() -> processSubscriptionCreation(event.get(),
-        (Subscription) stripeObject)).start();
+    if (event.get().getType().equals("checkout.session.completed")) {
+      new Thread(() -> processCheckoutSessionCompletion(event.get(),
+        (Session) stripeObject)).start();
     } else if (event.get().getType().equals("payment_intent.created")) {
       new Thread(() -> processPaymentCreation(event.get(),
         (PaymentIntent) stripeObject)).start();
@@ -117,10 +119,12 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     }
   }
 
-  private void processSubscriptionCreation(Event event, Subscription subscription) {
+  private void processCheckoutSessionCompletion(Event event, Session session) {
     try {
-      processPreviousSubscriptions(subscription).thenAccept(value ->
-        findStripeAccount(subscription).thenAccept(account ->
+      var subscription = stripeClient.subscriptions()
+        .retrieve(session.getSubscription());
+      processPreviousSubscriptions(session).thenAcceptAsync(value ->
+        findStripeAccount(session, subscription).thenAccept(account ->
           userDatabaseTable().findUser(account.userId()).thenAccept(user ->
             applySubscription(user, subscription))));
     } catch (Exception exception) {
@@ -129,24 +133,25 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   }
 
   private CompletableFuture<Void> processPreviousSubscriptions(
-    Subscription subscription
+    Session session
   ) throws Exception {
     var customerEmail = stripeClient.customers()
-      .retrieve(subscription.getCustomer()).getEmail();
+      .retrieve(session.getCustomer()).getEmail();
     return userDatabaseTable().findUser(customerEmail).thenCompose(user ->
-      stripeDatabaseTable.stripeAccountExistsByUser(user.id()).thenCompose(exists ->
-        processPreviousSubscriptions(user, exists)));
+      stripeDatabaseTable.stripeAccountExists(session.getCustomer())
+        .thenCompose(exists -> processPreviousSubscriptions(user,
+          session.getCustomer(), exists)));
   }
 
   private CompletableFuture<Void> processPreviousSubscriptions(
-    User user, boolean previouslyExisted
+    User user, String accountId, boolean previouslyExisted
   ) {
     if (!previouslyExisted) {
       return CompletableFuture.completedFuture(null);
     }
     return stripeDatabaseTable.findStripeAccountByUser(user.id())
       .thenAcceptAsync(account -> terminatePreviousSubscriptions(user,
-        account.accountId(), account.subscriptionId()));
+        accountId, account.subscriptionId()));
   }
 
   private void terminatePreviousSubscriptions(
@@ -154,12 +159,12 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   ) {
     try {
       var customer = stripeClient.customers().retrieve(accountId);
-      if (!subscriptionId.isEmpty()) {
-        var subscription = stripeClient.subscriptions().retrieve(subscriptionId);
-        refundLastPayment(user, customer.getId());
-        subscription.cancel();
+      if (subscriptionId.isEmpty()) {
+        return;
       }
-      customer.delete();
+      var subscription = stripeClient.subscriptions().retrieve(subscriptionId);
+      refundLastPayment(user, customer.getId());
+      subscription.cancel();
     } catch (Exception exception) {
       exception.printStackTrace();
     }
@@ -186,10 +191,11 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     var payments = stripeClient.paymentIntents()
       .list(PaymentIntentListParams.builder().setCustomer(accountId).build())
       .getData();
-    if (payments.isEmpty()) {
+    payments.sort(Comparator.comparing(PaymentIntent::getCreated));
+    if (payments.size() <= 1) {
       return;
     }
-    var payment = payments.get(0);
+    var payment = payments.get(payments.size() - 2);
     stripeClient.refunds().create(RefundCreateParams.builder()
       .setPaymentIntent(payment.getId())
       .build());
@@ -198,9 +204,9 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   }
 
   private CompletableFuture<StripeAccount> findStripeAccount(
-    Subscription subscription
+    Session session, Subscription subscription
   ) {
-    var accountId = subscription.getCustomer();
+    var accountId = session.getCustomer();
     return stripeDatabaseTable.stripeAccountExists(accountId).thenComposeAsync(
       exists -> findAndStoreCustomer(accountId, subscription, exists).thenCompose(
         customer -> stripeDatabaseTable.findStripeAccount(accountId)));
@@ -235,10 +241,8 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
 
   private void applyBundle(User user, Subscription subscription) {
     try {
-      var bundlePreset = findBundlePreset(subscription);
-      if (bundlePreset == null) {
-        return;
-      }
+      var price = subscription.getItems().getData().get(0).getPrice().getId();
+      var bundlePreset = stripeConfiguration.findBundlePreset(price);
       var bundleRuntime = findBundleRuntime(subscription);
       findBundleTarget(user, bundlePreset).thenAccept(target ->
         bundleDatabaseTable.bundleExists(target).thenAccept(exists ->
@@ -260,45 +264,9 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     bundleDatabaseTable.insertBundle(Bundle.of(target, bundlePreset, bundleRuntime));
   }
 
-  private BundlePreset findBundlePreset(Subscription subscription) throws Exception {
-    var product = subscription.getItems().getData().get(0).getPrice().getProduct();
-    if (product.equals(stripeConfiguration.professionalBeginnerMonthlyProductId()) ||
-      product.equals(stripeConfiguration.professionalBeginnerYearlyProductId())
-    ) {
-      return BundlePreset.createAndLoad(BundleType.PROFESSIONAL, BundleClass.BEGINNER);
-    } else if (product.equals(stripeConfiguration.professionalAdvancedMonthlyProductId()) ||
-      product.equals(stripeConfiguration.professionalAdvancedYearlyProductId())
-    ) {
-      return BundlePreset.createAndLoad(BundleType.PROFESSIONAL, BundleClass.ADVANCED);
-    } else if (product.equals(stripeConfiguration.professionalExpertMonthlyProductId()) ||
-      product.equals(stripeConfiguration.professionalExpertYearlyProductId())
-    ) {
-      return BundlePreset.createAndLoad(BundleType.PROFESSIONAL, BundleClass.EXPERT);
-    } else if (product.equals(stripeConfiguration.teamBeginnerMonthlyProductId()) ||
-      product.equals(stripeConfiguration.teamBeginnerYearlyProductId())
-    ) {
-      return BundlePreset.createAndLoad(BundleType.TEAM, BundleClass.BEGINNER);
-    } else if (product.equals(stripeConfiguration.teamAdvancedMonthlyProductId()) ||
-      product.equals(stripeConfiguration.teamAdvancedYearlyProductId())
-    ) {
-      return BundlePreset.createAndLoad(BundleType.TEAM, BundleClass.ADVANCED);
-    } else if (product.equals(stripeConfiguration.teamExpertMonthlyProductId()) ||
-      product.equals(stripeConfiguration.teamExpertYearlyProductId())
-    ) {
-      return BundlePreset.createAndLoad(BundleType.TEAM, BundleClass.EXPERT);
-    }
-    return null;
-  }
-
   private BundleRuntime findBundleRuntime(Subscription subscription) {
-    var product = subscription.getItems().getData().get(0).getPrice().getProduct();
-    if (product.equals(stripeConfiguration.professionalBeginnerMonthlyProductId()) ||
-      product.equals(stripeConfiguration.professionalAdvancedMonthlyProductId()) ||
-      product.equals(stripeConfiguration.professionalExpertMonthlyProductId()) ||
-      product.equals(stripeConfiguration.teamBeginnerMonthlyProductId()) ||
-      product.equals(stripeConfiguration.teamAdvancedMonthlyProductId()) ||
-      product.equals(stripeConfiguration.teamExpertMonthlyProductId())
-    ) {
+    var price = subscription.getItems().getData().get(0).getPrice().getId();
+    if (stripeConfiguration.findPriceIdsOfRuntime(BundleRuntime.MONTHLY).contains(price)) {
       return BundleRuntime.MONTHLY;
     }
     return BundleRuntime.YEARLY;
@@ -390,14 +358,8 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   private CompletableFuture<UUID> findBundleTarget(
     User user, Subscription subscription
   ) {
-    var product = subscription.getItems().getData().get(0).getPrice().getProduct();
-    if (product.equals(stripeConfiguration.professionalBeginnerMonthlyProductId()) ||
-      product.equals(stripeConfiguration.professionalAdvancedMonthlyProductId()) ||
-      product.equals(stripeConfiguration.professionalExpertMonthlyProductId()) ||
-      product.equals(stripeConfiguration.professionalBeginnerYearlyProductId()) ||
-      product.equals(stripeConfiguration.professionalAdvancedYearlyProductId()) ||
-      product.equals(stripeConfiguration.professionalExpertYearlyProductId())
-    ) {
+    var price = subscription.getItems().getData().get(0).getPrice().getId();
+    if (stripeConfiguration.findPriceIdsOfType(BundleType.PROFESSIONAL).contains(price)) {
       return CompletableFuture.completedFuture(user.id());
     }
     return organizationDatabaseTable.organizationExistsByOwner(user.id())

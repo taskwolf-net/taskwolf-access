@@ -234,6 +234,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   ) {
     bundleDatabaseTable.bundleExists(targetId).thenAccept(exists ->
       applyBundle(targetId, bundlePreset, bundleRuntime, exists));
+    terminationDatabaseTable.deleteTermination(targetId);
     try {
       sendPaymentEmail(user, subscription);
     } catch (Exception exception) {
@@ -309,13 +310,24 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
       var customer = stripeClient.customers().retrieve(paymentIntent.getCustomer());
       userDatabaseTable().findUser(customer.getEmail())
         .thenAccept(user -> findBundleTarget(user, subscription)
-          .thenAccept(target -> bundleDatabaseTable.findBundle(target)
-            .thenAccept(bundle -> terminationDatabaseTable.terminationExists(target)
-              .thenAccept(exists -> processPaymentCreation(paymentIntent, target,
-                bundle, exists)))));
+          .thenAccept(target -> bundleDatabaseTable.bundleExists(target)
+            .thenAccept(bundleExists -> processPaymentCreation(paymentIntent,
+              target, bundleExists))));
     } catch (Exception exception) {
       exception.printStackTrace();
     }
+  }
+
+  private void processPaymentCreation(
+    PaymentIntent paymentIntent, UUID targetId, boolean bundleExists
+  ) {
+    if (!bundleExists) {
+      return;
+    }
+    bundleDatabaseTable.findBundle(targetId)
+      .thenAccept(bundle -> terminationDatabaseTable.terminationExists(targetId)
+        .thenAccept(terminationExists -> processPaymentCreation(
+          paymentIntent, targetId, bundle, terminationExists)));
   }
 
   private void processPaymentCreation(

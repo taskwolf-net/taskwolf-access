@@ -47,25 +47,26 @@ public final class StripeTerminationController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findTerminationStatus(
     HttpServletRequest request
   ) {
-    var userId = findUserId(request);
-    return targetDatabaseTable.findTarget(userId)
-      .thenCompose(target -> bundleDatabaseTable.findBundle(target)
-        .thenCompose(bundle -> findTerminationStatus(userId, target, bundle)));
+    return targetDatabaseTable.findTarget(findUserId(request))
+      .thenCompose(target -> stripeDatabaseTable.stripeAccountExistsByTarget(target)
+        .thenCompose(exists -> findTerminationStatus(target, exists)));
   }
 
   private CompletableFuture<Map<String, Object>> findTerminationStatus(
-    UUID userId, UUID target, Bundle bundle
+    UUID targetId, boolean accountExists
   ) {
-    if (bundle.bundleType().isTrial()) {
+    if (!accountExists) {
       return CompletableFuture.completedFuture(Map.of("terminable", false,
         "terminated", false));
     }
-    return stripeDatabaseTable.findStripeAccountByUser(userId).thenComposeAsync(
-      account -> findTerminationStatus(target, bundle, account.accountId()));
+    return stripeDatabaseTable.findStripeAccountByTarget(targetId)
+      .thenCompose(account -> bundleDatabaseTable.findBundle(targetId)
+        .thenComposeAsync(bundle -> findTerminationStatus(targetId, bundle,
+          account.accountId())));
   }
 
   private CompletableFuture<Map<String, Object>> findTerminationStatus(
-    UUID target, Bundle bundle, String stripeAccountId
+    UUID targetId, Bundle bundle, String stripeAccountId
   ) {
     try {
       var subscriptions = stripeClient.subscriptions()
@@ -75,7 +76,7 @@ public final class StripeTerminationController extends TaskwolfRestController {
         return CompletableFuture.completedFuture(Map.of("terminable", true,
           "terminated", true));
       }
-      return terminationDatabaseTable.terminationExists(target)
+      return terminationDatabaseTable.terminationExists(targetId)
         .thenApply(exists -> findTerminationStatus(bundle, exists));
     } catch (Exception exception) {
       exception.printStackTrace();
@@ -97,38 +98,39 @@ public final class StripeTerminationController extends TaskwolfRestController {
   public void terminate(
     HttpServletRequest request
   ) {
-    var userId = findUserId(request);
-    targetDatabaseTable.findTarget(userId)
-      .thenAccept(target -> bundleDatabaseTable.findBundle(target)
-        .thenAccept(bundle -> terminate(userId, target, bundle)));
+    targetDatabaseTable.findTarget(findUserId(request))
+      .thenAccept(target -> stripeDatabaseTable.stripeAccountExistsByTarget(target)
+        .thenAccept(exists -> terminate(target, exists)));
   }
 
   private void terminate(
-    UUID userId, UUID target, Bundle bundle
+    UUID targetId, boolean accountExists
   ) {
-    if (bundle.bundleRuntime().isWeekly()) {
+    if (!accountExists) {
       return;
     }
-    stripeDatabaseTable.findStripeAccountByUser(userId).thenAcceptAsync(account ->
-      terminate(target, bundle, account.accountId()));
+    stripeDatabaseTable.findStripeAccountByTarget(targetId)
+      .thenAccept(account -> bundleDatabaseTable.findBundle(targetId)
+        .thenAcceptAsync(bundle -> terminate(targetId, bundle,
+          account.accountId())));
   }
 
   private void terminate(
-    UUID target, Bundle bundle, String stripeAccountId
+    UUID targetId, Bundle bundle, String stripeAccountId
   ) {
     if (bundle.bundleRuntime().isMonthly()) {
       cancelSubscription(stripeAccountId);
     } else if (bundle.bundleRuntime().isYearly()) {
-      terminateYearly(target, bundle, stripeAccountId);
+      terminateYearly(targetId, bundle, stripeAccountId);
     }
   }
 
-  private void terminateYearly(UUID target, Bundle bundle, String stripeAccountId) {
+  private void terminateYearly(UUID targetId, Bundle bundle, String stripeAccountId) {
     if (bundle.expiration() - System.currentTimeMillis() < 1000L * 60 * 60 * 24 * 30) {
       cancelSubscription(stripeAccountId);
       return;
     }
-    terminationDatabaseTable.insertTermination(target);
+    terminationDatabaseTable.insertTermination(targetId);
   }
 
   public void cancelSubscription(String stripeAccountId) {
@@ -142,7 +144,7 @@ public final class StripeTerminationController extends TaskwolfRestController {
       subscriptions.get(0).cancel();
       stripeDatabaseTable.findStripeAccount(stripeAccountId)
         .thenAccept(account -> stripeDatabaseTable.updateStripeAccount(
-          account.accountId(), account.userId(), ""));
+          account.accountId(), account.targetId(), account.userId(), ""));
     } catch (Exception exception) {
       exception.printStackTrace();
     }

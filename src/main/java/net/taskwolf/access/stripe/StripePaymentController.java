@@ -28,39 +28,35 @@ public final class StripePaymentController extends TaskwolfRestController {
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeClient stripeClient;
   private final UserTargetDatabaseTable targetDatabaseTable;
-  private final BundleDatabaseTable bundleDatabaseTable;
 
   private StripePaymentController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
-    UserTargetDatabaseTable targetDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable
+    UserTargetDatabaseTable targetDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.stripeDatabaseTable = stripeDatabaseTable;
     this.stripeClient = stripeClient;
     this.targetDatabaseTable = targetDatabaseTable;
-    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   @RequestMapping(path = "/payments/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findPayments(
     HttpServletRequest request
   ) {
-    var userId = findUserId(request);
-    return targetDatabaseTable.findTarget(userId)
-      .thenCompose(target -> bundleDatabaseTable.findBundle(target)
-        .thenCompose(bundle -> findPayments(userId, bundle)));
+    return targetDatabaseTable.findTarget(findUserId(request))
+      .thenCompose(target -> stripeDatabaseTable.stripeAccountExistsByTarget(target)
+        .thenCompose(exists -> findPayments(target, exists)));
   }
 
   private CompletableFuture<Map<String, Object>> findPayments(
-    UUID userId, Bundle bundle
+    UUID targetId, boolean accountExists
   ) {
-    if (bundle.bundleType().isTrial()) {
+    if (!accountExists) {
       return CompletableFuture.completedFuture(Map.of("payments",
         Lists.newArrayList()));
     }
-    return stripeDatabaseTable.findStripeAccountByUser(userId)
+    return stripeDatabaseTable.findStripeAccountByTarget(targetId)
       .thenApplyAsync(account -> findPayments(account.accountId()));
   }
 

@@ -121,26 +121,30 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
 
   private void processCheckoutSessionCompletion(Event event, Session session) {
     try {
+      var customerEmail = stripeClient.customers()
+        .retrieve(session.getCustomer()).getEmail();
       var subscription = stripeClient.subscriptions()
         .retrieve(session.getSubscription());
-      processPreviousSubscriptions(session).thenAcceptAsync(value ->
-        findStripeAccount(session, subscription).thenAccept(account ->
-          userDatabaseTable().findUser(account.userId()).thenAccept(user ->
-            applySubscription(user, subscription))));
+      var price = subscription.getItems().getData().get(0).getPrice().getId();
+      var bundlePreset = stripeConfiguration.findBundlePreset(price);
+      var bundleRuntime = findBundleRuntime(subscription);
+      userDatabaseTable().findUser(customerEmail).thenCompose(user ->
+        findBundleTarget(user, bundlePreset).thenAccept(target ->
+          processPreviousSubscriptions(session, user).thenAcceptAsync(value ->
+            findStripeAccount(session, subscription, user, target)
+              .thenAccept(account -> applySubscription(subscription, user,
+                target, bundlePreset, bundleRuntime)))));
     } catch (Exception exception) {
       exception.printStackTrace();
     }
   }
 
   private CompletableFuture<Void> processPreviousSubscriptions(
-    Session session
-  ) throws Exception {
-    var customerEmail = stripeClient.customers()
-      .retrieve(session.getCustomer()).getEmail();
-    return userDatabaseTable().findUser(customerEmail).thenCompose(user ->
-      stripeDatabaseTable.stripeAccountExists(session.getCustomer())
-        .thenCompose(exists -> processPreviousSubscriptions(user,
-          session.getCustomer(), exists)));
+    Session session, User user
+  ) {
+    return stripeDatabaseTable.stripeAccountExists(session.getCustomer())
+      .thenCompose(exists -> processPreviousSubscriptions(user,
+        session.getCustomer(), exists));
   }
 
   private CompletableFuture<Void> processPreviousSubscriptions(
@@ -149,7 +153,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     if (!previouslyExisted) {
       return CompletableFuture.completedFuture(null);
     }
-    return stripeDatabaseTable.findStripeAccountByUser(user.id())
+    return stripeDatabaseTable.findStripeAccount(accountId)
       .thenAcceptAsync(account -> terminatePreviousSubscriptions(user,
         accountId, account.subscriptionId()));
   }
@@ -204,49 +208,34 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   }
 
   private CompletableFuture<StripeAccount> findStripeAccount(
-    Session session, Subscription subscription
+    Session session, Subscription subscription, User user, UUID targetId
   ) {
     var accountId = session.getCustomer();
-    return stripeDatabaseTable.stripeAccountExists(accountId).thenComposeAsync(
-      exists -> findAndStoreCustomer(accountId, subscription, exists).thenCompose(
-        customer -> stripeDatabaseTable.findStripeAccount(accountId)));
+    return stripeDatabaseTable.stripeAccountExists(accountId).thenCompose(
+      exists -> storeCustomer(accountId, subscription, user, targetId, exists)
+        .thenCompose(customer -> stripeDatabaseTable.findStripeAccount(accountId)));
   }
 
-  private CompletableFuture<Customer> findAndStoreCustomer(
-    String accountId, Subscription subscription, boolean exists
+  private CompletableFuture<Void> storeCustomer(
+    String accountId, Subscription subscription, User user, UUID targetId,
+    boolean exists
   ) {
-    try {
-      var customer = stripeClient.customers().retrieve(accountId);
-      return userDatabaseTable().findUser(customer.getEmail())
-        .thenCompose(user -> exists ?
-          stripeDatabaseTable.updateStripeAccount(accountId, user.id(),
-            subscription.getId()) :
-          stripeDatabaseTable.insertStripeAccount(accountId, user.id(),
-            subscription.getId()))
-        .thenApply(value -> customer);
-    } catch (Exception exception) {
-      exception.printStackTrace();
-      return CompletableFuture.completedFuture(null);
+    if (exists) {
+      return stripeDatabaseTable.updateStripeAccount(accountId, targetId,
+        user.id(), subscription.getId());
     }
+    return stripeDatabaseTable.insertStripeAccount(accountId, targetId,
+      user.id(), subscription.getId());
   }
 
-  private void applySubscription(User user, Subscription subscription) {
-    applyBundle(user, subscription);
+  private void applySubscription(
+    Subscription subscription, User user, UUID targetId,
+    BundlePreset bundlePreset, BundleRuntime bundleRuntime
+  ) {
+    bundleDatabaseTable.bundleExists(targetId).thenAccept(exists ->
+      applyBundle(targetId, bundlePreset, bundleRuntime, exists));
     try {
       sendPaymentEmail(user, subscription);
-    } catch (Exception exception) {
-      exception.printStackTrace();
-    }
-  }
-
-  private void applyBundle(User user, Subscription subscription) {
-    try {
-      var price = subscription.getItems().getData().get(0).getPrice().getId();
-      var bundlePreset = stripeConfiguration.findBundlePreset(price);
-      var bundleRuntime = findBundleRuntime(subscription);
-      findBundleTarget(user, bundlePreset).thenAccept(target ->
-        bundleDatabaseTable.bundleExists(target).thenAccept(exists ->
-          applyBundle(target, bundlePreset, bundleRuntime, exists)));
     } catch (Exception exception) {
       exception.printStackTrace();
     }

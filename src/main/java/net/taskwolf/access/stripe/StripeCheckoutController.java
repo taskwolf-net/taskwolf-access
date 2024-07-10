@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -85,13 +86,29 @@ public final class StripeCheckoutController extends TaskwolfRestController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1001));
     }
-    return stripeDatabaseTable.stripeAccountExistsByUser(user.id())
+    return findExistingAccount(user, bundleType).thenApplyAsync(accountId ->
+      checkout(email, bundleType, bundleClass, bundleRuntime, accountId));
+  }
+
+  private CompletableFuture<String> findExistingAccount(
+    User user, BundleType bundleType
+  ) {
+    if (bundleType.isProfessional()) {
+      return findAccountIfExists(user.id());
+    }
+    return organizationDatabaseTable.organizationExistsByOwner(user.id())
       .thenCompose(exists -> exists ?
-        stripeDatabaseTable.findStripeAccountByUser(user.id())
+        organizationDatabaseTable.findOrganizationByOwner(user.id())
+          .thenCompose(organization -> findAccountIfExists(organization.id())) :
+        CompletableFuture.completedFuture(""));
+  }
+
+  private CompletableFuture<String> findAccountIfExists(UUID target) {
+    return stripeDatabaseTable.stripeAccountExistsByTarget(target)
+      .thenCompose(exists -> exists ?
+        stripeDatabaseTable.findStripeAccountByTarget(target)
           .thenApply(StripeAccount::accountId) :
-        CompletableFuture.completedFuture(""))
-      .thenApplyAsync(accountId -> checkout(email, bundleType, bundleClass,
-        bundleRuntime, accountId));
+        CompletableFuture.completedFuture(""));
   }
 
   private Map<String, Object> checkout(

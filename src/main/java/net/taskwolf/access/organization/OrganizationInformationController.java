@@ -39,7 +39,7 @@ public final class OrganizationInformationController extends OrganizationControl
     performOrganizationMemberOperation(userId, organization ->
         gatherOrganizationInformation(organization, userId)
           .thenAccept(futureResponse::complete),
-      () -> {});
+      () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
   }
 
@@ -90,7 +90,7 @@ public final class OrganizationInformationController extends OrganizationControl
     performOrganizationMemberOperation(findUserId(request), organization ->
         futureResponse.complete(Map.of("link", String.format(LINK_FORMAT,
           organization.id(), organization.invitationToken()))),
-      () -> {});
+      () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
   }
 }

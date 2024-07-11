@@ -44,7 +44,7 @@ public final class StripePaymentController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findPayments(
     HttpServletRequest request
   ) {
-    return targetDatabaseTable.findTarget(findUserId(request))
+    return targetDatabaseTable.findTargetSecured(findUserId(request))
       .thenCompose(target -> stripeDatabaseTable.stripeAccountExistsByTarget(target)
         .thenCompose(exists -> findPayments(target, exists)));
   }

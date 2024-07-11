@@ -47,7 +47,7 @@ public final class StripeTerminationController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findTerminationStatus(
     HttpServletRequest request
   ) {
-    return targetDatabaseTable.findTarget(findUserId(request))
+    return targetDatabaseTable.findTargetSecured(findUserId(request))
       .thenCompose(target -> stripeDatabaseTable.stripeAccountExistsByTarget(target)
         .thenCompose(exists -> findTerminationStatus(target, exists)));
   }
@@ -98,7 +98,7 @@ public final class StripeTerminationController extends TaskwolfRestController {
   public void terminate(
     HttpServletRequest request
   ) {
-    targetDatabaseTable.findTarget(findUserId(request))
+    targetDatabaseTable.findTargetSecured(findUserId(request))
       .thenAccept(target -> stripeDatabaseTable.stripeAccountExistsByTarget(target)
         .thenAccept(exists -> terminate(target, exists)));
   }

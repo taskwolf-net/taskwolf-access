@@ -11,6 +11,7 @@ import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -25,25 +26,25 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class OrganizationInformationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final UserTargetDatabaseTable targetDatabaseTable;
 
   private OrganizationInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable
+    OrganizationDatabaseTable organizationDatabaseTable,
+    UserTargetDatabaseTable targetDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
+    this.targetDatabaseTable = targetDatabaseTable;
   }
 
-  @RequestMapping(path = "/organization/selected/", method = RequestMethod.POST)
+  @RequestMapping(path = "/organization/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findSelectedOrganization(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
+    HttpServletRequest request
   ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> findSelectedOrganization(user,
-      body.getUUID("id")).thenAccept(futureResponse::complete));
-    return futureResponse;
+    return findUser(request).thenCompose(user ->
+      targetDatabaseTable.findTargetSecured(user.id()).thenCompose(target ->
+        findSelectedOrganization(user, target)));
   }
 
   private CompletableFuture<Map<String, Object>> findSelectedOrganization(
@@ -53,26 +54,6 @@ public final class OrganizationInformationController extends TaskwolfRestControl
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
     return gatherOrganizationInformation(organizationId, user.id());
-  }
-
-  @RequestMapping(path = "/organizations/all/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findAllOrganizations(
-    HttpServletRequest request
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> collectOrganizationsInformation(
-      user.organizations(), user.id()).thenAccept(futureResponse::complete));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> collectOrganizationsInformation(
-    List<UUID> organizations, UUID applicantId
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(organizations, organization ->
-      gatherOrganizationInformation(organization, applicantId)).thenAccept(
-        information -> futureResponse.complete(Map.of("organizations", information)));
-    return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> gatherOrganizationInformation(

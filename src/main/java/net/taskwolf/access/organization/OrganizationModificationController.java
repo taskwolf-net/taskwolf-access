@@ -1,6 +1,5 @@
 package net.taskwolf.access.organization;
 
-import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.access.account.AccountController;
@@ -14,7 +13,6 @@ import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.activity.ActivityType;
 import net.taskwolf.core.user.activity.UserActivityDatabaseTable;
-import net.taskwolf.core.worker.WorkerDistribution;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.device.structure.UserDeviceDatabaseTable;
 import net.taskwolf.process.access.ProcessModificationController;
@@ -35,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class OrganizationModificationController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
-  private final WorkerDistribution distribution;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowModificationController workflowModificationController;
   private final ProcessDatabaseTable processDatabaseTable;
@@ -51,7 +48,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
-    WorkerDistribution distribution, WorkflowDatabaseTable workflowDatabaseTable,
+    WorkflowDatabaseTable workflowDatabaseTable,
     WorkflowModificationController workflowModificationController,
     ProcessDatabaseTable processDatabaseTable,
     ProcessModificationController processModificationController,
@@ -64,7 +61,6 @@ public final class OrganizationModificationController extends TaskwolfRestContro
   ) {
     super(secretKey, userDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
-    this.distribution = distribution;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.workflowModificationController = workflowModificationController;
     this.processDatabaseTable = processDatabaseTable;
@@ -76,24 +72,6 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     this.accountController = accountController;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.activityDatabaseTable = activityDatabaseTable;
-  }
-
-  @RequestMapping(path = "/organization/create/", method = RequestMethod.POST)
-  public void createOrganization(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
-  ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    var userId = findUserId(request);
-    organizationDatabaseTable.generateAvailableOrganizationId().thenAccept(id ->
-        createOrganization(id, body.getString("name"), userId));
-  }
-
-  private void createOrganization(UUID organizationId, String name, UUID userId) {
-    organizationDatabaseTable.insertOrganization(organizationId, name, userId,
-      Lists.newArrayList(), UUID.randomUUID().toString());
-    userDatabaseTable().addUserOrganization(userId, organizationId);
-    distribution.addUser(organizationId);
   }
 
   @RequestMapping(path = "/organization/link/regenerate/", method = RequestMethod.POST)
@@ -270,24 +248,6 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     userDatabaseTable().removeUserOrganization(user.id(), organizationId);
     activityDatabaseTable.insertActivity(user.id(), "activity.organization.leave.title",
       "activity.organization.leave.description", ActivityType.ORGANIZATION);
-  }
-
-  @RequestMapping(path = "/organization/delete/", method = RequestMethod.POST)
-  public void deleteOrganization(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
-  ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    findUser(request).thenAccept(user -> deleteOrganization(user,
-      body.getUUID("organization")));
-  }
-
-  public void deleteOrganization(User user, UUID organizationId) {
-    if (!user.organizations().contains(organizationId)) {
-      return;
-    }
-    organizationDatabaseTable.findOrganization(organizationId)
-      .thenAccept(this::deleteOrganization);
   }
 
   public void deleteOrganization(Organization organization) {

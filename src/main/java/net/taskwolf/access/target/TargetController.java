@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
@@ -27,16 +28,19 @@ import java.util.concurrent.CompletableFuture;
 public final class TargetController extends TaskwolfRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
   private final CoreModule coreModule;
 
   private TargetController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable, CoreModule coreModule
+    OrganizationDatabaseTable organizationDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable, CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
     this.coreModule = coreModule;
   }
 
@@ -44,41 +48,38 @@ public final class TargetController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findAllTargets(
     HttpServletRequest request
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user ->
-      userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
-        collectTargetsInformation(user, user.organizations(), user.id(), target)
-          .thenAccept(futureResponse::complete)));
-    return futureResponse;
+    return findUser(request)
+      .thenCompose(user -> userTargetDatabaseTable.findTargetSecured(user.id())
+        .thenCompose(target -> collectTargetsInformation(user,
+          user.organizations(), user.id(), target)));
   }
 
   private CompletableFuture<Map<String, Object>> collectTargetsInformation(
     User user, List<UUID> organizations, UUID applicantId, UUID currentTarget
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(organizations, this::gatherTargetInformation)
-      .thenAccept(information -> futureResponse.complete(
-        finishTargetsInformation(user, information, applicantId, currentTarget)));
-    return futureResponse;
+    return AsyncIterator.execute(organizations, this::gatherTargetInformation)
+      .thenCompose(information -> bundleDatabaseTable.bundleExists(user.id())
+        .thenApply(bundleExists -> finishTargetsInformation(user, information,
+          applicantId, currentTarget, bundleExists)));
   }
 
   private CompletableFuture<Map<String, Object>> gatherTargetInformation(
     UUID organizationId
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
-      organization -> futureResponse.complete(Map.of("id", organization.id(),
-        "name", organization.name(), "type", "ORGANIZATION")));
-    return futureResponse;
+    return organizationDatabaseTable.findOrganization(organizationId).thenApply(
+      organization -> Map.of("id", organization.id(),
+        "name", organization.name(), "type", "ORGANIZATION"));
   }
 
   private Map<String, Object> finishTargetsInformation(
     User user, List<Map<String, Object>> organizations, UUID applicantId,
-    UUID currentTarget
+    UUID currentTarget, boolean personalBundleExists
   ) {
     var targets = Lists.<Map<String, Object>>newArrayList();
-    targets.add(Map.of("id", applicantId, "name", coreModule.translate(user,
-      "target.you"), "type", "PERSONAL"));
+    if (personalBundleExists) {
+      targets.add(Map.of("id", applicantId, "name", coreModule.translate(user,
+        "target.you"), "type", "PERSONAL"));
+    }
     organizations.sort(Comparator.comparing(firstOrganization ->
       ((String) firstOrganization.get("name"))));
     targets.addAll(organizations);
@@ -89,11 +90,9 @@ public final class TargetController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findTarget(
     HttpServletRequest request
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
     var userId = findUserId(request);
-    userTargetDatabaseTable.findTargetSecured(userId).thenAccept(target ->
-      futureResponse.complete(Map.of("target", target)));
-    return futureResponse;
+    return userTargetDatabaseTable.findTargetSecured(userId)
+      .thenApply(target -> Map.of("target", target));
   }
 
   @RequestMapping(path = "/target/change/", method = RequestMethod.POST)
@@ -110,13 +109,10 @@ public final class TargetController extends TaskwolfRestController {
 
   private CompletableFuture<Boolean> checkTargetValidity(UUID userId, UUID target) {
     if (userId.equals(target)) {
-      return CompletableFuture.completedFuture(false);
+      return bundleDatabaseTable.bundleExists(userId);
     }
-    var futureResponse = new CompletableFuture<Boolean>();
-    organizationDatabaseTable.organizationExists(target).thenAccept(exists ->
-      checkTargetOrganizationExistence(userId, target, exists)
-        .thenAccept(futureResponse::complete));
-    return futureResponse;
+    return organizationDatabaseTable.organizationExists(target).thenCompose(
+      exists -> checkTargetOrganizationExistence(userId, target, exists));
   }
 
   private CompletableFuture<Boolean> checkTargetOrganizationExistence(

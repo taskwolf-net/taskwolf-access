@@ -112,6 +112,11 @@ public final class StripeTerminationController extends StripeController {
     terminationDatabaseTable.insertTermination(targetId);
   }
 
+  public void cancelSubscription(String stripeAccountId) {
+    stripeDatabaseTable().findStripeAccount(stripeAccountId)
+      .thenAcceptAsync(this::cancelSubscription);
+  }
+
   public void cancelSubscription(StripeAccount account) {
     try {
       var subscriptions = stripeClient.subscriptions()

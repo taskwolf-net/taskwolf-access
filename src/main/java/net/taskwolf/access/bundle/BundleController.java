@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.*;
+import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
@@ -32,6 +33,7 @@ public final class BundleController extends TaskwolfRestController {
   private final BundleDatabaseTable bundleDatabaseTable;
   private final BundlePresetRepository bundlePresetRepository;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final OrganizationDatabaseTable organizationDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
@@ -42,6 +44,7 @@ public final class BundleController extends TaskwolfRestController {
     BundleDatabaseTable bundleDatabaseTable,
     BundlePresetRepository bundlePresetRepository,
     UserTargetDatabaseTable userTargetDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     OperationDatabaseTable operationDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
@@ -51,6 +54,7 @@ public final class BundleController extends TaskwolfRestController {
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.bundlePresetRepository = bundlePresetRepository;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.organizationDatabaseTable = organizationDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.operationDatabaseTable = operationDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
@@ -58,7 +62,7 @@ public final class BundleController extends TaskwolfRestController {
   }
 
   @RequestMapping(path = "/bundle/preset/", method = RequestMethod.POST)
-  public Map<String, Object> fundBundlePreset(
+  public Map<String, Object> findBundlePreset(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
@@ -105,13 +109,23 @@ public final class BundleController extends TaskwolfRestController {
   }
 
   @RequestMapping(path = "/bundle/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> fundBundle(
+  public CompletableFuture<Map<String, Object>> findBundle(
     HttpServletRequest request
   ) {
-    return findUser(request)
-      .thenCompose(user -> userTargetDatabaseTable.findTargetSecured(user.id())
-        .thenCompose(target -> bundleDatabaseTable.findBundle(target)
-          .thenApply(this::assemblyBundleInformation)));
+    var userId = findUserId(request);
+    return userTargetDatabaseTable.findTargetSecured(userId)
+      .thenCompose(target -> checkUserPermission(userId, target)
+        .thenCompose(hasPermission -> findBundle(target, hasPermission)));
+  }
+
+  private CompletableFuture<Map<String, Object>> findBundle(
+    UUID targetId, boolean hasPermission
+  ) {
+    if (!hasPermission) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return bundleDatabaseTable.findBundle(targetId)
+      .thenApply(this::assemblyBundleInformation);
   }
 
   private Map<String, Object> assemblyBundleInformation(Bundle bundle) {
@@ -140,16 +154,27 @@ public final class BundleController extends TaskwolfRestController {
   }
 
   @RequestMapping(path = "/bundle/usage/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> fundBundleUsage(
+  public CompletableFuture<Map<String, Object>> findBundleUsage(
     HttpServletRequest request
   ) {
+    var userId = findUserId(request);
     return userTargetDatabaseTable.findTargetSecured(findUserId(request))
-      .thenCompose(target -> findWorkflowUsage(target)
-        .thenCompose(workflowUsage -> findDatabaseUsage(target)
-          .thenCompose(databaseUsage -> findWebhookUsage(target)
-            .thenApply(webhookUsage -> Stream.of(workflowUsage.entrySet(),
-                databaseUsage.entrySet(), webhookUsage.entrySet()).flatMap(Set::stream)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))));
+      .thenCompose(target -> checkUserPermission(userId, target)
+        .thenCompose(hasPermission -> findBundleUsage(target, hasPermission)));
+  }
+
+  private CompletableFuture<Map<String, Object>> findBundleUsage(
+    UUID targetId, boolean hasPermission
+  ) {
+    if (!hasPermission) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return findWorkflowUsage(targetId)
+      .thenCompose(workflowUsage -> findDatabaseUsage(targetId)
+        .thenCompose(databaseUsage -> findWebhookUsage(targetId)
+          .thenApply(webhookUsage -> Stream.of(workflowUsage.entrySet(),
+              databaseUsage.entrySet(), webhookUsage.entrySet()).flatMap(Set::stream)
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))));
   }
 
   private CompletableFuture<Map<String, Object>> findWorkflowUsage(UUID targetId) {
@@ -169,5 +194,15 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> findWebhookUsage(UUID targetId) {
     return webhookDatabaseTable.findWebhooksByOwner(targetId).thenApply(
       webhooks -> Map.of("webhookNumberUsage", webhooks.size()));
+  }
+
+  private CompletableFuture<Boolean> checkUserPermission(
+    UUID userId, UUID targetId
+  ) {
+    if (userId == targetId) {
+      return CompletableFuture.completedFuture(true);
+    }
+    return organizationDatabaseTable.findOrganization(targetId)
+      .thenApply(organization -> organization.owner().equals(userId));
   }
 }

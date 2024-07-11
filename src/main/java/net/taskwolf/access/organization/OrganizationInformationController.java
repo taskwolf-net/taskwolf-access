@@ -46,12 +46,10 @@ public final class OrganizationInformationController extends OrganizationControl
   private CompletableFuture<Map<String, Object>> gatherOrganizationInformation(
     Organization organization, UUID applicantId
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userDatabaseTable().findUser(organization.owner()).thenAccept(owner ->
-      findOrganizationMembers(organization.members()).thenAccept(members ->
-        futureResponse.complete(assemblyOrganizationInformation(
-              organization, owner, members, applicantId))));
-    return futureResponse;
+    return userDatabaseTable().findUser(organization.owner())
+      .thenCompose(owner -> findOrganizationMembers(organization.members())
+        .thenApply(members -> assemblyOrganizationInformation(organization,
+          owner, members, applicantId)));
   }
 
   private CompletableFuture<List<User>> findOrganizationMembers(

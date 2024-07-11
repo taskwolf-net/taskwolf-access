@@ -6,9 +6,7 @@ import com.stripe.StripeClient;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentListParams;
 import jakarta.servlet.http.HttpServletRequest;
-import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.bundle.Bundle;
-import net.taskwolf.core.bundle.BundleDatabaseTable;
+import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
@@ -20,44 +18,32 @@ import java.security.Key;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class StripePaymentController extends TaskwolfRestController {
-  private final StripeDatabaseTable stripeDatabaseTable;
+public final class StripePaymentController extends StripeController {
   private final StripeClient stripeClient;
-  private final UserTargetDatabaseTable targetDatabaseTable;
 
   private StripePaymentController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
-    UserTargetDatabaseTable targetDatabaseTable
+    UserTargetDatabaseTable targetDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
-    this.stripeDatabaseTable = stripeDatabaseTable;
+    super(secretKey, userDatabaseTable, stripeDatabaseTable, targetDatabaseTable,
+      organizationDatabaseTable);
     this.stripeClient = stripeClient;
-    this.targetDatabaseTable = targetDatabaseTable;
   }
 
   @RequestMapping(path = "/payments/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findPayments(
     HttpServletRequest request
   ) {
-    return targetDatabaseTable.findTargetSecured(findUserId(request))
-      .thenCompose(target -> stripeDatabaseTable.stripeAccountExistsByTarget(target)
-        .thenCompose(exists -> findPayments(target, exists)));
-  }
-
-  private CompletableFuture<Map<String, Object>> findPayments(
-    UUID targetId, boolean accountExists
-  ) {
-    if (!accountExists) {
-      return CompletableFuture.completedFuture(Map.of("payments",
-        Lists.newArrayList()));
-    }
-    return stripeDatabaseTable.findStripeAccountByTarget(targetId)
-      .thenApplyAsync(account -> findPayments(account.accountId()));
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performStripeOperation(findUserId(request), account -> new Thread(() ->
+        futureResponse.complete(findPayments(account.accountId()))).start(),
+      () -> futureResponse.complete(Maps.newHashMap()));
+    return futureResponse;
   }
 
   private Map<String, Object> findPayments(String accountId) {

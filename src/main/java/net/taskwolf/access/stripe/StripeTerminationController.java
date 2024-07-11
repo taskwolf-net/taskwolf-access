@@ -4,9 +4,10 @@ import com.google.common.collect.Maps;
 import com.stripe.StripeClient;
 import com.stripe.param.SubscriptionListParams;
 import jakarta.servlet.http.HttpServletRequest;
-import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.Bundle;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
+import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.stripe.StripeAccount;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.stripe.TerminationDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -21,25 +22,23 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class StripeTerminationController extends TaskwolfRestController {
-  private final StripeDatabaseTable stripeDatabaseTable;
+public final class StripeTerminationController extends StripeController {
   private final StripeClient stripeClient;
   private final TerminationDatabaseTable terminationDatabaseTable;
-  private final UserTargetDatabaseTable targetDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
 
   private StripeTerminationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
-    TerminationDatabaseTable terminationDatabaseTable,
     UserTargetDatabaseTable targetDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable,
+    TerminationDatabaseTable terminationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
-    this.stripeDatabaseTable = stripeDatabaseTable;
+    super(secretKey, userDatabaseTable, stripeDatabaseTable, targetDatabaseTable,
+      organizationDatabaseTable);
     this.stripeClient = stripeClient;
     this.terminationDatabaseTable = terminationDatabaseTable;
-    this.targetDatabaseTable = targetDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
@@ -47,22 +46,13 @@ public final class StripeTerminationController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findTerminationStatus(
     HttpServletRequest request
   ) {
-    return targetDatabaseTable.findTargetSecured(findUserId(request))
-      .thenCompose(target -> stripeDatabaseTable.stripeAccountExistsByTarget(target)
-        .thenCompose(exists -> findTerminationStatus(target, exists)));
-  }
-
-  private CompletableFuture<Map<String, Object>> findTerminationStatus(
-    UUID targetId, boolean accountExists
-  ) {
-    if (!accountExists) {
-      return CompletableFuture.completedFuture(Map.of("terminable", false,
-        "terminated", false));
-    }
-    return stripeDatabaseTable.findStripeAccountByTarget(targetId)
-      .thenCompose(account -> bundleDatabaseTable.findBundle(targetId)
-        .thenComposeAsync(bundle -> findTerminationStatus(targetId, bundle,
-          account.accountId())));
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performStripeOperation(findUserId(request), account ->
+        bundleDatabaseTable.findBundle(account.targetId())
+          .thenComposeAsync(bundle -> findTerminationStatus(account.targetId(),
+            bundle, account.accountId()).thenAccept(futureResponse::complete)),
+      () -> futureResponse.complete(Maps.newHashMap()));
+    return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> findTerminationStatus(
@@ -98,53 +88,41 @@ public final class StripeTerminationController extends TaskwolfRestController {
   public void terminate(
     HttpServletRequest request
   ) {
-    targetDatabaseTable.findTargetSecured(findUserId(request))
-      .thenAccept(target -> stripeDatabaseTable.stripeAccountExistsByTarget(target)
-        .thenAccept(exists -> terminate(target, exists)));
+    performStripeOperation(findUserId(request), account ->
+      bundleDatabaseTable.findBundle(account.targetId())
+        .thenAcceptAsync(bundle -> terminate(account.targetId(), bundle, account)),
+      () -> {});
   }
 
   private void terminate(
-    UUID targetId, boolean accountExists
-  ) {
-    if (!accountExists) {
-      return;
-    }
-    stripeDatabaseTable.findStripeAccountByTarget(targetId)
-      .thenAccept(account -> bundleDatabaseTable.findBundle(targetId)
-        .thenAcceptAsync(bundle -> terminate(targetId, bundle,
-          account.accountId())));
-  }
-
-  private void terminate(
-    UUID targetId, Bundle bundle, String stripeAccountId
+    UUID targetId, Bundle bundle, StripeAccount account
   ) {
     if (bundle.bundleRuntime().isMonthly()) {
-      cancelSubscription(stripeAccountId);
+      cancelSubscription(account);
     } else if (bundle.bundleRuntime().isYearly()) {
-      terminateYearly(targetId, bundle, stripeAccountId);
+      terminateYearly(targetId, bundle, account);
     }
   }
 
-  private void terminateYearly(UUID targetId, Bundle bundle, String stripeAccountId) {
+  private void terminateYearly(UUID targetId, Bundle bundle, StripeAccount account) {
     if (bundle.expiration() - System.currentTimeMillis() < 1000L * 60 * 60 * 24 * 30) {
-      cancelSubscription(stripeAccountId);
+      cancelSubscription(account);
       return;
     }
     terminationDatabaseTable.insertTermination(targetId);
   }
 
-  public void cancelSubscription(String stripeAccountId) {
+  public void cancelSubscription(StripeAccount account) {
     try {
       var subscriptions = stripeClient.subscriptions()
-        .list(SubscriptionListParams.builder().setCustomer(stripeAccountId).build())
+        .list(SubscriptionListParams.builder().setCustomer(account.accountId()).build())
         .getData();
       if (subscriptions.isEmpty()) {
         return;
       }
       subscriptions.get(0).cancel();
-      stripeDatabaseTable.findStripeAccount(stripeAccountId)
-        .thenAccept(account -> stripeDatabaseTable.updateStripeAccount(
-          account.accountId(), account.targetId(), account.userId(), ""));
+      stripeDatabaseTable().updateStripeAccount(account.accountId(),
+        account.targetId(), account.userId(), "");
     } catch (Exception exception) {
       exception.printStackTrace();
     }

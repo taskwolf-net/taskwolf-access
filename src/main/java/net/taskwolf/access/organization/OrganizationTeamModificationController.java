@@ -54,7 +54,7 @@ public final class OrganizationTeamModificationController extends OrganizationTe
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var teamId = body.getUUID("team");
-    var targetId = body.getUUID("targetId");
+    var targetId = body.getUUID("target");
     performOrganizationTeamOperation(findUserId(request), teamId,
       team -> organizationDatabaseTable().findOrganization(team.organizationId())
         .thenAccept(organization -> addTeamMember(organization, team, targetId)),
@@ -80,7 +80,7 @@ public final class OrganizationTeamModificationController extends OrganizationTe
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var teamId = body.getUUID("team");
-    var targetId = body.getUUID("targetId");
+    var targetId = body.getUUID("target");
     performOrganizationTeamOperation(findUserId(request), teamId,
       team -> organizationDatabaseTable().findOrganization(team.organizationId())
         .thenAccept(organization -> removeTeamMember(organization, team, targetId)),

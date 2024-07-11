@@ -5,12 +5,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.access.account.AccountController;
 import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.user.activity.ActivityType;
 import net.taskwolf.core.user.activity.UserActivityDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
@@ -31,7 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class OrganizationModificationController extends TaskwolfRestController {
+public final class OrganizationModificationController extends OrganizationController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowModificationController workflowModificationController;
@@ -48,6 +48,7 @@ public final class OrganizationModificationController extends TaskwolfRestContro
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
+    UserTargetDatabaseTable targetDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     WorkflowModificationController workflowModificationController,
     ProcessDatabaseTable processDatabaseTable,
@@ -59,7 +60,8 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     AccountController accountController, BundleDatabaseTable bundleDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
+    super(secretKey, userDatabaseTable, organizationDatabaseTable,
+      targetDatabaseTable);
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.workflowModificationController = workflowModificationController;
@@ -74,37 +76,12 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     this.activityDatabaseTable = activityDatabaseTable;
   }
 
-  @RequestMapping(path = "/organization/link/regenerate/", method = RequestMethod.POST)
-  public void regenerateLink(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
-  ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    var organizationId = body.getUUID("organization");
-    findUser(request).thenAccept(user ->
-      organizationDatabaseTable.organizationExists(organizationId).thenAccept(
-        exists -> regenerateLink(user, organizationId, exists)));
-  }
-
-  private void regenerateLink(
-    User user, UUID organizationId, boolean organizationExists
-  ) {
-    if (!organizationExists) {
-      return;
-    }
-    if (!user.organizations().contains(organizationId)) {
-      return;
-    }
-    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
-      organization -> regenerateLink(user, organization));
-  }
-
-  private void regenerateLink(User user, Organization organization) {
-    if (!organization.owner().equals(user.id())) {
-      return;
-    }
-    organizationDatabaseTable.changeOrganizationInvitationToken(organization,
-      UUID.randomUUID().toString());
+  @RequestMapping(path = "/organization/link/regenerate/", method = RequestMethod.GET)
+  public void regenerateLink(HttpServletRequest request) {
+    performOrganizationOwnerOperation(findUserId(request), organization ->
+      organizationDatabaseTable.changeOrganizationInvitationToken(organization,
+        UUID.randomUUID().toString()),
+      () -> {});
   }
 
   @RequestMapping(path = "/organization/rename/", method = RequestMethod.POST)
@@ -113,31 +90,10 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var organizationId = body.getUUID("organization");
-    findUser(request).thenAccept(user ->
-      organizationDatabaseTable.organizationExists(organizationId).thenAccept(
-        exists -> renameOrganization(user, organizationId,
-          body.getString("name"), exists)));
-  }
-
-  private void renameOrganization(
-    User user, UUID organizationId, String name, boolean organizationExists
-  ) {
-    if (!organizationExists) {
-      return;
-    }
-    if (!user.organizations().contains(organizationId)) {
-      return;
-    }
-    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
-      organization -> renameOrganization(user, organization, name));
-  }
-
-  private void renameOrganization(User user, Organization organization, String name) {
-    if (!organization.owner().equals(user.id())) {
-      return;
-    }
-    organizationDatabaseTable.renameOrganization(organization, name);
+    var name = body.getString("name");
+    performOrganizationOwnerOperation(findUserId(request), organization ->
+        organizationDatabaseTable.renameOrganization(organization, name),
+      () -> {});
   }
 
   @RequestMapping(path = "/organization/join/", method = RequestMethod.POST)
@@ -204,24 +160,17 @@ public final class OrganizationModificationController extends TaskwolfRestContro
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    findUser(request).thenAccept(user -> kickFromOrganization(user,
-      body.getUUID("organization"), body.getUUID("target")));
-  }
-
-  private void kickFromOrganization(User user, UUID organizationId, UUID targetId) {
-    if (!user.organizations().contains(organizationId)) {
-      return;
-    }
-    organizationDatabaseTable.findOrganization(organizationId)
-      .thenAccept(organization -> kickFromOrganization(user, organization, targetId));
+    var userId = findUserId(request);
+    var targetId = body.getUUID("target");
+    performOrganizationOwnerOperation(userId, organization ->
+        kickFromOrganization(userId, targetId, organization),
+      () -> {});
   }
 
   private void kickFromOrganization(
-    User user, Organization organization, UUID targetId
+    UUID userId, UUID targetId, Organization organization
   ) {
-    if (!organization.owner().equals(user.id()) ||
-      !organization.members().contains(targetId) || targetId.equals(user.id())
-    ) {
+    if (!organization.members().contains(targetId) || targetId.equals(userId)) {
       return;
     }
     userDatabaseTable().removeUserOrganization(targetId, organization.id());
@@ -230,23 +179,17 @@ public final class OrganizationModificationController extends TaskwolfRestContro
       "activity.organization.kick.description", ActivityType.ORGANIZATION);
   }
 
-  @RequestMapping(path = "/organization/leave/", method = RequestMethod.POST)
-  public void leaveOrganization(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
-  ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    findUser(request).thenAccept(user -> leaveOrganization(user,
-      body.getUUID("organization")));
+  @RequestMapping(path = "/organization/leave/", method = RequestMethod.GET)
+  public void leaveOrganization(HttpServletRequest request) {
+    var userId = findUserId(request);
+    performOrganizationMemberOperation(userId, organization ->
+      leaveOrganization(userId, organization.id()), () -> {});
   }
 
-  public void leaveOrganization(User user, UUID organizationId) {
-    if (!user.organizations().contains(organizationId)) {
-      return;
-    }
-    organizationDatabaseTable.removeOrganizationMember(organizationId, user.id());
-    userDatabaseTable().removeUserOrganization(user.id(), organizationId);
-    activityDatabaseTable.insertActivity(user.id(), "activity.organization.leave.title",
+  public void leaveOrganization(UUID userId, UUID organizationId) {
+    organizationDatabaseTable.removeOrganizationMember(organizationId, userId);
+    userDatabaseTable().removeUserOrganization(userId, organizationId);
+    activityDatabaseTable.insertActivity(userId, "activity.organization.leave.title",
       "activity.organization.leave.description", ActivityType.ORGANIZATION);
   }
 

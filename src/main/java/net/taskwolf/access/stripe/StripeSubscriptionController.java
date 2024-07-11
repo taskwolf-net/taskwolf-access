@@ -2,7 +2,6 @@ package net.taskwolf.access.stripe;
 
 import com.google.common.collect.Lists;
 import com.stripe.StripeClient;
-import com.stripe.model.Customer;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;

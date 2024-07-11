@@ -3,16 +3,12 @@ package net.taskwolf.access.organization;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,47 +20,37 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class OrganizationInformationController extends TaskwolfRestController {
-  private final OrganizationDatabaseTable organizationDatabaseTable;
-  private final UserTargetDatabaseTable targetDatabaseTable;
-
+public final class OrganizationInformationController extends OrganizationController {
   private OrganizationInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     UserTargetDatabaseTable targetDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
-    this.organizationDatabaseTable = organizationDatabaseTable;
-    this.targetDatabaseTable = targetDatabaseTable;
+    super(secretKey, userDatabaseTable, organizationDatabaseTable,
+      targetDatabaseTable);
   }
 
   @RequestMapping(path = "/organization/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findSelectedOrganization(
     HttpServletRequest request
   ) {
-    return findUser(request).thenCompose(user ->
-      targetDatabaseTable.findTargetSecured(user.id()).thenCompose(target ->
-        findSelectedOrganization(user, target)));
-  }
-
-  private CompletableFuture<Map<String, Object>> findSelectedOrganization(
-    User user, UUID organizationId
-  ) {
-    if (!user.organizations().contains(organizationId)) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    return gatherOrganizationInformation(organizationId, user.id());
+    var userId = findUserId(request);
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performOrganizationMemberOperation(userId, organization ->
+        gatherOrganizationInformation(organization, userId)
+          .thenAccept(futureResponse::complete),
+      () -> {});
+    return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> gatherOrganizationInformation(
-    UUID organizationId, UUID applicantId
+    Organization organization, UUID applicantId
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    organizationDatabaseTable.findOrganization(organizationId).thenAccept(organization ->
-      userDatabaseTable().findUser(organization.owner()).thenAccept(owner ->
-        findOrganizationMembers(organization.members()).thenAccept(members ->
-          futureResponse.complete(assemblyOrganizationInformation(
-                organization, owner, members, applicantId)))));
+    userDatabaseTable().findUser(organization.owner()).thenAccept(owner ->
+      findOrganizationMembers(organization.members()).thenAccept(members ->
+        futureResponse.complete(assemblyOrganizationInformation(
+              organization, owner, members, applicantId))));
     return futureResponse;
   }
 
@@ -96,43 +82,15 @@ public final class OrganizationInformationController extends TaskwolfRestControl
     return information;
   }
 
-  @RequestMapping(path = "/organization/link/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> findLink(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
-  ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var organizationId = body.getUUID("organization");
-    findUser(request).thenAccept(user ->
-      organizationDatabaseTable.organizationExists(organizationId).thenAccept(
-        exists -> findLink(user, organizationId, exists)
-          .thenAccept(futureResponse::complete)));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> findLink(
-    User user, UUID organizationId, boolean organizationExists
-  ) {
-    if (!organizationExists) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    if (!user.organizations().contains(organizationId)) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    organizationDatabaseTable.findOrganization(organizationId).thenAccept(
-      organization -> futureResponse.complete(findLink(user, organization)));
-    return futureResponse;
-  }
-
   private static final String LINK_FORMAT = "https://taskwolf.net/organization/join/%s/%s/";
 
-  private Map<String, Object> findLink(User user, Organization organization) {
-    if (!organization.owner().equals(user.id())) {
-      return Maps.newHashMap();
-    }
-    return Map.of("link", String.format(LINK_FORMAT, organization.id(),
-      organization.invitationToken()));
+  @RequestMapping(path = "/organization/link/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findLink(HttpServletRequest request) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performOrganizationMemberOperation(findUserId(request), organization ->
+        futureResponse.complete(Map.of("link", String.format(LINK_FORMAT,
+          organization.id(), organization.invitationToken()))),
+      () -> {});
+    return futureResponse;
   }
 }

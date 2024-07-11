@@ -342,7 +342,8 @@ public final class AccountSettingController extends TaskwolfRestController {
     if (organization.owner().equals(user.id())) {
       organizationModificationController.deleteOrganization(organization);
     } else {
-      organizationModificationController.leaveOrganization(user, organization.id());
+      organizationModificationController.leaveOrganization(user.id(),
+        organization.id());
     }
   }
 

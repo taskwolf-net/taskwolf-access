@@ -64,7 +64,9 @@ public final class OrganizationTeamModificationController extends OrganizationTe
   private void addTeamMember(
     Organization organization, OrganizationTeam team, UUID targetId
   ) {
-    if (!organization.members().contains(targetId)) {
+    if (!organization.owner().equals(targetId) &&
+      !organization.members().contains(targetId)
+    ) {
       return;
     }
     if (team.members().contains(targetId)) {
@@ -90,7 +92,9 @@ public final class OrganizationTeamModificationController extends OrganizationTe
   private void removeTeamMember(
     Organization organization, OrganizationTeam team, UUID targetId
   ) {
-    if (!organization.members().contains(targetId)) {
+    if (!organization.owner().equals(targetId) &&
+      !organization.members().contains(targetId)
+    ) {
       return;
     }
     if (!team.members().contains(targetId)) {

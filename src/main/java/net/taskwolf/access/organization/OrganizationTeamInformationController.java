@@ -50,14 +50,16 @@ public final class OrganizationTeamInformationController extends OrganizationTea
     Organization organization, UUID applicantId
   ) {
     return teamDatabaseTable().findTeamsByOrganization(organization.id())
-      .thenCompose(teams -> findOrganizationMembers(organization.members())
+      .thenCompose(teams -> findOrganizationMembers(organization)
         .thenApply(members -> assemblyTeamsInformation(organization, teams,
           members, applicantId)));
   }
 
   private CompletableFuture<List<User>> findOrganizationMembers(
-    List<UUID> memberIds
+    Organization organization
   ) {
+    var memberIds = Lists.newArrayList(organization.members());
+    memberIds.add(organization.owner());
     var futureResponse = new CompletableFuture<List<User>>();
     AsyncIterator.execute(memberIds, member -> userDatabaseTable().findUser(member))
       .thenAccept(futureResponse::complete);

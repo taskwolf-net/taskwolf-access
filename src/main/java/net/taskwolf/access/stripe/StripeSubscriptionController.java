@@ -23,6 +23,7 @@ import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.stripe.TerminationDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.worker.WorkerDistribution;
 import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -52,6 +53,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
+  private final UserTargetDatabaseTable targetDatabaseTable;
   private final WorkerDistribution distribution;
   private final CoreModule coreModule;
 
@@ -62,8 +64,9 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     TerminationDatabaseTable terminationDatabaseTable,
     StripeTerminationController stripeTerminationController,
     @Qualifier("orderMail") TaskwolfMail orderMail,
-    OrganizationDatabaseTable organizationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable,
+    UserTargetDatabaseTable targetDatabaseTable,
     OperationDatabaseTable operationDatabaseTable, WorkerDistribution distribution,
     CoreModule coreModule
   ) {
@@ -77,6 +80,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.operationDatabaseTable = operationDatabaseTable;
+    this.targetDatabaseTable = targetDatabaseTable;
     this.distribution = distribution;
     this.coreModule = coreModule;
   }
@@ -234,6 +238,7 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
     bundleDatabaseTable.bundleExists(targetId).thenAccept(exists ->
       applyBundle(targetId, bundlePreset, bundleRuntime, exists));
     terminationDatabaseTable.deleteTermination(targetId);
+    targetDatabaseTable.changeTarget(user.id(), targetId);
     try {
       sendPaymentEmail(user, subscription);
     } catch (Exception exception) {

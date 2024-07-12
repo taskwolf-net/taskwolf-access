@@ -103,13 +103,29 @@ public final class StripePaymentResponseController extends StripeController {
     if (!bundleExists) {
       return;
     }
-    bundleDatabaseTable.findBundle(targetId)
-      .thenAccept(bundle -> terminationDatabaseTable.terminationExists(targetId)
-        .thenAccept(terminationExists -> processPaymentCreation(
-          paymentIntent, targetId, bundle, terminationExists)));
+    bundleDatabaseTable.findBundle(targetId).thenAccept(bundle ->
+      processPaymentCreation(paymentIntent, targetId, bundle));
   }
 
   private void processPaymentCreation(
+    PaymentIntent paymentIntent, UUID targetId, Bundle bundle
+  ) {
+    checkPackageExtension(bundle);
+    terminationDatabaseTable.terminationExists(targetId)
+      .thenAccept(terminationExists -> checkPackageTermination(paymentIntent,
+        targetId, bundle, terminationExists));
+  }
+
+  private void checkPackageExtension(Bundle bundle) {
+    var timeDifference = Math.abs(System.currentTimeMillis() - bundle.expiration());
+    if (timeDifference > 1000L * 60 * 60 * 24) {
+      return;
+    }
+    bundle.extend();
+    bundleDatabaseTable.updateBundle(bundle);
+  }
+
+  private void checkPackageTermination(
     PaymentIntent paymentIntent, UUID targetId, Bundle bundle,
     boolean terminationExists
   ) {

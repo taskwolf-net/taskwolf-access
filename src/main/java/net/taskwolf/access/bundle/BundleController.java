@@ -199,7 +199,7 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Boolean> checkUserPermission(
     UUID userId, UUID targetId
   ) {
-    if (userId == targetId) {
+    if (userId.equals(targetId)) {
       return CompletableFuture.completedFuture(true);
     }
     return organizationDatabaseTable.findOrganization(targetId)

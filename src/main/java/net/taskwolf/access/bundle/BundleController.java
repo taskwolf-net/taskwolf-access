@@ -102,6 +102,7 @@ public final class BundleController extends TaskwolfRestController {
     information.put("webhookNumberLimit", preset.webhookNumberLimit());
     information.put("organizationAccess", preset.organizationAccess());
     information.put("organizationMemberLimit", preset.organizationMemberLimit());
+    information.put("organizationTeamLimit", preset.organizationTeamLimit());
     information.put("deviceAccess", preset.deviceAccess());
     information.put("accountsAccess", preset.accountsAccess());
     information.put("accountsNumberLimit", preset.accountsNumberLimit());
@@ -147,6 +148,7 @@ public final class BundleController extends TaskwolfRestController {
     information.put("webhookNumberLimit", bundle.webhookNumberLimit());
     information.put("organizationAccess", bundle.organizationAccess());
     information.put("organizationMemberLimit", bundle.organizationMemberLimit());
+    information.put("organizationTeamLimit", bundle.organizationTeamLimit());
     information.put("deviceAccess", bundle.deviceAccess());
     information.put("accountsAccess", bundle.accountsAccess());
     information.put("accountsNumberLimit", bundle.accountsNumberLimit());

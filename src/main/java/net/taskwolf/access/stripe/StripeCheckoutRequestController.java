@@ -6,7 +6,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.bundle.*;
+import net.taskwolf.core.bundle.BundleClass;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
+import net.taskwolf.core.bundle.BundleRuntime;
+import net.taskwolf.core.bundle.BundleType;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.stripe.StripeAccount;
 import net.taskwolf.core.stripe.StripeConfiguration;
@@ -24,14 +27,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class StripeCheckoutController extends TaskwolfRestController {
+public final class StripeCheckoutRequestController extends TaskwolfRestController {
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeConfiguration stripeConfiguration;
   private final StripeClient stripeClient;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
 
-  private StripeCheckoutController(
+  private StripeCheckoutRequestController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable,
     StripeConfiguration stripeConfiguration, StripeClient stripeClient,

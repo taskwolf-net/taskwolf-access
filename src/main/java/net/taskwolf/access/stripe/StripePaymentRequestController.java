@@ -7,6 +7,7 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentListParams;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
@@ -21,17 +22,18 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class StripePaymentController extends StripeController {
+public final class StripePaymentRequestController extends StripeController {
   private final StripeClient stripeClient;
 
-  private StripePaymentController(
+  private StripePaymentRequestController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
+    StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
     UserTargetDatabaseTable targetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable, stripeDatabaseTable, targetDatabaseTable,
-      organizationDatabaseTable);
+    super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
+      targetDatabaseTable, organizationDatabaseTable);
     this.stripeClient = stripeClient;
   }
 

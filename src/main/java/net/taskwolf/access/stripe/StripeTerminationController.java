@@ -8,6 +8,7 @@ import net.taskwolf.core.bundle.Bundle;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.stripe.StripeAccount;
+import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.stripe.TerminationDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -29,14 +30,15 @@ public final class StripeTerminationController extends StripeController {
 
   private StripeTerminationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
+    StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
     UserTargetDatabaseTable targetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     TerminationDatabaseTable terminationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable, stripeDatabaseTable, targetDatabaseTable,
-      organizationDatabaseTable);
+    super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
+      targetDatabaseTable, organizationDatabaseTable);
     this.stripeClient = stripeClient;
     this.terminationDatabaseTable = terminationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;

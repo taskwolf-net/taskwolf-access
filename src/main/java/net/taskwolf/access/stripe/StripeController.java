@@ -1,34 +1,43 @@
 package net.taskwolf.access.stripe;
 
+import com.stripe.model.Event;
+import com.stripe.model.StripeObject;
+import com.stripe.net.Webhook;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.stripe.StripeAccount;
+import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 
 import java.security.Key;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+@Getter(AccessLevel.PROTECTED)
 @Accessors(fluent = true)
 public class StripeController extends TaskwolfRestController {
-  @Getter(AccessLevel.PROTECTED)
+  private final StripeConfiguration stripeConfiguration;
   private final StripeDatabaseTable stripeDatabaseTable;
   private final UserTargetDatabaseTable targetDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
 
   protected StripeController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
+    StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable,
     UserTargetDatabaseTable targetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
+    this.stripeConfiguration = stripeConfiguration;
     this.stripeDatabaseTable = stripeDatabaseTable;
     this.targetDatabaseTable = targetDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
@@ -77,6 +86,26 @@ public class StripeController extends TaskwolfRestController {
     }
     stripeDatabaseTable.findStripeAccountByTarget(targetId)
       .thenAccept(operation::accept);
+  }
+
+  protected Optional<StripeObject> findStripeObject(Event event) {
+    var dataObjectDeserializer = event.getDataObjectDeserializer();
+    if (dataObjectDeserializer.getObject().isEmpty()) {
+      return Optional.empty();
+    }
+    return dataObjectDeserializer.getObject();
+  }
+
+  protected Optional<Event> findStripeEvent(
+    HttpServletRequest request, String payload
+  ) {
+    var signature = request.getHeader("Stripe-Signature");
+    try {
+      return Optional.of(Webhook.constructEvent(payload, signature,
+        stripeConfiguration.webhookSecret()));
+    } catch (Exception exception) {
+      return Optional.empty();
+    }
   }
 }
 

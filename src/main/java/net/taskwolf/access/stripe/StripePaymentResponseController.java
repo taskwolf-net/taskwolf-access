@@ -56,7 +56,8 @@ public final class StripePaymentResponseController extends StripeController {
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
-    var event = findStripeEvent(request, payload);
+    var event = findStripeEvent(request, payload,
+      stripeConfiguration().paymentWebhookSecret());
     if (event.isEmpty()) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return;

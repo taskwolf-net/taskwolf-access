@@ -77,7 +77,8 @@ public final class StripeCheckoutResponseController extends StripeController {
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
-    var event = findStripeEvent(request, payload);
+    var event = findStripeEvent(request, payload,
+      stripeConfiguration().checkoutWebhookSecret());
     if (event.isEmpty()) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return;

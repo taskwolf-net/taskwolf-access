@@ -97,12 +97,11 @@ public class StripeController extends TaskwolfRestController {
   }
 
   protected Optional<Event> findStripeEvent(
-    HttpServletRequest request, String payload
+    HttpServletRequest request, String payload, String secret
   ) {
     var signature = request.getHeader("Stripe-Signature");
     try {
-      return Optional.of(Webhook.constructEvent(payload, signature,
-        stripeConfiguration.webhookSecret()));
+      return Optional.of(Webhook.constructEvent(payload, signature, secret));
     } catch (Exception exception) {
       return Optional.empty();
     }

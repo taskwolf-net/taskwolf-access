@@ -46,7 +46,8 @@ public class WhitelistFilter extends OncePerRequestFilter {
     var controllers = Lists.<String>newArrayList();
     controllers.add("/" + CURRENT_API_VERSION + "/");
     controllers.add("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
-    controllers.add("/" + CURRENT_API_VERSION + "/stripe/");
+    controllers.add("/" + CURRENT_API_VERSION + "/stripe/checkout/");
+    controllers.add("/" + CURRENT_API_VERSION + "/stripe/payment/");
     controllers.add("/" + CURRENT_API_VERSION + "/discord/guild/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/login/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");

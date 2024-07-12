@@ -7,6 +7,7 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.*;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.organization.OrganizationTeamDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
@@ -34,6 +35,7 @@ public final class BundleController extends TaskwolfRestController {
   private final BundlePresetRepository bundlePresetRepository;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final OrganizationTeamDatabaseTable teamDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
@@ -45,6 +47,7 @@ public final class BundleController extends TaskwolfRestController {
     BundlePresetRepository bundlePresetRepository,
     UserTargetDatabaseTable userTargetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
+    OrganizationTeamDatabaseTable teamDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     OperationDatabaseTable operationDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
@@ -55,6 +58,7 @@ public final class BundleController extends TaskwolfRestController {
     this.bundlePresetRepository = bundlePresetRepository;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
+    this.teamDatabaseTable = teamDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.operationDatabaseTable = operationDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
@@ -72,7 +76,13 @@ public final class BundleController extends TaskwolfRestController {
     var bundleRuntime = BundleRuntime.valueOf(body.getString("runtime"));
     if (bundleType.isTrial()) {
       return assemblyBundlePresetInformation(
-        bundlePresetRepository.findPreset(bundleType).get(), BundleRuntime.WEEKLY);
+        bundlePresetRepository.findPreset(BundleType.TRIAL).get(),
+        BundleRuntime.WEEKLY);
+    }
+    if (bundleType.isEnterprise()) {
+      return assemblyBundlePresetInformation(
+        bundlePresetRepository.findPreset(BundleType.ENTERPRISE).get(),
+        bundleRuntime);
     }
     return assemblyBundlePresetInformation(
       bundlePresetRepository.findPreset(bundleType, bundleClass).get(),
@@ -101,8 +111,10 @@ public final class BundleController extends TaskwolfRestController {
     information.put("webhookAccess", preset.webhookAccess());
     information.put("webhookNumberLimit", preset.webhookNumberLimit());
     information.put("organizationAccess", preset.organizationAccess());
-    information.put("organizationMemberLimit", preset.organizationMemberLimit());
-    information.put("organizationTeamLimit", preset.organizationTeamLimit());
+    information.put("organizationMemberLimit", preset.hasOrganizationLimits() ?
+      preset.organizationMemberLimit() : "NEGOTIABLE");
+    information.put("organizationTeamLimit", preset.hasOrganizationLimits() ?
+      preset.organizationTeamLimit() : "NEGOTIABLE");
     information.put("deviceAccess", preset.deviceAccess());
     information.put("accountsAccess", preset.accountsAccess());
     information.put("accountsNumberLimit", preset.accountsNumberLimit());
@@ -171,12 +183,15 @@ public final class BundleController extends TaskwolfRestController {
     if (!hasPermission) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
-    return findWorkflowUsage(targetId)
-      .thenCompose(workflowUsage -> findDatabaseUsage(targetId)
-        .thenCompose(databaseUsage -> findWebhookUsage(targetId)
-          .thenApply(webhookUsage -> Stream.of(workflowUsage.entrySet(),
-              databaseUsage.entrySet(), webhookUsage.entrySet()).flatMap(Set::stream)
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))));
+    return bundleDatabaseTable.findBundle(targetId)
+      .thenCompose(bundle -> findWorkflowUsage(targetId)
+        .thenCompose(workflowUsage -> findDatabaseUsage(targetId)
+          .thenCompose(databaseUsage -> findWebhookUsage(targetId)
+            .thenCompose(webhookUsage -> findOrganizationUsage(targetId, bundle)
+              .thenApply(organizationUsage -> Stream.of(workflowUsage.entrySet(),
+                  databaseUsage.entrySet(), webhookUsage.entrySet(),
+                  organizationUsage.entrySet()).flatMap(Set::stream)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))))));
   }
 
   private CompletableFuture<Map<String, Object>> findWorkflowUsage(UUID targetId) {
@@ -196,6 +211,18 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> findWebhookUsage(UUID targetId) {
     return webhookDatabaseTable.findWebhooksByOwner(targetId).thenApply(
       webhooks -> Map.of("webhookNumberUsage", webhooks.size()));
+  }
+
+  private CompletableFuture<Map<String, Object>> findOrganizationUsage(
+    UUID targetId, Bundle bundle
+  ) {
+    if (bundle.bundleType().isTrial() || bundle.bundleType().isProfessional()) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return organizationDatabaseTable.findOrganization(targetId).thenCompose(
+      organization -> teamDatabaseTable.findTeamsByOrganization(organization.id())
+        .thenApply(teams -> Map.of("organizationMemberUsage",
+          organization.members().size(), "organizationTeamUsage", teams.size())));
   }
 
   private CompletableFuture<Boolean> checkUserPermission(

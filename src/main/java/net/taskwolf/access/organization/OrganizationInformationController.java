@@ -67,7 +67,8 @@ public final class OrganizationInformationController extends OrganizationControl
     var information = Maps.<String, Object>newHashMap();
     information.put("id", organization.id());
     information.put("name", organization.name());
-    information.put("owner", owner.name());
+    information.put("ownerId", owner.id());
+    information.put("ownerName", owner.name());
     information.put("isOwner", applicantId.equals(owner.id()));
     var membersInformation = Lists.<Map<String, Object>>newArrayList();
     for (var member : members) {

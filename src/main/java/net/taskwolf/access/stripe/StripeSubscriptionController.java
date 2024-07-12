@@ -203,11 +203,20 @@ public final class StripeSubscriptionController extends TaskwolfRestController {
       return;
     }
     var payment = payments.get(payments.size() - 2);
+    var amount = calculatePaymentRefundAmount(payment);
     stripeClient.refunds().create(RefundCreateParams.builder()
       .setPaymentIntent(payment.getId())
+      .setAmount(amount)
       .build());
     orderMail.send(user.email(), UPGRADE_EMAIL_TITLE,
-      String.format(UPGRADE_EMAIL_BODY, user.name(), payment.getAmount() / 100D));
+      String.format(UPGRADE_EMAIL_BODY, user.name(), amount / 100D));
+  }
+
+  private long calculatePaymentRefundAmount(PaymentIntent payment) {
+    var monthMillis = 1000L * 60 * 60 * 24 * 30;
+    var percentageLeft = (monthMillis - (System.currentTimeMillis() -
+      (payment.getCreated() * 1000))) / (double) monthMillis;
+    return Math.round(percentageLeft * payment.getAmount());
   }
 
   private CompletableFuture<StripeAccount> findStripeAccount(

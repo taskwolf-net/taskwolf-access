@@ -4,8 +4,8 @@ import com.stripe.StripeClient;
 import com.stripe.param.checkout.SessionCreateParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfHomeRestController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.BundleClass;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.bundle.BundleRuntime;
@@ -28,7 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class StripeCheckoutRequestController extends TaskwolfRestController {
+public final class StripeCheckoutRequestController extends TaskwolfHomeRestController {
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeConfiguration stripeConfiguration;
   private final StripeClient stripeClient;

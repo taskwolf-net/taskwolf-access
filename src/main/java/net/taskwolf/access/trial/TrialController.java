@@ -1,16 +1,13 @@
 package net.taskwolf.access.trial;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.access.TaskwolfHomeRestController;
 import net.taskwolf.core.bundle.*;
 import net.taskwolf.core.trial.TrialDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,7 +17,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class TrialController extends TaskwolfRestController {
+public final class TrialController extends TaskwolfHomeRestController {
   private final TrialDatabaseTable trialDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final BundlePresetRepository bundlePresetRepository;

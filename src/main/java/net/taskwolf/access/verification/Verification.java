@@ -62,7 +62,7 @@ public final class Verification {
   }
 
   public String generateHomeApiKey(UUID userId) {
-    var expirationDate = new Date(1000L * 60 * 60 * 24);
+    var expirationDate = new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", userId.toString())
       .signWith(homeSecret)

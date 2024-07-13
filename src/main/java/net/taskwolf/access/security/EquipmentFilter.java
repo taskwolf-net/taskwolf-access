@@ -31,6 +31,6 @@ public class EquipmentFilter extends OncePerRequestFilter {
     response.setHeader("Access-Control-Allow-Origin", "*");
     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     response.setHeader("Access-Control-Max-Age", "3600");
-    response.setHeader("Access-Control-Allow-Headers", "content-type, authorization, whitelist-key");
+    response.setHeader("Access-Control-Allow-Headers", "content-type, authorization, home-authorization, whitelist-key");
   }
 }

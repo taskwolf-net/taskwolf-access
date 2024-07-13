@@ -46,6 +46,7 @@ public class HomeAuthorizationFilter extends OncePerRequestFilter {
     var shouldFilter = Lists.<String>newArrayList();
     shouldFilter.add("/" + CURRENT_API_VERSION + "/checkout/");
     shouldFilter.add("/" + CURRENT_API_VERSION + "/trial/use/");
+    shouldFilter.add("/" + CURRENT_API_VERSION + "/organization/join/");
     var url = request.getRequestURI();
     return !shouldFilter.contains(url);
   }

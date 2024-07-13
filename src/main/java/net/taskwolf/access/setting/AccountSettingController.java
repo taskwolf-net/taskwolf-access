@@ -14,6 +14,7 @@ import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.ticket.TicketDatabaseTable;
 import net.taskwolf.core.tutorial.TutorialDatabaseTable;
 import net.taskwolf.core.user.*;
@@ -61,6 +62,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final AccountController accountController;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final StripeDatabaseTable stripeDatabaseTable;
   private final TutorialDatabaseTable tutorialDatabaseTable;
   private final UserActivityDatabaseTable activityDatabaseTable;
 
@@ -85,8 +87,9 @@ public final class AccountSettingController extends TaskwolfRestController {
     DeviceDatabaseTable deviceDatabaseTable,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
     AccountController accountController,
-    TutorialDatabaseTable tutorialDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
+    StripeDatabaseTable stripeDatabaseTable,
+    TutorialDatabaseTable tutorialDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
@@ -109,8 +112,9 @@ public final class AccountSettingController extends TaskwolfRestController {
     this.deviceDatabaseTable = deviceDatabaseTable;
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.accountController = accountController;
-    this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.stripeDatabaseTable = stripeDatabaseTable;
+    this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.activityDatabaseTable = activityDatabaseTable;
   }
 
@@ -305,20 +309,12 @@ public final class AccountSettingController extends TaskwolfRestController {
   }
 
   public void deleteAccount(User user) {
+    deleteAccountServices(user.id());
     userDatabaseTable().deleteUser(user.id());
     userTargetDatabaseTable.deleteTarget(user.id());
     userPasswordResetDatabaseTable.deleteResetToken(user.id());
     userEmailChangeDatabaseTable.deleteChange(user.id());
     notificationDatabaseTable.deleteNotificationSettings(user.id());
-    accountController.deleteAllAccounts(user.id());
-    workflowDatabaseTable.findWorkflowsOfOwner(user.id()).thenAccept(workflows ->
-      workflows.forEach(workflowModificationController::deleteWorkflow));
-    processDatabaseTable.findProcessesOfOwner(user.id()).thenAccept(processes ->
-      processes.forEach(processModificationController::deleteProcess));
-    tableDatabaseTable.findTablesOfOwner(user.id()).thenAccept(tables ->
-      tables.forEach(tableModificationController::deleteTable));
-    webhookDatabaseTable.findWebhooksByOwner(user.id()).thenAccept(webhooks ->
-      webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
     var futureDevices = deviceDatabaseTable.findDevicesOfOwner(user.id());
     futureDevices.thenAccept(devices -> devices.forEach(device ->
       deviceDatabaseTable.deleteDevice(device.id())));
@@ -333,9 +329,22 @@ public final class AccountSettingController extends TaskwolfRestController {
       organizationDatabaseTable.findOrganization(organizationId).thenAccept(
         organization -> accountDeletionHandleOrganization(user, organization));
     }
-    bundleDatabaseTable.deleteBundle(user.id());
     tutorialDatabaseTable.deleteTutorial(user.id());
     activityDatabaseTable.deleteActivity(user.id());
+  }
+
+  public void deleteAccountServices(UUID userId) {
+    workflowDatabaseTable.findWorkflowsOfOwner(userId).thenAccept(workflows ->
+      workflows.forEach(workflowModificationController::deleteWorkflow));
+    processDatabaseTable.findProcessesOfOwner(userId).thenAccept(processes ->
+      processes.forEach(processModificationController::deleteProcess));
+    tableDatabaseTable.findTablesOfOwner(userId).thenAccept(tables ->
+      tables.forEach(tableModificationController::deleteTable));
+    webhookDatabaseTable.findWebhooksByOwner(userId).thenAccept(webhooks ->
+      webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
+    accountController.deleteAllAccounts(userId);
+    bundleDatabaseTable.deleteBundle(userId);
+    stripeDatabaseTable.deleteStripeAccountByTarget(userId);
   }
 
   private void accountDeletionHandleOrganization(User user, Organization organization) {
@@ -343,7 +352,7 @@ public final class AccountSettingController extends TaskwolfRestController {
       organizationModificationController.deleteOrganization(organization);
     } else {
       organizationModificationController.leaveOrganization(user.id(),
-        organization.id());
+        organization);
     }
   }
 

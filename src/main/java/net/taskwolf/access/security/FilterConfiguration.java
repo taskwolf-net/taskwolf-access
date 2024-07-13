@@ -10,11 +10,13 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class FilterConfiguration {
   @Autowired
-  private AuthorizationFilter authorizationFilter;
+  private EquipmentFilter equipmentFilter;
   @Autowired
   private WhitelistFilter whitelistFilter;
   @Autowired
-  private EquipmentFilter equipmentFilter;
+  private ProductAuthorizationFilter productAuthorizationFilter;
+  @Autowired
+  private HomeAuthorizationFilter homeAuthorizationFilter;
 
   @Bean
   public FilterRegistrationBean<EquipmentFilter> provideEquipmentFilter() {
@@ -33,10 +35,18 @@ public class FilterConfiguration {
   }
 
   @Bean
-  public FilterRegistrationBean<AuthorizationFilter> provideAuthorizationFilter() {
-    var registrationBean = new FilterRegistrationBean<AuthorizationFilter>();
-    registrationBean.setFilter(authorizationFilter);
+  public FilterRegistrationBean<ProductAuthorizationFilter> provideProductAuthorizationFilter() {
+    var registrationBean = new FilterRegistrationBean<ProductAuthorizationFilter>();
+    registrationBean.setFilter(productAuthorizationFilter);
     registrationBean.setOrder(3);
+    return registrationBean;
+  }
+
+  @Bean
+  public FilterRegistrationBean<HomeAuthorizationFilter> provideHomeAuthorizationFilter() {
+    var registrationBean = new FilterRegistrationBean<HomeAuthorizationFilter>();
+    registrationBean.setFilter(homeAuthorizationFilter);
+    registrationBean.setOrder(4);
     return registrationBean;
   }
 }

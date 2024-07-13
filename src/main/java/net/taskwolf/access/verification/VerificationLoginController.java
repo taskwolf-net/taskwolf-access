@@ -11,6 +11,7 @@ import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserVerificationDatabaseTable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -25,17 +26,20 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class VerificationLoginController {
-  private final Key secretKey;
+  private final Key homeKey;
+  private final Key productKey;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
 
   private VerificationLoginController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
+    UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable
   ) {
-    this.secretKey = secretKey;
+    this.homeKey = homeKey;
+    this.productKey = productKey;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
@@ -62,7 +66,7 @@ public final class VerificationLoginController {
   }
 
   private CompletableFuture<Map<String, Object>> login(String email, String password) {
-    var verification = Verification.create(userDatabaseTable, secretKey,
+    var verification = Verification.create(userDatabaseTable, homeKey, productKey,
       email.replace(" ", ""), hashPassword(password));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
@@ -123,16 +127,20 @@ public final class VerificationLoginController {
     Verification verification, CompletableFuture<Map<String, Object>> futureResponse,
     User user, boolean bundleEnabled, long expiration
   ) {
+    var homeApiKey = verification.generateHomeApiKey(user.id());
     if (expiration == -10) {
-      futureResponse.complete(Map.of("success", false, "error", 1002));
+      futureResponse.complete(Map.of("success", false, "error", 1002,
+        "homeApiKey", homeApiKey));
       return;
     }
     if (!bundleEnabled) {
-      futureResponse.complete(Map.of("success", false, "error", 1003));
+      futureResponse.complete(Map.of("success", false, "error", 1003,
+        "homeApiKey", homeApiKey));
       return;
     }
-    var apiKey = verification.generateApiKey(user.id(), expiration);
-    futureResponse.complete(Map.of("success", true, "apiKey", apiKey));
+    var productApiKey = verification.generateProductApiKey(user.id(), expiration);
+    futureResponse.complete(Map.of("success", true, "productApiKey", productApiKey,
+      "homeApiKey", homeApiKey));
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)
@@ -142,7 +150,7 @@ public final class VerificationLoginController {
     var body = TaskwolfRequestBody.of(payload, response);
     try {
       var userId = UUID.fromString(Jwts.parser()
-        .setSigningKey(secretKey)
+        .setSigningKey(productKey)
         .build()
         .parseClaimsJws(body.getString("token"))
         .getPayload().get("id", String.class));

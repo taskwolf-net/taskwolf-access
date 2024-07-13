@@ -1,5 +1,6 @@
 package net.taskwolf.access.trial;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
@@ -8,6 +9,7 @@ import net.taskwolf.core.trial.TrialDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -25,7 +27,7 @@ public final class TrialController extends TaskwolfRestController {
   private final OperationDatabaseTable operationDatabaseTable;
 
   private TrialController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     TrialDatabaseTable trialDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     BundlePresetRepository bundlePresetRepository,
     OperationDatabaseTable operationDatabaseTable
@@ -37,38 +39,24 @@ public final class TrialController extends TaskwolfRestController {
     this.operationDatabaseTable = operationDatabaseTable;
   }
 
-  @RequestMapping(path = "/trial/use/", method = RequestMethod.POST)
+  @RequestMapping(path = "/trial/use/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> useTrial(
-    @RequestBody String payload, HttpServletResponse response
+    HttpServletRequest request
   ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    var email = body.getString("email");
-    return userDatabaseTable().userExists(email).thenCompose(userExists ->
-      trialDatabaseTable.trialExists(email).thenCompose(trialExists ->
-        useTrial(email, userExists, trialExists)));
-  }
-
-  private CompletableFuture<Map<String, Object>> useTrial(
-    String email, boolean userExists, boolean trialExists
-  ) {
-    if (!userExists) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1000));
-    }
-    if (trialExists) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1001));
-    }
-    return userDatabaseTable().findUser(email).thenCompose(user ->
-      bundleDatabaseTable.bundleExists(user.id()).thenApply(bundleExists ->
-        useTrial(user, bundleExists)));
+    return findUser(request)
+      .thenCompose(user -> trialDatabaseTable.trialExists(user.email())
+        .thenCompose(trialExists -> bundleDatabaseTable.bundleExists(user.id())
+          .thenApply(bundleExists -> useTrial(user, trialExists, trialExists))));
   }
 
   private Map<String, Object> useTrial(
-    User user, boolean bundleExists
+    User user, boolean trialExists, boolean bundleExists
   ) {
+    if (trialExists) {
+      return Map.of("success", false, "error", 1000);
+    }
     if (bundleExists) {
-      return Map.of("success", false, "error", 1002);
+      return Map.of("success", false, "error", 1001);
     }
     trialDatabaseTable.insertTrial(user.email());
     bundleDatabaseTable.insertBundle(Bundle.of(user.id(),

@@ -29,7 +29,8 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class VerificationRegistrationController {
-  private final Key secretKey;
+  private final Key homeKey;
+  private final Key productKey;
   private final TaskwolfMail verificationMail;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
@@ -40,7 +41,8 @@ public final class VerificationRegistrationController {
   private final UserActivityDatabaseTable activityDatabaseTable;
 
   private VerificationRegistrationController(
-    Key secretKey, @Qualifier("verificationMail") TaskwolfMail verificationMail,
+    @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
+    @Qualifier("verificationMail") TaskwolfMail verificationMail,
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
@@ -48,7 +50,8 @@ public final class VerificationRegistrationController {
     WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable
   ) {
-    this.secretKey = secretKey;
+    this.homeKey = homeKey;
+    this.productKey = productKey;
     this.verificationMail = verificationMail;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
@@ -180,8 +183,10 @@ public final class VerificationRegistrationController {
     userVerificationDatabaseTable.deleteVerification(userId);
     activityDatabaseTable.insertActivity(userId, "activity.setting.registration.title",
       "activity.setting.registration.description", ActivityType.SETTING);
+    var apiKey = Verification.create(userDatabaseTable, homeKey, productKey, "", "")
+      .generateHomeApiKey(userId);
     return userDatabaseTable.findUser(userId).thenApply(user ->
-      Map.of("success", true, "email", user.email()));
+      Map.of("success", true, "homeApiKey", apiKey));
   }
 
   private String hashPassword(String password) {

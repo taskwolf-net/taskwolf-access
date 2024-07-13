@@ -6,8 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -15,9 +14,12 @@ import java.io.IOException;
 import java.security.Key;
 
 @Component
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public class AuthorizationFilter extends OncePerRequestFilter {
-  private final Key secretKey;
+public class ProductAuthorizationFilter extends OncePerRequestFilter {
+  private final Key productKey;
+
+  private ProductAuthorizationFilter(@Qualifier("productKey") Key productKey) {
+    this.productKey = productKey;
+  }
 
   @Override
   protected void doFilterInternal(
@@ -40,7 +42,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
   private static final String CURRENT_API_VERSION = "v1";
 
   @Override
-  protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+  protected boolean shouldNotFilter(HttpServletRequest request) {
     var controllers = Lists.<String>newArrayList();
     controllers.add("/" + CURRENT_API_VERSION + "/");
     controllers.add("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
@@ -68,7 +70,7 @@ public class AuthorizationFilter extends OncePerRequestFilter {
   private boolean validateApiKey(String apiKey) {
     try {
       Jwts.parser()
-        .setSigningKey(secretKey)
+        .setSigningKey(productKey)
         .build()
         .parseClaimsJws(apiKey);
       return true;

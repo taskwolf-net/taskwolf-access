@@ -16,6 +16,7 @@ import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -35,7 +36,7 @@ public final class StripeCheckoutRequestController extends TaskwolfRestControlle
   private final OrganizationDatabaseTable organizationDatabaseTable;
 
   private StripeCheckoutRequestController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable,
     StripeConfiguration stripeConfiguration, StripeClient stripeClient,
     BundleDatabaseTable bundleDatabaseTable,
@@ -55,42 +56,34 @@ public final class StripeCheckoutRequestController extends TaskwolfRestControlle
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var email = body.getString("email");
     var bundleType = BundleType.valueOf(body.getString("bundleType"));
     var bundleClass = BundleClass.valueOf(body.getString("bundleClass"));
     var bundleRuntime = BundleRuntime.valueOf(body.getString("bundleRuntime"));
-    return userDatabaseTable().userExists(email).thenCompose(exists ->
-      checkout(email, bundleType, bundleClass, bundleRuntime, exists));
+    return findUser(request).thenCompose(user -> checkout(user, bundleType,
+      bundleClass, bundleRuntime));
   }
 
   private CompletableFuture<Map<String, Object>> checkout(
-    String email, BundleType bundleType, BundleClass bundleClass,
-    BundleRuntime bundleRuntime, boolean userExists
+    User user, BundleType bundleType, BundleClass bundleClass,
+    BundleRuntime bundleRuntime
   ) {
-    if (!userExists) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1000));
-    }
     if (bundleType.isTrial() || bundleType.isEnterprise()) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1001));
+      return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return userDatabaseTable().findUser(email)
-      .thenCompose(user -> checkBundleUsability(user, bundleType, bundleClass)
-        .thenCompose(bundleUsability -> checkout(email, bundleType,
-          bundleClass, bundleRuntime, user, bundleUsability)));
+    return checkBundleUsability(user, bundleType, bundleClass)
+      .thenCompose(bundleUsability -> checkout(user, bundleType,
+        bundleClass, bundleRuntime, bundleUsability));
   }
 
   private CompletableFuture<Map<String, Object>> checkout(
-    String email, BundleType bundleType, BundleClass bundleClass,
-    BundleRuntime bundleRuntime, User user, boolean bundleUsability
+    User user, BundleType bundleType, BundleClass bundleClass,
+    BundleRuntime bundleRuntime, boolean bundleUsability
   ) {
     if (!bundleUsability) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1001));
+      return CompletableFuture.completedFuture(Map.of("success", false));
     }
     return findExistingAccount(user, bundleType).thenApplyAsync(accountId ->
-      checkout(email, bundleType, bundleClass, bundleRuntime, accountId));
+      checkout(user, bundleType, bundleClass, bundleRuntime, accountId));
   }
 
   private CompletableFuture<String> findExistingAccount(
@@ -115,7 +108,7 @@ public final class StripeCheckoutRequestController extends TaskwolfRestControlle
   }
 
   private Map<String, Object> checkout(
-    String email, BundleType bundleType, BundleClass bundleClass,
+    User user, BundleType bundleType, BundleClass bundleClass,
     BundleRuntime bundleRuntime, String accountId
   ) {
     try {
@@ -131,7 +124,7 @@ public final class StripeCheckoutRequestController extends TaskwolfRestControlle
       if (!accountId.isEmpty()) {
         sessionBuilder.setCustomer(accountId);
       } else {
-        sessionBuilder.setCustomerEmail(email);
+        sessionBuilder.setCustomerEmail(user.email());
       }
       var checkout = stripeClient.checkout().sessions()
         .create(sessionBuilder.build());

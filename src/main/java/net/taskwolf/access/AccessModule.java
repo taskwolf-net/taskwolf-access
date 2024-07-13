@@ -1,7 +1,8 @@
 package net.taskwolf.access;
 
 import com.google.inject.Injector;
-import jnr.ffi.annotations.In;
+import com.google.inject.Key;
+import com.google.inject.name.Names;
 import net.taskwolf.access.activity.ActivityContextInitializer;
 import net.taskwolf.access.bundle.BundleContextInitializer;
 import net.taskwolf.access.organization.OrganizationContextInitializer;
@@ -25,8 +26,6 @@ import net.taskwolf.core.worker.WorkerDistribution;
 import net.taskwolf.core.worker.client.WorkerProxyClient;
 import org.springframework.boot.SpringApplication;
 
-import java.security.Key;
-
 @ModuleDescription(name = "access", version = "1.0.0-SNAPSHOT",
   priority = ModuleLoadPriority.HIGH)
 public final class AccessModule extends Module {
@@ -46,7 +45,9 @@ public final class AccessModule extends Module {
 
   private void registerContextInitializers(SpringApplication application) {
     application.addInitializers(AccessContextInitializer.create(log,
-      injector().getInstance(Key.class), injector().getInstance(ModuleLoader.class),
+      injector().getInstance(Key.get(java.security.Key.class, Names.named("homeKey"))),
+      injector().getInstance(Key.get(java.security.Key.class, Names.named("productKey"))),
+      injector().getInstance(ModuleLoader.class),
       injector().getInstance(DatabaseConnection.class),
       injector().getInstance(DatabaseKeyspace.class),
       injector().getInstance(WorkerDistribution.class),

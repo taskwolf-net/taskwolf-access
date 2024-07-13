@@ -15,7 +15,8 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor(staticName = "create")
 public final class Verification {
   private final UserDatabaseTable userDatabaseTable;
-  private final Key secret;
+  private final Key homeSecret;
+  private final Key productSecret;
   @Getter
   private final String email;
   private final String passwordHash;
@@ -44,18 +45,27 @@ public final class Verification {
 
   private static final long MAXIMUM_EXPIRATION_TIME = 1000L * 60 * 60 * 24 * 30;
 
-  public String generateApiKey(UUID userId) {
-    return generateApiKey(userId, System.currentTimeMillis() + MAXIMUM_EXPIRATION_TIME);
+  public String generateProductApiKey(UUID userId) {
+    return generateProductApiKey(userId, System.currentTimeMillis() +
+      MAXIMUM_EXPIRATION_TIME);
   }
 
-  public String generateApiKey(UUID userId, long expiration) {
+  public String generateProductApiKey(UUID userId, long expiration) {
     if (expiration - System.currentTimeMillis() > MAXIMUM_EXPIRATION_TIME) {
       expiration = System.currentTimeMillis() + MAXIMUM_EXPIRATION_TIME;
     }
     var expirationDate = new Date(expiration);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", userId.toString())
-      .signWith(secret)
+      .signWith(productSecret)
+      .compact();
+  }
+
+  public String generateHomeApiKey(UUID userId) {
+    var expirationDate = new Date(1000L * 60 * 60 * 24);
+    return Jwts.builder().expiration(expirationDate)
+      .claim("id", userId.toString())
+      .signWith(homeSecret)
       .compact();
   }
 }

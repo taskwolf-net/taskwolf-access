@@ -11,6 +11,7 @@ import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserVerificationDatabaseTable;
+import net.taskwolf.core.user.mfa.MultiFactorAuthFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,18 +32,21 @@ public final class VerificationLoginController {
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final MultiFactorAuthFactory multiFactorAuthFactory;
 
   private VerificationLoginController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable,
+    MultiFactorAuthFactory multiFactorAuthFactory
   ) {
     this.homeKey = homeKey;
     this.productKey = productKey;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.multiFactorAuthFactory = multiFactorAuthFactory;
   }
 
   @RequestMapping(path = "/verification/login/", method = RequestMethod.POST)
@@ -50,7 +54,8 @@ public final class VerificationLoginController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var loginFuture = login(body.getString("email"), body.getString("password"));
+    var loginFuture = login(body.getString("email"), body.getString("password"),
+      body.getString("multiFactorCode"));
     loginFuture.thenAccept(result -> applyLoginResponseStatus(response, result));
     return loginFuture;
   }
@@ -65,41 +70,59 @@ public final class VerificationLoginController {
     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
   }
 
-  private CompletableFuture<Map<String, Object>> login(String email, String password) {
+  private CompletableFuture<Map<String, Object>> login(
+    String email, String password, String multiFactorCode
+  ) {
     var verification = Verification.create(userDatabaseTable, homeKey, productKey,
       email.replace(" ", ""), hashPassword(password));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
-      checkAuthorization(verification, futureResponse, isAuthenticated));
+      checkAuthorization(verification, multiFactorCode, futureResponse,
+        isAuthenticated));
     return futureResponse;
   }
 
   private void checkAuthorization(
-    Verification verification, CompletableFuture<Map<String, Object>> futureResponse,
-    boolean isAuthenticated
+    Verification verification, String multiFactorCode,
+    CompletableFuture<Map<String, Object>> futureResponse, boolean isAuthenticated
   ) {
     if (!isAuthenticated) {
       futureResponse.complete(Map.of("success", false, "error", 1000));
       return;
     }
-    processAuthorizedLogin(verification, futureResponse);
+    processAuthorizedLogin(verification, multiFactorCode, futureResponse);
   }
 
   public void processAuthorizedLogin(
-    Verification verification, CompletableFuture<Map<String, Object>> futureResponse
+    Verification verification, String multiFactorCode,
+    CompletableFuture<Map<String, Object>> futureResponse
   ) {
     userDatabaseTable.findUser(verification.email()).thenAccept(user ->
       userVerificationDatabaseTable.verificationExists(user.id())
-        .thenAccept(completionPending -> checkBundle(verification, futureResponse,
-          user, completionPending)));
+        .thenAccept(completionPending -> checkMultiFactorAuth(verification,
+          multiFactorCode, futureResponse, user, completionPending)));
+  }
+
+  private void checkMultiFactorAuth(
+    Verification verification, String multiFactorCode,
+    CompletableFuture<Map<String, Object>> futureResponse, User user,
+    boolean completionPending
+  ) {
+    if (completionPending) {
+      futureResponse.complete(Map.of("success", false, "error", 1001));
+      return;
+    }
+    multiFactorAuthFactory.createAuth(user.id()).verifyCode(multiFactorCode)
+      .thenAccept(verified -> checkBundle(verification, futureResponse,
+        user, verified));
   }
 
   private void checkBundle(
     Verification verification, CompletableFuture<Map<String, Object>> futureResponse,
-    User user, boolean completionPending
+    User user, boolean multiFactorVerified
   ) {
-    if (completionPending) {
-      futureResponse.complete(Map.of("success", false, "error", 1001));
+    if (!multiFactorVerified) {
+      futureResponse.complete(Map.of("success", false, "error", 1002));
       return;
     }
     bundleDatabaseTable.bundleExists(user.id()).thenAccept(hasPersonalBundle ->
@@ -129,12 +152,12 @@ public final class VerificationLoginController {
   ) {
     var homeApiKey = verification.generateHomeApiKey(user.id());
     if (expiration == -10) {
-      futureResponse.complete(Map.of("success", false, "error", 1002,
+      futureResponse.complete(Map.of("success", false, "error", 1003,
         "homeApiKey", homeApiKey));
       return;
     }
     if (!bundleEnabled) {
-      futureResponse.complete(Map.of("success", false, "error", 1003,
+      futureResponse.complete(Map.of("success", false, "error", 1004,
         "homeApiKey", homeApiKey));
       return;
     }

@@ -1,16 +1,22 @@
 package net.taskwolf.access.setting;
 
 import com.google.common.collect.Maps;
+import com.google.common.hash.Hashing;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.mfa.MultiFactorAuthDatabaseTable;
 import net.taskwolf.core.user.mfa.MultiFactorAuthFactory;
 import org.apache.tomcat.util.codec.binary.Base64;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Map;
 import java.util.UUID;
@@ -39,13 +45,24 @@ public final class MultiFactorAuthSettingController extends TaskwolfRestControll
       .thenApply(exists -> Map.of("enabled", exists));
   }
 
-  @RequestMapping(path = "/settings/2fa/switch/", method = RequestMethod.GET)
+  @RequestMapping(path = "/settings/2fa/switch/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> switchMultiFactorAuth(
-    HttpServletRequest request
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var userId = findUserId(request);
-    return multiFactorAuthDatabaseTable.authExists(userId)
-      .thenCompose(exists -> switchMultiFactorAuth(userId, exists));
+    var body = TaskwolfRequestBody.of(payload, response);
+    return findUser(request).thenCompose(user -> switchMultiFactorAuth(user,
+      body.getString("password")));
+  }
+
+  private CompletableFuture<Map<String, Object>> switchMultiFactorAuth(
+    User user, String password
+  ) {
+    if (!user.passwordHash().equals(hashPassword(password))) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+    return multiFactorAuthDatabaseTable.authExists(user.id())
+      .thenCompose(exists -> switchMultiFactorAuth(user.id(), exists));
   }
 
   private CompletableFuture<Map<String, Object>> switchMultiFactorAuth(
@@ -59,7 +76,12 @@ public final class MultiFactorAuthSettingController extends TaskwolfRestControll
     return auth.setup().thenCompose(value -> auth.generateQRCode()
       .thenApply(Base64::encodeBase64String)
       .thenCompose(qrCodeEncoded -> multiFactorAuthDatabaseTable.findAuth(userId)
-        .thenApply(authUser -> Map.of("qrCode", qrCodeEncoded, "recoveryCodes",
-          authUser.recoveryCodes()))));
+        .thenApply(authUser -> Map.of("qrCode", qrCodeEncoded, "secret",
+          authUser.secret(), "recoveryCodes", authUser.recoveryCodes()))));
+  }
+
+  private String hashPassword(String password) {
+    return Hashing.sha256().hashString(password, StandardCharsets.UTF_8)
+      .toString();
   }
 }

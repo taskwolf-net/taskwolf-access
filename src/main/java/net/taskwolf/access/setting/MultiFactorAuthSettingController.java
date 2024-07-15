@@ -10,6 +10,7 @@ import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.mfa.MultiFactorAuthDatabaseTable;
 import net.taskwolf.core.user.mfa.MultiFactorAuthFactory;
+import net.taskwolf.core.user.mfa.MultiFactorAuthUser;
 import org.apache.tomcat.util.codec.binary.Base64;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -83,5 +84,59 @@ public final class MultiFactorAuthSettingController extends TaskwolfRestControll
   private String hashPassword(String password) {
     return Hashing.sha256().hashString(password, StandardCharsets.UTF_8)
       .toString();
+  }
+
+  @RequestMapping(path = "/settings/2fa/confirm/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> confirmMultiFactorAuth(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var userId = findUserId(request);
+    return multiFactorAuthDatabaseTable.authExists(userId)
+      .thenCompose(exists -> confirmMultiFactorAuth(userId,
+        body.getString("code"), exists));
+  }
+
+  private CompletableFuture<Map<String, Object>> confirmMultiFactorAuth(
+    UUID userId, String code, boolean multiFactorEnabled
+  ) {
+    if (!multiFactorEnabled) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+    return multiFactorAuthDatabaseTable.findAuth(userId)
+      .thenCompose(auth -> confirmMultiFactorAuth(userId, code, auth));
+  }
+
+  private CompletableFuture<Map<String, Object>> confirmMultiFactorAuth(
+    UUID userId, String code, MultiFactorAuthUser auth
+  ) {
+    if (auth.confirmed()) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+    return multiFactorAuthFactory.createAuth(userId).verifyCode(code)
+      .thenCompose(verified -> !verified ?
+        CompletableFuture.completedFuture(Map.of("success", false)) :
+        multiFactorAuthDatabaseTable.confirmAuth(userId)
+          .thenApply(value -> Map.of("success", true)));
+  }
+
+  @RequestMapping(path = "/settings/2fa/isConfirmed/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> isMultiFactorAuthConfirmed(
+    HttpServletRequest request
+  ) {
+    var userId = findUserId(request);
+    return multiFactorAuthDatabaseTable.authExists(userId)
+      .thenCompose(exists -> isMultiFactorAuthConfirmed(userId, exists));
+  }
+
+  private CompletableFuture<Map<String, Object>> isMultiFactorAuthConfirmed(
+    UUID userId, boolean multiFactorEnabled
+  ) {
+    if (!multiFactorEnabled) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+    return multiFactorAuthDatabaseTable.findAuth(userId)
+      .thenApply(auth -> Map.of("success", true, "confirmed", auth.confirmed()));
   }
 }

@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.recaptcha.RecaptchaConfiguration;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserEmailChangeDatabaseTable;
 import net.taskwolf.core.user.UserPasswordResetDatabaseTable;
@@ -18,6 +19,7 @@ public class VerificationContextInitializer implements ApplicationContextInitial
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
+  private final RecaptchaConfiguration recaptchaConfiguration;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -26,5 +28,6 @@ public class VerificationContextInitializer implements ApplicationContextInitial
     beanFactory.registerSingleton("userVerificationDatabaseTable", userVerificationDatabaseTable);
     beanFactory.registerSingleton("userPasswordResetDatabaseTable", userPasswordResetDatabaseTable);
     beanFactory.registerSingleton("userEmailChangeDatabaseTable", userEmailChangeDatabaseTable);
+    beanFactory.registerSingleton("recaptchaConfiguration", recaptchaConfiguration);
   }
 }

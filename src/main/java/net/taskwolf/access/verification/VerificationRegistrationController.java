@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
+import net.taskwolf.core.recaptcha.RecaptchaConfiguration;
 import net.taskwolf.core.tutorial.TutorialDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -15,12 +16,17 @@ import net.taskwolf.core.user.UserVerificationDatabaseTable;
 import net.taskwolf.core.user.activity.ActivityType;
 import net.taskwolf.core.user.activity.UserActivityDatabaseTable;
 import net.taskwolf.core.worker.WorkerDistribution;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Map;
@@ -34,6 +40,7 @@ public final class VerificationRegistrationController {
   private final TaskwolfMail verificationMail;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
+  private final RecaptchaConfiguration recaptchaConfiguration;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final NotificationDatabaseTable notificationDatabaseTable;
   private final WorkerDistribution distribution;
@@ -45,6 +52,7 @@ public final class VerificationRegistrationController {
     @Qualifier("verificationMail") TaskwolfMail verificationMail,
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
+    RecaptchaConfiguration recaptchaConfiguration,
     UserTargetDatabaseTable userTargetDatabaseTable,
     NotificationDatabaseTable notificationDatabaseTable,
     WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable,
@@ -55,6 +63,7 @@ public final class VerificationRegistrationController {
     this.verificationMail = verificationMail;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
+    this.recaptchaConfiguration = recaptchaConfiguration;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.notificationDatabaseTable = notificationDatabaseTable;
     this.distribution = distribution;
@@ -69,26 +78,42 @@ public final class VerificationRegistrationController {
     var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var email = body.getString("email");
-    userDatabaseTable.userExists(email).thenAccept(exists ->
-      completeRegistration(futureResponse, exists, email, body.getString("name"),
-        body.getString("password")));
+    userDatabaseTable.userExists(email)
+      .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
+        .thenAccept(recaptchaVerified -> completeRegistration(futureResponse,
+          exists, recaptchaVerified, email, body.getString("name"),
+          body.getString("password"))));
     return futureResponse;
+  }
+
+  private static final String RECAPTCHA_URL = "https://www.google.com/recaptcha/api/siteverify?secret=%s&response=%s";
+
+  private CompletableFuture<Boolean> checkRecaptcha(String token) {
+    var url = URI.create(String.format(RECAPTCHA_URL,
+      recaptchaConfiguration.secretKey(), token));
+    var requestBuilder = HttpRequest.newBuilder().uri(url)
+      .POST(HttpRequest.BodyPublishers.noBody())
+      .build();
+    return HttpClient.newHttpClient()
+      .sendAsync(requestBuilder, HttpResponse.BodyHandlers.ofString())
+      .thenApply(response -> new JSONObject(response).getBoolean("success"));
   }
 
   private void completeRegistration(
     CompletableFuture<Map<String, Object>> futureResponse, boolean alreadyExists,
-    String email, String name, String password
+    boolean recaptchaVerified, String email, String name, String password
   ) {
-    var response = Maps.<String, Object>newHashMap();
     if (alreadyExists) {
-      response.put("success", false);
-      futureResponse.complete(response);
+      futureResponse.complete(Map.of("success", false, "error", 1000));
+      return;
+    }
+    if (!recaptchaVerified) {
+      futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
     userDatabaseTable.generateAvailableUserId().thenAccept(id ->
       insertNewUser(id, name, email, hashPassword(password)));
-    response.put("success", true);
-    futureResponse.complete(response);
+    futureResponse.complete(Map.of("success", true));
   }
 
   private static final String VERIFICATIION_EMAIL_TITLE = "Verification";

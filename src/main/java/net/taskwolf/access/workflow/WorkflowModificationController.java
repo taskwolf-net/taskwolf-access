@@ -212,19 +212,14 @@ public final class WorkflowModificationController extends WorkflowController {
     for (int i = 0; i < conditionData.size(); i++) {
       createCondition(conditionIds.get(i), ownerId, workflowId, conditionData.get(i));
     }
-    workflowDatabaseTable().insertWorkflow(workflowId, creatorId,
-      findAffiliation(creatorId, ownerId).toString(), ownerId, triggerId,
-      actionIds, conditionIds, modules, created, name, description, state.toString());
+    workflowDatabaseTable().insertWorkflow(workflowId, creatorId, ownerId, null,
+      triggerId, actionIds, conditionIds, modules, created, name, description,
+      state.toString());
     workflowExecutionDatabaseTable.insertWorkflowExecution(workflowId, executions);
     for (var entry : timelineEntries) {
       timelineDatabaseTable.insertEntry(entry.id(), workflowId, entry.time(),
         entry.type(), entry.content());
     }
-  }
-
-  private WorkflowAffiliation findAffiliation(UUID creatorId, UUID ownerId) {
-    return ownerId.equals(creatorId) ? WorkflowAffiliation.PRIVATE :
-      WorkflowAffiliation.ORGANIZATION;
   }
 
   private void createTrigger(

@@ -45,7 +45,7 @@ public final class StripePaymentRequestController extends StripeController {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performStripeOperation(findUserId(request), account -> new Thread(() ->
         futureResponse.complete(findPayments(account.accountId()))).start(),
-      () -> futureResponse.complete(Maps.newHashMap()));
+      () -> futureResponse.complete(Map.of("payments", Lists.newArrayList())));
     return futureResponse;
   }
 

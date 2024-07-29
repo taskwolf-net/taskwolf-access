@@ -6,31 +6,41 @@ import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.tutorial.Tutorial;
 import net.taskwolf.core.tutorial.TutorialDatabaseTable;
+import net.taskwolf.core.tutorial.level.TutorialLevel;
 import net.taskwolf.core.tutorial.level.TutorialLevelRegistry;
+import net.taskwolf.core.tutorial.level.account.AccountsTutorialLevel;
+import net.taskwolf.core.tutorial.level.bundle.BundleTutorialLevel;
+import net.taskwolf.core.tutorial.level.organization.OrganizationMembersTutorialLevel;
+import net.taskwolf.core.tutorial.level.organization.OrganizationTeamsTutorialLevel;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class TutorialController extends TaskwolfRestController {
   private final TutorialDatabaseTable tutorialDatabaseTable;
   private final TutorialLevelRegistry tutorialLevelRegistry;
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final CoreModule coreModule;
 
   private TutorialController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TutorialDatabaseTable tutorialDatabaseTable,
-    TutorialLevelRegistry tutorialLevelRegistry, CoreModule coreModule
+    TutorialLevelRegistry tutorialLevelRegistry,
+    UserTargetDatabaseTable userTargetDatabaseTable, CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
     this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.tutorialLevelRegistry = tutorialLevelRegistry;
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.coreModule = coreModule;
   }
 
@@ -50,13 +60,14 @@ public final class TutorialController extends TaskwolfRestController {
       return CompletableFuture.completedFuture(Map.of("active", false));
     }
     return tutorialDatabaseTable.findTutorial(user.id())
-      .thenApply(tutorial -> findTutorialState(user, tutorial));
+      .thenCompose(tutorial -> userTargetDatabaseTable.findTargetSecured(user.id())
+        .thenApply(target -> nextTutorialStep(user, target, tutorial)));
   }
 
   private Map<String, Object> findTutorialState(
-    User user, Tutorial tutorial
+    User user, UUID target, Tutorial tutorial
   ) {
-    var level = tutorialLevelRegistry.findLevel(tutorial.level());
+    var level = tutorialLevelRegistry.findLevelByIndex(tutorial.level());
     var step = level.steps().get(tutorial.step());
     var state = Maps.<String, Object>newHashMap();
     var isFinished = tutorial.level() == tutorialLevelRegistry.size() &&
@@ -68,12 +79,23 @@ public final class TutorialController extends TaskwolfRestController {
     state.put("element", step.element());
     state.put("position", step.position());
     state.put("shiftContentDown", step.shiftContentDown());
-    state.put("progress", tutorialLevelRegistry.findStepProgress(step));
-    state.put("allSteps", tutorialLevelRegistry.findStepNumber());
+    var exclusions = findTutorialLevelExclusions(user, target);
+    state.put("progress", tutorialLevelRegistry.findStepProgress(step, exclusions));
+    state.put("allSteps", tutorialLevelRegistry.findStepNumber(exclusions));
     state.put("continue", isFinished ? coreModule.translate(user, "tutorial.finish") :
       coreModule.translate(user, "tutorial.continue"));
     state.put("cancel", coreModule.translate(user, "tutorial.cancel"));
     return state;
+  }
+
+  private Class<? extends TutorialLevel>[] findTutorialLevelExclusions(
+    User user, UUID target
+  ) {
+    if (user.id().equals(target)) {
+      return new Class[] {OrganizationMembersTutorialLevel.class,
+        OrganizationTeamsTutorialLevel.class};
+    }
+    return new Class[] {BundleTutorialLevel.class};
   }
 
   @RequestMapping(path = "/tutorial/next/", method = RequestMethod.POST)
@@ -92,26 +114,40 @@ public final class TutorialController extends TaskwolfRestController {
       return CompletableFuture.completedFuture(Map.of("active", false));
     }
     return tutorialDatabaseTable.findTutorial(user.id())
-      .thenApply(tutorial -> nextTutorialStep(user, tutorial));
+      .thenCompose(tutorial -> userTargetDatabaseTable.findTargetSecured(user.id())
+        .thenApply(target -> nextTutorialStep(user, target, tutorial)));
   }
 
   private Map<String, Object> nextTutorialStep(
-    User user, Tutorial tutorial
+    User user, UUID target, Tutorial tutorial
   ) {
-    var level = tutorialLevelRegistry.findLevel(tutorial.level());
+    var level = tutorialLevelRegistry.findLevelByIndex(tutorial.level());
     if (tutorial.step() + 1 < level.steps().size()) {
       tutorial.updateStep(tutorial.step() + 1);
       tutorialDatabaseTable.updateTutorial(tutorial);
-      return findTutorialState(user, tutorial);
+      return findTutorialState(user, target, tutorial);
     }
     if (tutorial.level() + 1 > tutorialLevelRegistry.size()) {
       tutorialDatabaseTable.deleteTutorial(user.id());
       return Map.of("active", false);
     }
-    tutorial.updateLevel(tutorial.level() + 1);
+    tutorial.updateLevel(tutorial.level() +
+      calculateNextLevelOffset(user, target, level));
     tutorial.updateStep(0);
     tutorialDatabaseTable.updateTutorial(tutorial);
-    return findTutorialState(user, tutorial);
+    return findTutorialState(user, target, tutorial);
+  }
+
+  private int calculateNextLevelOffset(
+    User user, UUID target, TutorialLevel currentLevel
+  ) {
+    if (currentLevel instanceof AccountsTutorialLevel) {
+      return user.id().equals(target) ? 1 : 2;
+    }
+    if (currentLevel instanceof BundleTutorialLevel) {
+      return 3;
+    }
+    return 1;
   }
 
   @RequestMapping(path = "/tutorial/cancel/", method = RequestMethod.POST)

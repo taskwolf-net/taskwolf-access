@@ -3,6 +3,7 @@ package net.taskwolf.access.stripe;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.stripe.StripeClient;
+import com.stripe.model.Invoice;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentListParams;
 import jakarta.servlet.http.HttpServletRequest;
@@ -55,7 +56,8 @@ public final class StripePaymentRequestController extends StripeController {
       var payments = stripeClient.paymentIntents().list(parameters);
       var information = Lists.newArrayList();
       for (var payment : payments.getData()) {
-        information.add(assemblyPaymentInformation(payment));
+        var invoice = stripeClient.invoices().retrieve(payment.getInvoice());
+        information.add(assemblyPaymentInformation(payment, invoice));
       }
       return Map.of("payments", information);
     } catch (Exception exception) {
@@ -65,7 +67,7 @@ public final class StripePaymentRequestController extends StripeController {
   }
 
   private Map<String, Object> assemblyPaymentInformation(
-    PaymentIntent payment
+    PaymentIntent payment, Invoice invoice
   ) throws Exception {
     var information = Maps.<String, Object>newHashMap();
     information.put("time", formatTime(payment.getCreated() * 1000));
@@ -73,6 +75,7 @@ public final class StripePaymentRequestController extends StripeController {
     information.put("method", stripeClient.paymentMethods()
       .retrieve(payment.getPaymentMethod()).getType());
     information.put("status", payment.getStatus());
+    information.put("invoice", invoice.getInvoicePdf());
     return information;
   }
 

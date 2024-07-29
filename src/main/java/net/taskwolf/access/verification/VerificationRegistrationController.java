@@ -1,7 +1,6 @@
 package net.taskwolf.access.verification;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.hash.Hashing;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
@@ -96,7 +95,7 @@ public final class VerificationRegistrationController {
       .build();
     return HttpClient.newHttpClient()
       .sendAsync(requestBuilder, HttpResponse.BodyHandlers.ofString())
-      .thenApply(response -> new JSONObject(response).getBoolean("success"));
+      .thenApply(response -> new JSONObject(response.body()).getBoolean("success"));
   }
 
   private void completeRegistration(

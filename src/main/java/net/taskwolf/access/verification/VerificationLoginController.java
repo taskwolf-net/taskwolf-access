@@ -90,39 +90,47 @@ public final class VerificationLoginController {
       futureResponse.complete(Map.of("success", false, "error", 1000));
       return;
     }
-    processAuthorizedLogin(verification, multiFactorCode, futureResponse);
-  }
-
-  public void processAuthorizedLogin(
-    Verification verification, String multiFactorCode,
-    CompletableFuture<Map<String, Object>> futureResponse
-  ) {
     userDatabaseTable.findUser(verification.email()).thenAccept(user ->
-      userVerificationDatabaseTable.verificationExists(user.id())
-        .thenAccept(completionPending -> checkMultiFactorAuth(verification,
-          multiFactorCode, futureResponse, user, completionPending)));
+      multiFactorAuthFactory.createAuth(user.id()).verifyCode(multiFactorCode)
+        .thenAccept(verified -> checkMultiFactorAuth(user, verification,
+          futureResponse, verified)));
   }
 
   private void checkMultiFactorAuth(
-    Verification verification, String multiFactorCode,
-    CompletableFuture<Map<String, Object>> futureResponse, User user,
-    boolean completionPending
+    User user, Verification verification,
+    CompletableFuture<Map<String, Object>> futureResponse,
+    boolean multiFactorVerified
   ) {
-    if (completionPending) {
-      futureResponse.complete(Map.of("success", false, "error", 1001));
+    if (!multiFactorVerified) {
+      futureResponse.complete(Map.of("success", false, "error", 1002));
       return;
     }
-    multiFactorAuthFactory.createAuth(user.id()).verifyCode(multiFactorCode)
-      .thenAccept(verified -> checkBundle(verification, futureResponse,
-        user, verified));
+    processAuthorizedLogin(user, verification, futureResponse);
+  }
+
+  public void processAuthorizedLogin(
+    Verification verification,
+    CompletableFuture<Map<String, Object>> futureResponse
+  ) {
+    userDatabaseTable.findUser(verification.email()).thenAccept(user ->
+      processAuthorizedLogin(user, verification, futureResponse));
+  }
+
+  public void processAuthorizedLogin(
+    User user, Verification verification,
+    CompletableFuture<Map<String, Object>> futureResponse
+  ) {
+    userVerificationDatabaseTable.verificationExists(user.id())
+      .thenAccept(completionPending -> checkBundle(verification, futureResponse,
+        user, completionPending));
   }
 
   private void checkBundle(
     Verification verification, CompletableFuture<Map<String, Object>> futureResponse,
-    User user, boolean multiFactorVerified
+    User user, boolean completionPending
   ) {
-    if (!multiFactorVerified) {
-      futureResponse.complete(Map.of("success", false, "error", 1002));
+    if (completionPending) {
+      futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
     bundleDatabaseTable.bundleExists(user.id()).thenAccept(hasPersonalBundle ->

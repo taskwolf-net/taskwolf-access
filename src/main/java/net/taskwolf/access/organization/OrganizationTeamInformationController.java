@@ -6,8 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
-import net.taskwolf.core.organization.OrganizationTeam;
-import net.taskwolf.core.organization.OrganizationTeamDatabaseTable;
+import net.taskwolf.core.organization.team.Team;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
@@ -27,7 +27,7 @@ public final class OrganizationTeamInformationController extends OrganizationTea
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     UserTargetDatabaseTable targetDatabaseTable,
-    OrganizationTeamDatabaseTable teamDatabaseTable
+    TeamDatabaseTable teamDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, organizationDatabaseTable,
       targetDatabaseTable, teamDatabaseTable);
@@ -67,10 +67,10 @@ public final class OrganizationTeamInformationController extends OrganizationTea
   }
 
   private Map<String, Object> assemblyTeamsInformation(
-    Organization organization, List<OrganizationTeam> teams,
+    Organization organization, List<Team> teams,
     List<User> members, UUID applicantId
   ) {
-    var availableOrganizations = Lists.<OrganizationTeam>newArrayList();
+    var availableOrganizations = Lists.<Team>newArrayList();
     if (organization.owner().equals(applicantId)) {
       availableOrganizations.addAll(teams);
     } else {
@@ -85,7 +85,7 @@ public final class OrganizationTeamInformationController extends OrganizationTea
   }
 
   private Map<String, Object> assemblyTeamInformation(
-    OrganizationTeam team, List<User> members
+    Team team, List<User> members
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", team.id());

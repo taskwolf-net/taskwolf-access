@@ -8,8 +8,8 @@ import net.taskwolf.core.bundle.Bundle;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
-import net.taskwolf.core.organization.OrganizationTeam;
-import net.taskwolf.core.organization.OrganizationTeamDatabaseTable;
+import net.taskwolf.core.organization.team.Team;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,7 +29,7 @@ public final class OrganizationTeamModificationController extends OrganizationTe
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     UserTargetDatabaseTable targetDatabaseTable,
-    OrganizationTeamDatabaseTable teamDatabaseTable,
+    TeamDatabaseTable teamDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, organizationDatabaseTable,
@@ -85,7 +85,7 @@ public final class OrganizationTeamModificationController extends OrganizationTe
   }
 
   private void addTeamMember(
-    Organization organization, OrganizationTeam team, UUID targetId
+    Organization organization, Team team, UUID targetId
   ) {
     if (!organization.owner().equals(targetId) &&
       !organization.members().contains(targetId)
@@ -113,7 +113,7 @@ public final class OrganizationTeamModificationController extends OrganizationTe
   }
 
   private void removeTeamMember(
-    Organization organization, OrganizationTeam team, UUID targetId
+    Organization organization, Team team, UUID targetId
   ) {
     if (!organization.owner().equals(targetId) &&
       !organization.members().contains(targetId)

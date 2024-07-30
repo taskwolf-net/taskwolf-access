@@ -5,8 +5,8 @@ import lombok.Getter;
 import lombok.experimental.Accessors;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
-import net.taskwolf.core.organization.OrganizationTeam;
-import net.taskwolf.core.organization.OrganizationTeamDatabaseTable;
+import net.taskwolf.core.organization.team.Team;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 
@@ -17,13 +17,13 @@ import java.util.function.Consumer;
 @Accessors(fluent = true)
 public class OrganizationTeamController extends OrganizationController {
   @Getter(AccessLevel.PROTECTED)
-  private final OrganizationTeamDatabaseTable teamDatabaseTable;
+  private final TeamDatabaseTable teamDatabaseTable;
 
   protected OrganizationTeamController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     UserTargetDatabaseTable targetDatabaseTable,
-    OrganizationTeamDatabaseTable teamDatabaseTable
+    TeamDatabaseTable teamDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, organizationDatabaseTable,
       targetDatabaseTable);
@@ -31,7 +31,7 @@ public class OrganizationTeamController extends OrganizationController {
   }
 
   protected void performOrganizationTeamOperation(
-    UUID userId, UUID teamId, Consumer<OrganizationTeam> operation,
+    UUID userId, UUID teamId, Consumer<Team> operation,
     Runnable failResponse
   ) {
     performOrganizationOwnerOperation(userId,
@@ -43,7 +43,7 @@ public class OrganizationTeamController extends OrganizationController {
 
   protected void performOrganizationTeamOperation(
     Organization organization, UUID teamId, boolean teamExists,
-    Consumer<OrganizationTeam> operation, Runnable failResponse
+    Consumer<Team> operation, Runnable failResponse
   ) {
     if (!teamExists) {
       failResponse.run();
@@ -55,8 +55,8 @@ public class OrganizationTeamController extends OrganizationController {
   }
 
   private void performOrganizationTeamOperation(
-    Organization organization, OrganizationTeam team,
-    Consumer<OrganizationTeam> operation, Runnable failResponse
+    Organization organization, Team team,
+    Consumer<Team> operation, Runnable failResponse
   ) {
     if (!team.organizationId().equals(organization.id())) {
       failResponse.run();

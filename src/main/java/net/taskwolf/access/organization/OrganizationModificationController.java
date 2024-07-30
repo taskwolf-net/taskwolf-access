@@ -8,7 +8,7 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
-import net.taskwolf.core.organization.OrganizationTeamDatabaseTable;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
@@ -31,7 +31,7 @@ import java.util.UUID;
 
 @RestController
 public final class OrganizationModificationController extends OrganizationController {
-  private final OrganizationTeamDatabaseTable teamDatabaseTable;
+  private final TeamDatabaseTable teamDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final WorkflowModificationController workflowModificationController;
   private final ProcessDatabaseTable processDatabaseTable;
@@ -48,7 +48,7 @@ public final class OrganizationModificationController extends OrganizationContro
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
-    OrganizationTeamDatabaseTable teamDatabaseTable,
+    TeamDatabaseTable teamDatabaseTable,
     UserTargetDatabaseTable targetDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     WorkflowModificationController workflowModificationController,

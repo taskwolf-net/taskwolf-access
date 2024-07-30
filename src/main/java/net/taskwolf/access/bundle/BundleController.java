@@ -7,7 +7,7 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.*;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
-import net.taskwolf.core.organization.OrganizationTeamDatabaseTable;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
@@ -35,7 +35,7 @@ public final class BundleController extends TaskwolfRestController {
   private final BundlePresetRepository bundlePresetRepository;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
-  private final OrganizationTeamDatabaseTable teamDatabaseTable;
+  private final TeamDatabaseTable teamDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
@@ -47,7 +47,7 @@ public final class BundleController extends TaskwolfRestController {
     BundlePresetRepository bundlePresetRepository,
     UserTargetDatabaseTable userTargetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
-    OrganizationTeamDatabaseTable teamDatabaseTable,
+    TeamDatabaseTable teamDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     OperationDatabaseTable operationDatabaseTable,
     TableDatabaseTable tableDatabaseTable,

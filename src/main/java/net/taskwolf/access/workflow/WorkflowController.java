@@ -30,6 +30,7 @@ public class WorkflowController extends TaskwolfRestController {
   private final ConditionDatabaseTable conditionDatabaseTable;
   @Getter(AccessLevel.PROTECTED)
   private final UserTargetDatabaseTable userTargetDatabaseTable;
+  @Getter(AccessLevel.PROTECTED)
   private final TeamTargetDatabaseTable teamTargetDatabaseTable;
 
   protected WorkflowController(

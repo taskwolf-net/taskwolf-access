@@ -61,7 +61,7 @@ public final class TutorialController extends TaskwolfRestController {
     }
     return tutorialDatabaseTable.findTutorial(user.id())
       .thenCompose(tutorial -> userTargetDatabaseTable.findTargetSecured(user.id())
-        .thenApply(target -> nextTutorialStep(user, target, tutorial)));
+        .thenApply(target -> findTutorialState(user, target, tutorial)));
   }
 
   private Map<String, Object> findTutorialState(

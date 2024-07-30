@@ -162,6 +162,18 @@ public final class OrganizationTeamModificationController extends OrganizationTe
     }
   }
 
+  @RequestMapping(path = "/organization/team/rename/", method = RequestMethod.POST)
+  public void renameTeam(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var teamId = body.getUUID("team");
+    var name = body.getString("name");
+    performOrganizationTeamOperation(findUserId(request), teamId,
+      team -> teamDatabaseTable().renameTeam(team, name), () -> {});
+  }
+
   @RequestMapping(path = "/organization/team/remove/", method = RequestMethod.POST)
   public void removeTeam(
     HttpServletRequest request, @RequestBody String payload,

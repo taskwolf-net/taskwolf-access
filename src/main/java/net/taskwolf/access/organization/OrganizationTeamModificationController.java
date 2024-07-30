@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -67,7 +68,7 @@ public final class OrganizationTeamModificationController extends OrganizationTe
     }
     teamDatabaseTable().generateAvailableTeamId()
       .thenAccept(id -> teamDatabaseTable().insertTeam(id, organization.id(),
-        name, Lists.newArrayList()));
+        name, teamNumber, Lists.newArrayList()));
   }
 
   @RequestMapping(path = "/organization/team/member/add/", method = RequestMethod.POST)
@@ -126,6 +127,41 @@ public final class OrganizationTeamModificationController extends OrganizationTe
     teamDatabaseTable().removeTeamMember(team, targetId);
   }
 
+  @RequestMapping(path = "/organization/team/move/", method = RequestMethod.POST)
+  public void moveTeam(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var teamId = body.getUUID("team");
+    var upwards = body.getBoolean("upwards");
+    performOrganizationTeamOperation(findUserId(request), teamId, team ->
+      teamDatabaseTable().findTeamsByOrganization(team.organizationId())
+        .thenAccept(teams -> moveTeam(team, teams, upwards)), () -> {});
+  }
+
+  private void moveTeam(Team team, List<Team> allTeams, boolean upwards) {
+    if (upwards && team.sequence() + 1 >= allTeams.size()) {
+      return;
+    }
+    if (!upwards && team.sequence() - 1 < 0) {
+      return;
+    }
+    if (upwards) {
+      var swapPartner = allTeams.stream()
+        .filter(targetTeam -> targetTeam.sequence() == team.sequence() + 1)
+        .findFirst().get();
+      teamDatabaseTable().changeTeamSequence(swapPartner, swapPartner.sequence() - 1);
+      teamDatabaseTable().changeTeamSequence(team, team.sequence() + 1);
+    } else {
+      var swapPartner = allTeams.stream()
+        .filter(targetTeam -> targetTeam.sequence() == team.sequence() - 1)
+        .findFirst().get();
+      teamDatabaseTable().changeTeamSequence(swapPartner, swapPartner.sequence() + 1);
+      teamDatabaseTable().changeTeamSequence(team, team.sequence() - 1);
+    }
+  }
+
   @RequestMapping(path = "/organization/team/remove/", method = RequestMethod.POST)
   public void removeTeam(
     HttpServletRequest request, @RequestBody String payload,
@@ -134,6 +170,20 @@ public final class OrganizationTeamModificationController extends OrganizationTe
     var body = TaskwolfRequestBody.of(payload, response);
     var teamId = body.getUUID("team");
     performOrganizationTeamOperation(findUserId(request), teamId,
-      team -> teamDatabaseTable().deleteTeam(team.id()), () -> {});
+      this::removeTeam, () -> {});
+  }
+
+  private void removeTeam(Team team) {
+    teamDatabaseTable().deleteTeam(team.id());
+    teamDatabaseTable().findTeamsByOrganization(team.organizationId())
+      .thenAccept(teams -> maintainTeamSequence(team, teams));
+  }
+
+  private void maintainTeamSequence(Team removedTeam, List<Team> allTeams) {
+    for (var team : allTeams) {
+      if (team.sequence() > removedTeam.sequence()) {
+        teamDatabaseTable().changeTeamSequence(team, team.sequence() - 1);
+      }
+    }
   }
 }

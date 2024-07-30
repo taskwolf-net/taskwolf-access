@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -77,6 +78,7 @@ public final class OrganizationTeamInformationController extends OrganizationTea
       availableOrganizations.addAll(teams.stream().filter(team ->
         team.members().contains(applicantId)).toList());
     }
+    availableOrganizations.sort(Comparator.comparing(Team::sequence));
     var teamsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var team : availableOrganizations) {
       teamsInformation.add(assemblyTeamInformation(team, members));

@@ -12,6 +12,7 @@ import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.condition.ConditionEntry;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
 import net.taskwolf.core.user.User;
@@ -38,7 +39,6 @@ public final class WorkflowDuplicationController extends WorkflowController {
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
-  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
 
   private WorkflowDuplicationController(
@@ -46,18 +46,19 @@ public final class WorkflowDuplicationController extends WorkflowController {
     WorkflowDatabaseTable workflowDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
-    WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
+    TeamTargetDatabaseTable teamTargetDatabaseTable,
+    WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
-      actionDatabaseTable, conditionDatabaseTable);
+      actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
+      teamTargetDatabaseTable);
     this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
     this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
-    this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
@@ -68,7 +69,7 @@ public final class WorkflowDuplicationController extends WorkflowController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     return findUser(request).thenCompose(user ->
-      userTargetDatabaseTable.findTargetSecured(user.id()).thenCompose(target ->
+      userTargetDatabaseTable().findTargetSecured(user.id()).thenCompose(target ->
         checkWorkflowNumberLimit(target).thenAccept(limitReached ->
           duplicateWorkflow(user, body, limitReached, response))));
   }

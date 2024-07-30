@@ -7,8 +7,10 @@ import lombok.experimental.Accessors;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
+import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
+import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
 
@@ -26,17 +28,24 @@ public class WorkflowController extends TaskwolfRestController {
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
+  @Getter(AccessLevel.PROTECTED)
+  private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final TeamTargetDatabaseTable teamTargetDatabaseTable;
 
   protected WorkflowController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     ActionDatabaseTable actionDatabaseTable,
-    ConditionDatabaseTable conditionDatabaseTable
+    ConditionDatabaseTable conditionDatabaseTable,
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    TeamTargetDatabaseTable teamTargetDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
+    this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.teamTargetDatabaseTable = teamTargetDatabaseTable;
   }
 
   protected void performWorkflowOperation(
@@ -115,5 +124,21 @@ public class WorkflowController extends TaskwolfRestController {
       }
     }
     return futureResponse;
+  }
+
+  protected CompletableFuture<List<WorkflowEntry>> findViewableWorkflows(UUID userId) {
+    return userTargetDatabaseTable.findTargetSecured(userId)
+      .thenCompose(target -> findViewableWorkflows(userId, target));
+  }
+
+  protected CompletableFuture<List<WorkflowEntry>> findViewableWorkflows(
+    UUID userId, UUID target
+  ) {
+    return userId.equals(target) ?
+      workflowDatabaseTable.findWorkflowsOfOwner(target) :
+      teamTargetDatabaseTable.findTargetSecured(userId)
+        .thenCompose(team -> team.isEmpty() ?
+          workflowDatabaseTable.findGlobalOrganizationWorkflows(target) :
+          workflowDatabaseTable.findOrganizationTeamWorkflows(target, team.get()));
   }
 }

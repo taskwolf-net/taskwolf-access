@@ -12,7 +12,7 @@ import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.condition.ConditionEntry;
 import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.iterator.AsyncIterator;
-import net.taskwolf.core.iterator.AsyncListIterator;
+import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
 import net.taskwolf.core.trigger.TriggerState;
@@ -40,7 +40,6 @@ public final class WorkflowInformationController extends WorkflowController {
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
   private final ConditionInformationRepository conditionRepository;
-  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private WorkflowInformationController(
@@ -48,17 +47,18 @@ public final class WorkflowInformationController extends WorkflowController {
     WorkflowDatabaseTable workflowDatabaseTable, CoreModule coreModule,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
-    ConditionInformationRepository conditionRepository,
-    UserTargetDatabaseTable userTargetDatabaseTable
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    TeamTargetDatabaseTable teamTargetDatabaseTable,
+    ConditionInformationRepository conditionRepository
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
-      actionDatabaseTable, conditionDatabaseTable);
+      actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
+      teamTargetDatabaseTable);
     this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
     this.conditionRepository = conditionRepository;
-    this.userTargetDatabaseTable = userTargetDatabaseTable;
   }
 
   @RequestMapping(path = "/workflow/find/", method = RequestMethod.POST)
@@ -79,29 +79,8 @@ public final class WorkflowInformationController extends WorkflowController {
   public CompletableFuture<Map<String, Object>> selectedWorkflows(
     HttpServletRequest request
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenApply(user ->
-      userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
-        findSelectedWorkflows(user, target).thenApply(futureResponse::complete)));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> findSelectedWorkflows(
-    User user, UUID ownerId
-  ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    collectWorkflows(Lists.newArrayList(ownerId)).thenAccept(workflows ->
-      collectWorkflowInformation(user, workflows).thenAccept(futureResponse::complete));
-    return futureResponse;
-  }
-
-  private CompletableFuture<List<WorkflowEntry>> collectWorkflows(
-    List<UUID> ownerIds
-  ) {
-    var futureResponse = new CompletableFuture<List<WorkflowEntry>>();
-    AsyncListIterator.execute(ownerIds, workflowDatabaseTable()::findWorkflowsOfOwner)
-      .thenAccept(futureResponse::complete);
-    return futureResponse;
+    return findUser(request).thenCompose(user -> findViewableWorkflows(user.id())
+      .thenCompose(workflows -> collectWorkflowInformation(user, workflows)));
   }
 
   private CompletableFuture<Map<String, Object>> collectWorkflowInformation(

@@ -104,7 +104,14 @@ public final class TargetController extends TaskwolfRestController {
     var target = body.getUUID("target");
     var userId = findUserId(request);
     checkTargetValidity(userId, target).thenAccept(accepted ->
-      userTargetDatabaseTable.changeTarget(userId, target));
+      changeTarget(userId, target, accepted));
+  }
+
+  private void changeTarget(UUID userId, UUID target, boolean accepted) {
+    if (!accepted) {
+      return;
+    }
+    userTargetDatabaseTable.changeTarget(userId, target);
   }
 
   private CompletableFuture<Boolean> checkTargetValidity(UUID userId, UUID target) {

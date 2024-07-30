@@ -9,6 +9,7 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.organization.team.Team;
 import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.user.User;
@@ -20,10 +21,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -86,6 +84,7 @@ public final class OrganizationTeamTargetController extends TaskwolfRestControll
     return teamDatabaseTable.findTeamsByOrganization(organization.id())
       .thenApply(teams -> teams.stream()
         .filter(team -> team.members().contains(user.id()))
+        .sorted(Comparator.comparing(Team::sequence))
         .map(team -> Map.<String, Object>of("id", team.id(),
           "name", team.name(), "type", "TEAM"))
         .toList())

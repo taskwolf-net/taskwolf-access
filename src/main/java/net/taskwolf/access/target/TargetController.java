@@ -9,6 +9,7 @@ import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
@@ -29,18 +30,21 @@ public final class TargetController extends TaskwolfRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final TeamTargetDatabaseTable teamTargetDatabaseTable;
   private final CoreModule coreModule;
 
   private TargetController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable, CoreModule coreModule
+    BundleDatabaseTable bundleDatabaseTable,
+    TeamTargetDatabaseTable teamTargetDatabaseTable, CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.teamTargetDatabaseTable = teamTargetDatabaseTable;
     this.coreModule = coreModule;
   }
 
@@ -112,6 +116,7 @@ public final class TargetController extends TaskwolfRestController {
       return;
     }
     userTargetDatabaseTable.changeTarget(userId, target);
+    teamTargetDatabaseTable.deleteTarget(userId);
   }
 
   private CompletableFuture<Boolean> checkTargetValidity(UUID userId, UUID target) {

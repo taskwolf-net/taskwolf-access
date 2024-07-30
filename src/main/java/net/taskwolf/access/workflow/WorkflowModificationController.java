@@ -138,20 +138,22 @@ public final class WorkflowModificationController extends WorkflowController {
     findUser(request).thenAccept(user -> workflowDatabaseTable().findWorkflow(workflowId)
       .thenAccept(workflow -> workflowExecutionDatabaseTable.findWorkflowExecutions(workflowId)
         .thenAccept(executions -> timelineDatabaseTable.findEntriesByWorkflow(workflowId)
-          .thenAccept(timelineEntries -> updateWorkflow(user, workflow,
-            body.getObject("trigger"), body.getObjectList("actions"),
-            body.getObjectList("conditions"), body.getString("name"),
-            body.getString("description"), executions, timelineEntries,
-            workflow.state())))));
+          .thenAccept(timelineEntries -> checkWorkflowTeamMatch(user.id(), workflow)
+            .thenAccept(teamMatch -> updateWorkflow(user, workflow, teamMatch,
+              body.getObject("trigger"), body.getObjectList("actions"),
+              body.getObjectList("conditions"), body.getString("name"),
+              body.getString("description"), executions, timelineEntries,
+              workflow.state()))))));
   }
 
   private void updateWorkflow(
-    User user, WorkflowEntry entry, TaskwolfRequestBody triggerData,
-    List<TaskwolfRequestBody> actionData, List<TaskwolfRequestBody> conditionData,
-    String name, String description, List<Long> executions,
-    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
+    User user, WorkflowEntry entry,  boolean teamMatch,
+    TaskwolfRequestBody triggerData, List<TaskwolfRequestBody> actionData,
+    List<TaskwolfRequestBody> conditionData, String name, String description,
+    List<Long> executions, List<TimelineDatabaseEntry> timelineEntries,
+    WorkflowState state
   ) {
-    if (!checkWorkflowAuthorization(user, entry)) {
+    if (!checkWorkflowAuthorization(user, entry) || !teamMatch) {
       return;
     }
     deleteWorkflow(user, entry);

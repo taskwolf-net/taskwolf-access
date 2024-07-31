@@ -99,20 +99,20 @@ public final class WorkflowModificationController extends WorkflowController {
       return;
     }
     var created = System.currentTimeMillis();
-    findTeam(user, target).thenAccept(team ->
+    findWorkflowOwner(user, target).thenAccept(owner ->
       createWorkflowCreateTimelineEntry(user).thenAccept(workflowCreateEntry ->
-        createWorkflow(user, target, team, body.getObject("trigger"),
+        createWorkflow(user, owner, body.getObject("trigger"),
           body.getObjectList("actions"), body.getObjectList("conditions"),
           created, body.getString("name"), body.getString("description"),
           Lists.newArrayList(), Lists.newArrayList(workflowCreateEntry),
           WorkflowState.OPERATIONAL)));
   }
 
-  private CompletableFuture<UUID> findTeam(User user, UUID target) {
+  private CompletableFuture<UUID> findWorkflowOwner(User user, UUID target) {
     return user.id().equals(target) ?
-      CompletableFuture.completedFuture(null) :
+      CompletableFuture.completedFuture(target) :
       teamTargetDatabaseTable().findTargetSecured(user.id())
-        .thenApply(team -> team.orElse(null));
+        .thenApply(team -> team.orElse(target));
   }
 
   private CompletableFuture<TimelineDatabaseEntry> createWorkflowCreateTimelineEntry(
@@ -138,8 +138,8 @@ public final class WorkflowModificationController extends WorkflowController {
     findUser(request).thenAccept(user -> workflowDatabaseTable().findWorkflow(workflowId)
       .thenAccept(workflow -> workflowExecutionDatabaseTable.findWorkflowExecutions(workflowId)
         .thenAccept(executions -> timelineDatabaseTable.findEntriesByWorkflow(workflowId)
-          .thenAccept(timelineEntries -> checkWorkflowTeamMatch(user.id(), workflow)
-            .thenAccept(teamMatch -> updateWorkflow(user, workflow, teamMatch,
+          .thenAccept(timelineEntries -> checkWorkflowAuthorization(user, workflow)
+            .thenAccept(authorized -> updateWorkflow(user, workflow, authorized,
               body.getObject("trigger"), body.getObjectList("actions"),
               body.getObjectList("conditions"), body.getString("name"),
               body.getString("description"), executions, timelineEntries,
@@ -147,16 +147,16 @@ public final class WorkflowModificationController extends WorkflowController {
   }
 
   private void updateWorkflow(
-    User user, WorkflowEntry entry,  boolean teamMatch,
+    User user, WorkflowEntry entry, boolean authorized,
     TaskwolfRequestBody triggerData, List<TaskwolfRequestBody> actionData,
     List<TaskwolfRequestBody> conditionData, String name, String description,
     List<Long> executions, List<TimelineDatabaseEntry> timelineEntries,
     WorkflowState state
   ) {
-    if (!checkWorkflowAuthorization(user, entry) || !teamMatch) {
+    if (!authorized) {
       return;
     }
-    deleteWorkflow(user, entry);
+    deleteWorkflow(entry);
     userDatabaseTable().findUser(entry.creatorId()).thenAccept(creator ->
       workflowDatabaseTable().generateAvailableWorkflowId().thenAccept(workflowId ->
         updateWorkflow(workflowId, user, creator, entry, triggerData, actionData,
@@ -170,29 +170,27 @@ public final class WorkflowModificationController extends WorkflowController {
     List<Long> executions, List<TimelineDatabaseEntry> timelineEntries,
     WorkflowState state
   ) {
-    createWorkflow(workflowId, creator, entry.ownerId(), entry.teamId(),
-      triggerData, actionData, conditionData, entry.created(), name, description,
-      executions, timelineEntries, state);
+    createWorkflow(workflowId, creator, entry.ownerId(), triggerData, actionData,
+      conditionData, entry.created(), name, description, executions,
+      timelineEntries, state);
     WorkflowAlterationSupervisor.create(timelineDatabaseTable, workflowId,
       entry, name, description, actionData, conditionData).evaluate(user);
   }
 
   private void createWorkflow(
-    User creator, UUID ownerId, UUID teamId, TaskwolfRequestBody triggerData,
+    User creator, UUID ownerId, TaskwolfRequestBody triggerData,
     List<TaskwolfRequestBody> actionData,  List<TaskwolfRequestBody> conditionData,
     long created, String name, String description, List<Long> executions,
     List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
-    if (!checkWorkflowAuthorization(creator, ownerId)) {
-      return;
-    }
     workflowDatabaseTable().generateAvailableWorkflowId().thenAccept(workflowId ->
-      createWorkflow(workflowId, creator, ownerId, teamId, triggerData, actionData,
-        conditionData, created, name, description, executions, timelineEntries, state));
+      createWorkflow(workflowId, creator, ownerId, triggerData, actionData,
+        conditionData, created, name, description, executions, timelineEntries,
+        state));
   }
 
   private void createWorkflow(
-    UUID workflowId, User creator, UUID ownerId, UUID teamId,
+    UUID workflowId, User creator, UUID ownerId,
     TaskwolfRequestBody triggerData, List<TaskwolfRequestBody> actionData,
     List<TaskwolfRequestBody> conditionData, long created, String name,
     String description, List<Long> executions,
@@ -201,14 +199,14 @@ public final class WorkflowModificationController extends WorkflowController {
     triggerDatabaseTable.generateAvailableTriggerId().thenAccept(triggerId ->
       generateActionIds(actionData.size()).thenAccept(actionIds ->
         generateConditionIds(conditionData.size()).thenAccept(conditionIds ->
-          createWorkflow(workflowId, creator.id(), ownerId, teamId, triggerId,
+          createWorkflow(workflowId, creator.id(), ownerId, triggerId,
             triggerData, actionIds, actionData, conditionIds, conditionData,
             created, name, description, executions, timelineEntries, state))));
   }
 
   private void createWorkflow(
-    UUID workflowId, UUID creatorId, UUID ownerId, UUID teamId,
-    UUID triggerId, TaskwolfRequestBody triggerData, List<UUID> actionIds,
+    UUID workflowId, UUID creatorId, UUID ownerId, UUID triggerId,
+    TaskwolfRequestBody triggerData, List<UUID> actionIds,
     List<TaskwolfRequestBody> actionData, List<UUID> conditionIds,
     List<TaskwolfRequestBody> conditionData, long created, String name,
     String description, List<Long> executions,
@@ -224,7 +222,7 @@ public final class WorkflowModificationController extends WorkflowController {
     for (int i = 0; i < conditionData.size(); i++) {
       createCondition(conditionIds.get(i), ownerId, workflowId, conditionData.get(i));
     }
-    workflowDatabaseTable().insertWorkflow(workflowId, creatorId, ownerId, teamId,
+    workflowDatabaseTable().insertWorkflow(workflowId, creatorId, ownerId,
       triggerId, actionIds, conditionIds, modules, created, name, description,
       state.toString());
     workflowExecutionDatabaseTable.insertWorkflowExecution(workflowId, executions);
@@ -285,13 +283,6 @@ public final class WorkflowModificationController extends WorkflowController {
     var body = TaskwolfRequestBody.of(payload, response);
     performWorkflowOperation(findUserId(request), body.getUUID("workflow"),
       this::deleteWorkflow, () -> {});
-  }
-
-  private void deleteWorkflow(User user, WorkflowEntry workflow) {
-    if (!checkWorkflowAuthorization(user, workflow)) {
-      return;
-    }
-    deleteWorkflow(workflow);
   }
 
   public void deleteWorkflow(WorkflowEntry workflow) {

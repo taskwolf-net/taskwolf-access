@@ -17,7 +17,6 @@ import net.taskwolf.core.workflow.WorkflowEntry;
 import java.security.Key;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -76,64 +75,38 @@ public class WorkflowController extends TaskwolfRestController {
       return;
     }
     workflowDatabaseTable.findWorkflow(workflowId).thenAccept(workflow ->
-      performWorkflowOperation(user, workflow, operation, failResponse));
+      checkWorkflowAuthorization(user, workflow).thenAccept(authorized ->
+        performWorkflowOperation(workflow, authorized, operation, failResponse)));
   }
 
   private void performWorkflowOperation(
-    User user, WorkflowEntry workflow, Consumer<WorkflowEntry> operation,
+    WorkflowEntry workflow, boolean authorized, Consumer<WorkflowEntry> operation,
     Runnable failResponse
   ) {
-    if (!checkWorkflowAuthorization(user, workflow)) {
-      failResponse.run();
-      return;
-    }
-    checkWorkflowTeamMatch(user.id(), workflow).thenAccept(teamMatch ->
-      performWorkflowOperation(workflow, teamMatch, operation, failResponse));
-  }
-
-  private void performWorkflowOperation(
-    WorkflowEntry workflow, boolean teamMatch, Consumer<WorkflowEntry> operation,
-    Runnable failResponse
-  ) {
-    if (!teamMatch) {
+    if (!authorized) {
       failResponse.run();
       return;
     }
     operation.accept(workflow);
   }
 
-  protected CompletableFuture<Boolean> checkWorkflowTeamMatch(
-    UUID userId, WorkflowEntry workflow
+  protected CompletableFuture<Boolean> checkWorkflowAuthorization(
+    User user, WorkflowEntry workflow
   ) {
-    return checkWorkflowTeamMatch(userId, workflow.teamId());
-  }
-
-  protected CompletableFuture<Boolean> checkWorkflowTeamMatch(
-    UUID userId, UUID teamId
-  ) {
-    return teamTargetDatabaseTable.findTargetSecured(userId)
-      .thenApply(target -> checkWorkflowTeamMatch(teamId, target));
-  }
-
-  private static final UUID DEFAULT_TEAM_ID =
-    UUID.fromString("00000000-0000-0000-0000-000000000000");
-
-  protected boolean checkWorkflowTeamMatch(
-    UUID teamId, Optional<UUID> userTeamTarget
-  ) {
-    if (userTeamTarget.isEmpty()) {
-      return teamId.equals(DEFAULT_TEAM_ID);
-    }
-    return userTeamTarget.get().equals(teamId);
-  }
-
-  protected boolean checkWorkflowAuthorization(User user, WorkflowEntry workflow) {
     return checkWorkflowAuthorization(user, workflow.ownerId());
   }
 
-  protected boolean checkWorkflowAuthorization(User user, UUID workflowOwnerId) {
-    return workflowOwnerId.equals(user.id()) ||
-      user.organizations().contains(workflowOwnerId);
+  protected CompletableFuture<Boolean> checkWorkflowAuthorization(
+    User user, UUID workflowOwnerId
+  ) {
+    if (workflowOwnerId.equals(user.id()) ||
+      user.organizations().contains(workflowOwnerId)
+    ) {
+      return CompletableFuture.completedFuture(true);
+    }
+    return teamTargetDatabaseTable.findTargetSecured(user.id())
+      .thenApply(teamTarget -> teamTarget.map(uuid ->
+        uuid.equals(workflowOwnerId)).orElse(false));
   }
 
   protected CompletableFuture<List<UUID>> generateActionIds(int number) {
@@ -175,9 +148,7 @@ public class WorkflowController extends TaskwolfRestController {
   ) {
     return userId.equals(target) ?
       workflowDatabaseTable.findWorkflowsOfOwner(target) :
-      teamTargetDatabaseTable.findTargetSecured(userId)
-        .thenCompose(team -> team.isEmpty() ?
-          workflowDatabaseTable.findGlobalOrganizationWorkflows(target) :
-          workflowDatabaseTable.findOrganizationTeamWorkflows(target, team.get()));
+      teamTargetDatabaseTable.findTargetSecured(userId).thenCompose(team ->
+        workflowDatabaseTable.findWorkflowsOfOwner(team.orElse(target)));
   }
 }

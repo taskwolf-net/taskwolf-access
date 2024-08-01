@@ -10,6 +10,7 @@ import net.taskwolf.core.action.ActionEntry;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
@@ -40,7 +41,6 @@ public final class WorkflowModificationController extends WorkflowController {
   private final ConditionDatabaseTable conditionDatabaseTable;
   private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final TimelineDatabaseTable timelineDatabaseTable;
-  private final BundleDatabaseTable bundleDatabaseTable;
 
   private WorkflowModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
@@ -49,20 +49,19 @@ public final class WorkflowModificationController extends WorkflowController {
     ConditionDatabaseTable conditionDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable,
     WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable,
-    TimelineDatabaseTable timelineDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable
+    TimelineDatabaseTable timelineDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
-      teamTargetDatabaseTable);
+      teamTargetDatabaseTable, bundleDatabaseTable, teamDatabaseTable);
     this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
     this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
     this.timelineDatabaseTable = timelineDatabaseTable;
-    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   private static final long MAX_WORKFLOW_BYTES = 500 * 1000;
@@ -79,15 +78,8 @@ public final class WorkflowModificationController extends WorkflowController {
     var body = TaskwolfRequestBody.of(payload, response);
     return findUser(request).thenCompose(user ->
       userTargetDatabaseTable().findTargetSecured(user.id()).thenCompose(target ->
-        checkWorkflowNumberLimit(target).thenAccept(limitReached ->
+        checkWorkflowNumberLimit(user, target).thenAccept(limitReached ->
           addWorkflow(user, target, body, limitReached, response))));
-  }
-
-  private CompletableFuture<Boolean> checkWorkflowNumberLimit(UUID target) {
-    return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
-      workflowDatabaseTable().findWorkflowsOfOwner(target).thenApply(
-        workflows -> bundle.workflowNumberLimit() > 0 &&
-          workflows.size() >= bundle.workflowNumberLimit()));
   }
 
   private void addWorkflow(

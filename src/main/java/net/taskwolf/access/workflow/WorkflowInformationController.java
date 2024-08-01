@@ -8,10 +8,12 @@ import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.action.ActionDatabaseTable;
 import net.taskwolf.core.action.ActionEntry;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.condition.ConditionEntry;
 import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
@@ -49,11 +51,12 @@ public final class WorkflowInformationController extends WorkflowController {
     ConditionDatabaseTable conditionDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable,
     ConditionInformationRepository conditionRepository
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
-      teamTargetDatabaseTable);
+      teamTargetDatabaseTable, bundleDatabaseTable, teamDatabaseTable);
     this.coreModule = coreModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;

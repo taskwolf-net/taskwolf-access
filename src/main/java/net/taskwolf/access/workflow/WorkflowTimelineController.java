@@ -7,7 +7,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.action.ActionDatabaseTable;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -40,12 +42,14 @@ public final class WorkflowTimelineController extends WorkflowController {
     ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
-    TeamTargetDatabaseTable teamTargetDatabaseTable, CoreModule coreModule,
-    TimelineFactory timelineFactory, TimelineDatabaseTable timelineDatabaseTable
+    TeamTargetDatabaseTable teamTargetDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable,
+    CoreModule coreModule, TimelineFactory timelineFactory,
+    TimelineDatabaseTable timelineDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
-      teamTargetDatabaseTable);
+      teamTargetDatabaseTable, bundleDatabaseTable, teamDatabaseTable);
     this.coreModule = coreModule;
     this.timelineFactory = timelineFactory;
     this.timelineDatabaseTable = timelineDatabaseTable;

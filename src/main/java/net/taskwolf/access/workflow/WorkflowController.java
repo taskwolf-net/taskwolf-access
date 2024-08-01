@@ -6,7 +6,11 @@ import lombok.Getter;
 import lombok.experimental.Accessors;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionDatabaseTable;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
+import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.organization.team.Team;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -21,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 @Accessors(fluent = true)
 public class WorkflowController extends TaskwolfRestController {
@@ -32,6 +37,8 @@ public class WorkflowController extends TaskwolfRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   @Getter(AccessLevel.PROTECTED)
   private final TeamTargetDatabaseTable teamTargetDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
+  private final TeamDatabaseTable teamDatabaseTable;
 
   protected WorkflowController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -39,7 +46,8 @@ public class WorkflowController extends TaskwolfRestController {
     ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
-    TeamTargetDatabaseTable teamTargetDatabaseTable
+    TeamTargetDatabaseTable teamTargetDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.workflowDatabaseTable = workflowDatabaseTable;
@@ -47,6 +55,8 @@ public class WorkflowController extends TaskwolfRestController {
     this.conditionDatabaseTable = conditionDatabaseTable;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.teamTargetDatabaseTable = teamTargetDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
+    this.teamDatabaseTable = teamDatabaseTable;
   }
 
   protected void performWorkflowOperation(
@@ -136,6 +146,24 @@ public class WorkflowController extends TaskwolfRestController {
       }
     }
     return futureResponse;
+  }
+
+  protected CompletableFuture<Boolean> checkWorkflowNumberLimit(User user, UUID target) {
+    return findOwnersOfTarget(user, target)
+      .thenCompose(owners -> AsyncIterator.execute(owners, owner ->
+          workflowDatabaseTable().findWorkflowsOfOwner(owner).thenApply(List::size))
+        .thenApply(sizes -> sizes.stream().mapToInt(Integer::intValue).sum())
+        .thenCompose(number -> bundleDatabaseTable.findBundle(target)
+          .thenApply(bundle ->  bundle.workflowNumberLimit() > 0 &&
+            number >= bundle.workflowNumberLimit())));
+  }
+
+  private CompletableFuture<List<UUID>> findOwnersOfTarget(User user, UUID target) {
+    return user.id().equals(target) ?
+      CompletableFuture.completedFuture(Lists.newArrayList(target)) :
+      teamDatabaseTable.findTeamsByOrganization(target).thenApply(teams ->
+        Stream.concat(teams.stream().map(Team::id).toList().stream(),
+          Stream.of(target)).toList());
   }
 
   protected CompletableFuture<List<WorkflowEntry>> findViewableWorkflows(UUID userId) {

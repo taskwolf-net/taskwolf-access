@@ -1,16 +1,21 @@
 package net.taskwolf.access.bundle;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.*;
+import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
+import net.taskwolf.core.organization.team.Team;
 import net.taskwolf.core.organization.team.TeamDatabaseTable;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
+import net.taskwolf.core.workflow.operation.Operation;
 import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
 import net.taskwolf.table.structure.TableDatabaseTable;
 import net.taskwolf.table.structure.TableEntry;
@@ -22,10 +27,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.text.DecimalFormat;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -171,51 +175,74 @@ public final class BundleController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findBundleUsage(
     HttpServletRequest request
   ) {
-    var userId = findUserId(request);
-    return userTargetDatabaseTable.findTargetSecured(findUserId(request))
-      .thenCompose(target -> checkUserPermission(userId, target)
-        .thenCompose(hasPermission -> findBundleUsage(target, hasPermission)));
+    return findUser(request)
+      .thenCompose(user -> userTargetDatabaseTable.findTargetSecured(user.id())
+        .thenCompose(target -> checkUserPermission(user.id(), target)
+          .thenCompose(hasPermission -> findBundleUsage(user, target, hasPermission))));
   }
 
   private CompletableFuture<Map<String, Object>> findBundleUsage(
-    UUID targetId, boolean hasPermission
+    User user, UUID targetId, boolean hasPermission
   ) {
     if (!hasPermission) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
-    return bundleDatabaseTable.findBundle(targetId)
-      .thenCompose(bundle -> findWorkflowUsage(targetId)
-        .thenCompose(workflowUsage -> findDatabaseUsage(targetId)
-          .thenCompose(databaseUsage -> findWebhookUsage(targetId)
-            .thenCompose(webhookUsage -> findOrganizationUsage(targetId, bundle)
-              .thenApply(organizationUsage -> Stream.of(workflowUsage.entrySet(),
-                  databaseUsage.entrySet(), webhookUsage.entrySet(),
-                  organizationUsage.entrySet()).flatMap(Set::stream)
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))))));
+    System.out.println(1);
+    return findOwnersOfTarget(user, targetId)
+      .thenCompose(owners -> bundleDatabaseTable.findBundle(targetId)
+        .thenCompose(bundle -> findWorkflowUsage(owners)
+          .thenCompose(workflowUsage -> findDatabaseUsage(owners)
+            .thenCompose(databaseUsage -> findWebhookUsage(owners)
+              .thenCompose(webhookUsage -> findOrganizationUsage(targetId, bundle)
+                .thenApply(organizationUsage -> Stream.of(workflowUsage.entrySet(),
+                    databaseUsage.entrySet(), webhookUsage.entrySet(),
+                    organizationUsage.entrySet()).flatMap(Set::stream)
+                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))))));
   }
 
-  private CompletableFuture<Map<String, Object>> findWorkflowUsage(UUID targetId) {
-    return workflowDatabaseTable.findWorkflowsOfOwner(targetId).thenCompose(
-      workflows -> operationDatabaseTable.findOperations(targetId).thenApply(
-        operations -> Map.of("workflowNumberUsage", workflows.size(),
-          "workflowOperationUsage", operations.operations())));
+  private CompletableFuture<Map<String, Object>> findWorkflowUsage(
+    List<UUID> ownerIds
+  ) {
+    System.out.println(2);
+    return sumFeatureUsageList(ownerIds, workflowDatabaseTable::findWorkflowsOfOwner)
+      .thenCompose(workflows -> sumFeatureUsage(ownerIds, owner ->
+        operationDatabaseTable.findOperations(owner).thenApply(Operation::operations))
+        .thenApply(operations -> Map.of("workflowNumberUsage", workflows,
+          "workflowOperationUsage", operations)));
   }
 
-  private CompletableFuture<Map<String, Object>> findDatabaseUsage(UUID targetId) {
-    return tableDatabaseTable.findTablesOfOwner(targetId).thenApply(tables ->
-      Map.of("databaseNumberUsage", tables.size(), "databaseDataUsage",
-        new DecimalFormat("#.###").format(tables.stream()
-          .mapToLong(TableEntry::size).sum() * Math.pow(10, -9))));
+  private CompletableFuture<Map<String, Object>> findDatabaseUsage(
+    List<UUID> ownerIds
+  ) {
+    System.out.println(3);
+    return AsyncIterator.execute(ownerIds, this::findSingleOwnerDatabaseUsage)
+      .thenApply(tables -> Map.of(
+        "databaseNumberUsage", tables.stream()
+          .map(table -> table.getKey()).mapToLong(Integer::intValue).sum(),
+        "databaseDataUsage", new DecimalFormat("#.###").format(tables.stream()
+          .map(table -> table.getValue()).mapToDouble(Double::doubleValue).sum())));
   }
 
-  private CompletableFuture<Map<String, Object>> findWebhookUsage(UUID targetId) {
-    return webhookDatabaseTable.findWebhooksByOwner(targetId).thenApply(
-      webhooks -> Map.of("webhookNumberUsage", webhooks.size()));
+  private CompletableFuture<Map.Entry<Integer, Double>> findSingleOwnerDatabaseUsage(
+    UUID owner
+  ) {
+    return tableDatabaseTable.findTablesOfOwner(owner).thenApply(tables ->
+      new AbstractMap.SimpleEntry<>(tables.size(),
+        tables.stream().mapToLong(TableEntry::size).sum() * Math.pow(10, -9)));
+  }
+
+  private CompletableFuture<Map<String, Object>> findWebhookUsage(
+    List<UUID> ownerIds
+  ) {
+    return sumFeatureUsageList
+      (ownerIds, webhookDatabaseTable::findWebhooksByOwner)
+      .thenApply(webhooks -> Map.of("webhookNumberUsage", webhooks));
   }
 
   private CompletableFuture<Map<String, Object>> findOrganizationUsage(
     UUID targetId, Bundle bundle
   ) {
+    System.out.println(4);
     if (bundle.bundleType().isTrial() || bundle.bundleType().isProfessional()) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
@@ -223,6 +250,28 @@ public final class BundleController extends TaskwolfRestController {
       organization -> teamDatabaseTable.findTeamsByOrganization(organization.id())
         .thenApply(teams -> Map.of("organizationMemberUsage",
           organization.members().size(), "organizationTeamUsage", teams.size())));
+  }
+
+  private <T> CompletableFuture<Long> sumFeatureUsageList(
+    List<UUID> ownerIds, Function<UUID, CompletableFuture<List<T>>> transformation
+  ) {
+    return AsyncIterator.execute(ownerIds, transformation).thenApply(sizes ->
+      sizes.stream().map(List::size).mapToLong(Integer::longValue).sum());
+  }
+
+  private CompletableFuture<Long> sumFeatureUsage(
+    List<UUID> ownerIds, Function<UUID, CompletableFuture<Long>> transformation
+  ) {
+    return AsyncIterator.execute(ownerIds, transformation).thenApply(sizes ->
+      sizes.stream().mapToLong(Long::longValue).sum());
+  }
+
+  private CompletableFuture<List<UUID>> findOwnersOfTarget(User user, UUID target) {
+    return user.id().equals(target) ?
+      CompletableFuture.completedFuture(Lists.newArrayList(target)) :
+      teamDatabaseTable.findTeamsByOrganization(target).thenApply(teams ->
+        Stream.concat(teams.stream().map(Team::id).toList().stream(),
+          Stream.of(target)).toList());
   }
 
   private CompletableFuture<Boolean> checkUserPermission(

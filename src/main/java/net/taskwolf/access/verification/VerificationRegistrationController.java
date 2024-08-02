@@ -119,7 +119,7 @@ public final class VerificationRegistrationController {
   private static final String VERIFICATION_URL = "https://taskwolf.net/register/confirm/%s/%s/";
   private static final String VERIFICATION_EMAIL_BODY = "Hey %s,\n" +
     "\n" +
-    "We’re excited to welcome you to Taskwolf! Before you begin your " +
+    "we’re excited to welcome you to Taskwolf! Before you begin your " +
     "journey, we need to verify your account. Follow these steps to complete " +
     "the verification process:\n" +
     "\n" +

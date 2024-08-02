@@ -250,7 +250,7 @@ public final class StripeCheckoutResponseController extends StripeController {
   private static final String PAYMENT_EMAIL_TITLE = "Payment";
   private static final String PAYMENT_EMAIL_BODY = "Hey %s,\n" +
     "\n" +
-    "Thank you for your order from Taskwolf. " +
+    "thank you for your order from Taskwolf. " +
     "We are delighted that you have chosen a product from Taskwolf.\n" +
     "\n" +
     "Your Taskwolf product is available to you immediately. " +

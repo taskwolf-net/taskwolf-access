@@ -187,10 +187,9 @@ public final class BundleController extends TaskwolfRestController {
     if (!hasPermission) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
-    System.out.println(1);
     return findOwnersOfTarget(user, targetId)
       .thenCompose(owners -> bundleDatabaseTable.findBundle(targetId)
-        .thenCompose(bundle -> findWorkflowUsage(owners)
+        .thenCompose(bundle -> findWorkflowUsage(targetId, owners)
           .thenCompose(workflowUsage -> findDatabaseUsage(owners)
             .thenCompose(databaseUsage -> findWebhookUsage(owners)
               .thenCompose(webhookUsage -> findOrganizationUsage(targetId, bundle)
@@ -201,20 +200,18 @@ public final class BundleController extends TaskwolfRestController {
   }
 
   private CompletableFuture<Map<String, Object>> findWorkflowUsage(
-    List<UUID> ownerIds
+    UUID target, List<UUID> ownerIds
   ) {
-    System.out.println(2);
-    return sumFeatureUsageList(ownerIds, workflowDatabaseTable::findWorkflowsOfOwner)
-      .thenCompose(workflows -> sumFeatureUsage(ownerIds, owner ->
-        operationDatabaseTable.findOperations(owner).thenApply(Operation::operations))
-        .thenApply(operations -> Map.of("workflowNumberUsage", workflows,
-          "workflowOperationUsage", operations)));
+    return operationDatabaseTable.findOperations(target)
+      .thenApply(Operation::operations).thenCompose(operations ->
+        sumFeatureUsage(ownerIds, workflowDatabaseTable::findWorkflowsOfOwner)
+          .thenApply(workflows -> Map.of("workflowNumberUsage", workflows,
+            "workflowOperationUsage", operations)));
   }
 
   private CompletableFuture<Map<String, Object>> findDatabaseUsage(
     List<UUID> ownerIds
   ) {
-    System.out.println(3);
     return AsyncIterator.execute(ownerIds, this::findSingleOwnerDatabaseUsage)
       .thenApply(tables -> Map.of(
         "databaseNumberUsage", tables.stream()
@@ -234,15 +231,13 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> findWebhookUsage(
     List<UUID> ownerIds
   ) {
-    return sumFeatureUsageList
-      (ownerIds, webhookDatabaseTable::findWebhooksByOwner)
+    return sumFeatureUsage(ownerIds, webhookDatabaseTable::findWebhooksByOwner)
       .thenApply(webhooks -> Map.of("webhookNumberUsage", webhooks));
   }
 
   private CompletableFuture<Map<String, Object>> findOrganizationUsage(
     UUID targetId, Bundle bundle
   ) {
-    System.out.println(4);
     if (bundle.bundleType().isTrial() || bundle.bundleType().isProfessional()) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
@@ -252,18 +247,11 @@ public final class BundleController extends TaskwolfRestController {
           organization.members().size(), "organizationTeamUsage", teams.size())));
   }
 
-  private <T> CompletableFuture<Long> sumFeatureUsageList(
+  private <T> CompletableFuture<Long> sumFeatureUsage(
     List<UUID> ownerIds, Function<UUID, CompletableFuture<List<T>>> transformation
   ) {
     return AsyncIterator.execute(ownerIds, transformation).thenApply(sizes ->
       sizes.stream().map(List::size).mapToLong(Integer::longValue).sum());
-  }
-
-  private CompletableFuture<Long> sumFeatureUsage(
-    List<UUID> ownerIds, Function<UUID, CompletableFuture<Long>> transformation
-  ) {
-    return AsyncIterator.execute(ownerIds, transformation).thenApply(sizes ->
-      sizes.stream().mapToLong(Long::longValue).sum());
   }
 
   private CompletableFuture<List<UUID>> findOwnersOfTarget(User user, UUID target) {

@@ -30,6 +30,25 @@ public final class OrganizationInformationController extends OrganizationControl
       targetDatabaseTable);
   }
 
+  @RequestMapping(path = "/organizations/all/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findAllOrganizations(
+    HttpServletRequest request
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    findUser(request).thenAccept(user -> collectOrganizationsInformation(
+      user.organizations(), user.id()).thenAccept(futureResponse::complete));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> collectOrganizationsInformation(
+    List<UUID> organizations, UUID applicantId
+  ) {
+    return AsyncIterator.execute(organizations, organizationId ->
+        organizationDatabaseTable().findOrganization(organizationId).thenCompose(
+          organization -> gatherOrganizationInformation(organization, applicantId)))
+      .thenApply(information -> Map.of("organizations", information));
+  }
+
   @RequestMapping(path = "/organization/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findSelectedOrganization(
     HttpServletRequest request

@@ -11,6 +11,7 @@ import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.module.RegisteredModule;
+import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
@@ -31,16 +32,19 @@ import java.util.stream.Collectors;
 @RestController
 public final class AccountController extends TaskwolfRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final TeamTargetDatabaseTable teamTargetDatabaseTable;
   private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
 
   private AccountController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    UserTargetDatabaseTable userTargetDatabaseTable, ModuleLoader moduleLoader,
-    CoreModule coreModule
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    TeamTargetDatabaseTable teamTargetDatabaseTable,
+    ModuleLoader moduleLoader, CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
     this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.teamTargetDatabaseTable = teamTargetDatabaseTable;
     this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
   }
@@ -48,7 +52,7 @@ public final class AccountController extends TaskwolfRestController {
   @RequestMapping(path = "/account/apps/", method = RequestMethod.GET)
   public CompletableFuture<String> findAccountApps(HttpServletRequest request) {
     var futureResponse = new CompletableFuture<String>();
-    userTargetDatabaseTable.findTargetSecured(findUserId(request))
+    findAccountTarget(findUserId(request))
       .thenAccept(target -> findLinkedAccounts(target).thenAccept(modules ->
         futureResponse.complete(finishAccountAppFinding(modules))));
     return futureResponse;
@@ -88,7 +92,7 @@ public final class AccountController extends TaskwolfRestController {
 
   private CompletableFuture<String> findAccounts(UUID userId, Module module) {
     var futureResponse = new CompletableFuture<String>();
-    userTargetDatabaseTable.findTargetSecured(userId)
+    findAccountTarget(userId)
       .thenAccept(target -> module.accountLink().findAccounts(target)
         .thenApply(accounts -> futureResponse.complete(new JSONObject(
           Map.of("accounts", accounts.stream().map(JSONObject::new)
@@ -107,9 +111,9 @@ public final class AccountController extends TaskwolfRestController {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return;
     }
-    userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
-      target -> registeredModule.get().module().accountLink().removeAccount(
-        target, body.getString("identifier")));
+    findAccountTarget(findUserId(request))
+      .thenAccept(target -> registeredModule.get().module().accountLink()
+        .removeAccount(target, body.getString("identifier")));
   }
 
   public void deleteAllAccounts(UUID targetId) {
@@ -141,11 +145,10 @@ public final class AccountController extends TaskwolfRestController {
     HttpServletRequest request, AccountLink accountLink
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userTargetDatabaseTable.findTargetSecured(findUserId(request))
-      .thenAccept(target -> findUser(request)
-        .thenAccept(user -> accountLink.accountExists(target)
-          .thenAccept(exists -> futureResponse.complete(assemblyAccountInformation(
-            user, accountLink, findApiKey(request), target, exists)))));
+    findUser(request).thenAccept(user -> findAccountTarget(user.id())
+      .thenAccept(target -> accountLink.accountExists(target)
+        .thenAccept(exists -> futureResponse.complete(assemblyAccountInformation(
+          user, accountLink, findApiKey(request), target, exists)))));
     return futureResponse;
   }
 
@@ -159,5 +162,12 @@ public final class AccountController extends TaskwolfRestController {
     information.put("linkDescription", coreModule.translate(user,
       accountLink.description()));
     return information;
+  }
+
+  private CompletableFuture<UUID> findAccountTarget(UUID userId) {
+    return userTargetDatabaseTable.findTargetSecured(userId).thenCompose(target ->
+      userId.equals(target) ? CompletableFuture.completedFuture(target) :
+        teamTargetDatabaseTable.findTargetSecured(userId)
+          .thenApply(team -> team.orElse(target)));
   }
 }

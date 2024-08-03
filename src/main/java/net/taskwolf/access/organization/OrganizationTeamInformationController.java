@@ -3,6 +3,8 @@ package net.taskwolf.access.organization;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
@@ -11,6 +13,7 @@ import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,8 +37,23 @@ public final class OrganizationTeamInformationController extends OrganizationTea
       targetDatabaseTable, teamDatabaseTable);
   }
 
-  @RequestMapping(path = "/organization/teams/", method = RequestMethod.GET)
+  @RequestMapping(path = "/organization/teams/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findOrganizationTeams(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    findUser(request).thenAccept(user ->
+      performOrganizationMemberOperation(user, body.getUUID("organization"),
+        organization -> gatherOrganizationTeamsInformation(organization, user.id())
+          .thenAccept(futureResponse::complete),
+      () -> futureResponse.complete(Maps.newHashMap())));
+    return futureResponse;
+  }
+
+  @RequestMapping(path = "/organization/teams/selected/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findSelectedOrganizationTeams(
     HttpServletRequest request
   ) {
     var userId = findUserId(request);

@@ -47,8 +47,20 @@ public final class OrganizationTeamTargetController extends TaskwolfRestControll
     this.coreModule = coreModule;
   }
 
-  @RequestMapping(path = "/organization/team/targets/all/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findAllTargets(
+  @RequestMapping(path = "/organization/team/targets/find/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findTargets(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var organization = body.getUUID("organization");
+    return findUser(request)
+      .thenCompose(user -> organizationDatabaseTable.organizationExists(organization)
+        .thenCompose(exists -> checkOrganizationExistence(user, organization, exists)));
+  }
+
+  @RequestMapping(path = "/organization/team/targets/selected/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findSelectedTargets(
     HttpServletRequest request
   ) {
     return findUser(request)

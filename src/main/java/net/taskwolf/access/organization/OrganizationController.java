@@ -74,7 +74,7 @@ public class OrganizationController extends TaskwolfRestController {
           failResponse)));
   }
 
-  protected void performOrganizationMemberOperation(
+  private void performOrganizationMemberOperation(
     User user, UUID targetId, Consumer<Organization> operation,
     Runnable failResponse
   ) {

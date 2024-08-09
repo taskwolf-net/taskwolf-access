@@ -53,7 +53,7 @@ public final class OfferModificationController extends OfferController {
       performOfferOperation(user.id(), body.getUUID("offer"),
         offer -> findExistingAccount(user, offer.bundleType()).thenAcceptAsync(
           account -> futureResponse.complete(acceptOffer(offer, user, account))),
-        () -> futureResponse.complete(Map.of("found", false))));
+        () -> futureResponse.complete(Map.of("success", false))));
     return futureResponse;
   }
 

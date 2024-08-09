@@ -5,6 +5,7 @@ import com.google.inject.Key;
 import com.google.inject.name.Names;
 import net.taskwolf.access.activity.ActivityContextInitializer;
 import net.taskwolf.access.bundle.BundleContextInitializer;
+import net.taskwolf.access.offer.OfferContextInitializer;
 import net.taskwolf.access.organization.OrganizationContextInitializer;
 import net.taskwolf.access.setting.SettingContextInitializer;
 import net.taskwolf.access.stripe.StripeContextInitializer;
@@ -62,6 +63,7 @@ public final class AccessModule extends Module {
     application.addInitializers(injector().getInstance(TemplateContextInitializer.class));
     application.addInitializers(injector().getInstance(OrganizationContextInitializer.class));
     application.addInitializers(injector().getInstance(BundleContextInitializer.class));
+    application.addInitializers(injector().getInstance(OfferContextInitializer.class));
     application.addInitializers(injector().getInstance(TutorialContextInitializer.class));
     application.addInitializers(injector().getInstance(TicketContextInitializer.class));
     application.addInitializers(injector().getInstance(SettingContextInitializer.class));

@@ -45,6 +45,9 @@ public class HomeAuthorizationFilter extends OncePerRequestFilter {
   protected boolean shouldNotFilter(HttpServletRequest request) {
     var shouldFilter = Lists.<String>newArrayList();
     shouldFilter.add("/" + CURRENT_API_VERSION + "/checkout/");
+    shouldFilter.add("/" + CURRENT_API_VERSION + "/offer/find/");
+    shouldFilter.add("/" + CURRENT_API_VERSION + "/offer/accept/");
+    shouldFilter.add("/" + CURRENT_API_VERSION + "/offer/decline/");
     shouldFilter.add("/" + CURRENT_API_VERSION + "/trial/use/");
     shouldFilter.add("/" + CURRENT_API_VERSION + "/organization/join/");
     var url = request.getRequestURI();

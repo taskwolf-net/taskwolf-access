@@ -7,6 +7,8 @@ import net.taskwolf.access.activity.ActivityContextInitializer;
 import net.taskwolf.access.bundle.BundleContextInitializer;
 import net.taskwolf.access.offer.OfferContextInitializer;
 import net.taskwolf.access.organization.OrganizationContextInitializer;
+import net.taskwolf.access.question.QuestionContextInitializer;
+import net.taskwolf.access.sale.SaleContextInitializer;
 import net.taskwolf.access.setting.SettingContextInitializer;
 import net.taskwolf.access.stripe.StripeContextInitializer;
 import net.taskwolf.access.target.TargetContextInitializer;
@@ -68,6 +70,8 @@ public final class AccessModule extends Module {
     application.addInitializers(injector().getInstance(TicketContextInitializer.class));
     application.addInitializers(injector().getInstance(SettingContextInitializer.class));
     application.addInitializers(injector().getInstance(ActivityContextInitializer.class));
+    application.addInitializers(injector().getInstance(QuestionContextInitializer.class));
+    application.addInitializers(injector().getInstance(SaleContextInitializer.class));
   }
 
   @Override

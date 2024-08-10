@@ -13,6 +13,9 @@ import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.bundle.*;
 import net.taskwolf.core.mail.TaskwolfMail;
 import net.taskwolf.core.mail.TaskwolfMailAttachment;
+import net.taskwolf.core.offer.Offer;
+import net.taskwolf.core.offer.OfferDatabaseTable;
+import net.taskwolf.core.offer.OfferStatus;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.stripe.StripeAccount;
@@ -46,6 +49,7 @@ public final class StripeCheckoutResponseController extends StripeController {
   private final TaskwolfMail orderMail;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
+  private final OfferDatabaseTable offerDatabaseTable;
   private final WorkerDistribution distribution;
   private final CoreModule coreModule;
 
@@ -59,7 +63,8 @@ public final class StripeCheckoutResponseController extends StripeController {
     @Qualifier("orderMail") TaskwolfMail orderMail,
     BundleDatabaseTable bundleDatabaseTable,
     OperationDatabaseTable operationDatabaseTable,
-    WorkerDistribution distribution, CoreModule coreModule
+    OfferDatabaseTable offerDatabaseTable, WorkerDistribution distribution,
+    CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
       targetDatabaseTable, organizationDatabaseTable);
@@ -68,6 +73,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     this.orderMail = orderMail;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.operationDatabaseTable = operationDatabaseTable;
+    this.offerDatabaseTable = offerDatabaseTable;
     this.distribution = distribution;
     this.coreModule = coreModule;
   }
@@ -100,17 +106,33 @@ public final class StripeCheckoutResponseController extends StripeController {
         .retrieve(session.getCustomer()).getEmail();
       var subscription = stripeClient.subscriptions()
         .retrieve(session.getSubscription());
-      var price = subscription.getItems().getData().get(0).getPrice().getId();
-      var bundlePreset = stripeConfiguration().findBundlePreset(price);
-      var bundleRuntime = findBundleRuntime(subscription);
       userDatabaseTable().findUser(customerEmail).thenCompose(user ->
-        findBundleTarget(user, bundlePreset).thenAccept(target ->
+        findBundle(user, subscription).thenCompose(bundle ->
           processPreviousSubscriptions(session, user).thenAcceptAsync(value ->
-            findStripeAccount(session, subscription, user, target)
+            findStripeAccount(session, subscription, user, bundle.ownerId())
               .thenAccept(account -> applySubscription(subscription, user,
-                target, bundlePreset, bundleRuntime)))));
+                bundle.ownerId(), bundle)))));
     } catch (Exception exception) {
       exception.printStackTrace();
+    }
+  }
+
+  private CompletableFuture<Bundle> findBundle(User user, Subscription subscription) {
+    try {
+      var price = subscription.getItems().getData().get(0).getPrice().getId();
+      var bundlePreset = stripeConfiguration().findBundlePreset(price);
+      if (bundlePreset.isEmpty()) {
+        var futureOffer = offerDatabaseTable.findOffersByPriceId(price);
+        futureOffer.thenAccept(offer ->
+          offerDatabaseTable.updateOfferStatus(offer, OfferStatus.ACCEPTED));
+        return futureOffer.thenApply(Offer::toBundle);
+      }
+      var bundleRuntime = findBundleRuntime(subscription);
+      return findBundleTarget(user, bundlePreset.get().bundleType())
+        .thenApply(target -> Bundle.of(target, bundlePreset.get(), bundleRuntime));
+    } catch (Exception exception) {
+      exception.printStackTrace();
+      return CompletableFuture.completedFuture(null);
     }
   }
 
@@ -213,11 +235,10 @@ public final class StripeCheckoutResponseController extends StripeController {
   }
 
   private void applySubscription(
-    Subscription subscription, User user, UUID targetId,
-    BundlePreset bundlePreset, BundleRuntime bundleRuntime
+    Subscription subscription, User user, UUID targetId, Bundle bundle
   ) {
     bundleDatabaseTable.bundleExists(targetId).thenAccept(exists ->
-      applyBundle(targetId, bundlePreset, bundleRuntime, exists));
+      applyBundle(targetId, bundle, exists));
     terminationDatabaseTable.deleteTermination(targetId);
     targetDatabaseTable().changeTarget(user.id(), targetId);
     try {
@@ -227,16 +248,13 @@ public final class StripeCheckoutResponseController extends StripeController {
     }
   }
 
-  private void applyBundle(
-    UUID target, BundlePreset bundlePreset, BundleRuntime bundleRuntime,
-    boolean bundleExists
-  ) {
+  private void applyBundle(UUID target, Bundle bundle, boolean bundleExists) {
     operationDatabaseTable.insertOperations(target);
     if (bundleExists) {
-      bundleDatabaseTable.updateBundle(Bundle.of(target, bundlePreset, bundleRuntime));
+      bundleDatabaseTable.updateBundle(bundle);
       return;
     }
-    bundleDatabaseTable.insertBundle(Bundle.of(target, bundlePreset, bundleRuntime));
+    bundleDatabaseTable.insertBundle(bundle);
   }
 
   private BundleRuntime findBundleRuntime(Subscription subscription) {
@@ -287,9 +305,9 @@ public final class StripeCheckoutResponseController extends StripeController {
   }
 
   private CompletableFuture<UUID> findBundleTarget(
-    User user, BundlePreset preset
+    User user, BundleType bundleType
   ) {
-    if (preset.bundleType() == BundleType.PROFESSIONAL) {
+    if (bundleType == BundleType.PROFESSIONAL) {
       return CompletableFuture.completedFuture(user.id());
     }
     return organizationDatabaseTable().organizationExistsByOwner(user.id())

@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.bundle.Bundle;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.bundle.BundleType;
+import net.taskwolf.core.offer.OfferDatabaseTable;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.stripe.StripeConfiguration;
 import net.taskwolf.core.stripe.StripeDatabaseTable;
@@ -32,6 +33,7 @@ public final class StripePaymentResponseController extends StripeController {
   private final TerminationDatabaseTable terminationDatabaseTable;
   private final StripeTerminationController stripeTerminationController;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final OfferDatabaseTable offerDatabaseTable;
 
   private StripePaymentResponseController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -41,7 +43,7 @@ public final class StripePaymentResponseController extends StripeController {
     OrganizationDatabaseTable organizationDatabaseTable,
     TerminationDatabaseTable terminationDatabaseTable,
     StripeTerminationController stripeTerminationController,
-    BundleDatabaseTable bundleDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable, OfferDatabaseTable offerDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
       targetDatabaseTable, organizationDatabaseTable);
@@ -49,6 +51,7 @@ public final class StripePaymentResponseController extends StripeController {
     this.terminationDatabaseTable = terminationDatabaseTable;
     this.stripeTerminationController = stripeTerminationController;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.offerDatabaseTable = offerDatabaseTable;
   }
 
   @RequestMapping(path = "/stripe/payment/", method = RequestMethod.POST)
@@ -145,6 +148,10 @@ public final class StripePaymentResponseController extends StripeController {
     User user, Subscription subscription
   ) {
     var price = subscription.getItems().getData().get(0).getPrice().getId();
+    if (!stripeConfiguration().priceIdExists(price)) {
+      return offerDatabaseTable.findOffersByPriceId(price)
+        .thenApply(offer -> Optional.of(offer.targetId()));
+    }
     if (stripeConfiguration().findPriceIdsOfType(BundleType.PROFESSIONAL).contains(price)) {
       return CompletableFuture.completedFuture(Optional.of(user.id()));
     }

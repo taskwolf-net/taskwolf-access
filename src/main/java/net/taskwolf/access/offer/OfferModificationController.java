@@ -29,17 +29,17 @@ import java.util.concurrent.CompletableFuture;
 public final class OfferModificationController extends OfferController {
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeClient stripeClient;
-  private final OrganizationDatabaseTable organizationDatabaseTable;
 
   private OfferModificationController(
     @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable,
     OfferDatabaseTable offerDatabaseTable, StripeDatabaseTable stripeDatabaseTable,
-    StripeClient stripeClient, OrganizationDatabaseTable organizationDatabaseTable
+    StripeClient stripeClient
   ) {
-    super(secretKey, userDatabaseTable, offerDatabaseTable);
+    super(secretKey, userDatabaseTable, organizationDatabaseTable,
+      offerDatabaseTable);
     this.stripeDatabaseTable = stripeDatabaseTable;
     this.stripeClient = stripeClient;
-    this.organizationDatabaseTable = organizationDatabaseTable;
   }
 
   @RequestMapping(path = "/offer/accept/", method = RequestMethod.POST)
@@ -87,9 +87,9 @@ public final class OfferModificationController extends OfferController {
     if (bundleType.isProfessional()) {
       return findAccountIfExists(user.id());
     }
-    return organizationDatabaseTable.organizationExistsByOwner(user.id())
+    return organizationDatabaseTable().organizationExistsByOwner(user.id())
       .thenCompose(exists -> exists ?
-        organizationDatabaseTable.findOrganizationByOwner(user.id())
+        organizationDatabaseTable().findOrganizationByOwner(user.id())
           .thenCompose(organization -> findAccountIfExists(organization.id())) :
         CompletableFuture.completedFuture(""));
   }

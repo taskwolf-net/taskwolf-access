@@ -3,10 +3,10 @@ package net.taskwolf.access.offer;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import net.taskwolf.core.access.TaskwolfHomeRestController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.offer.Offer;
 import net.taskwolf.core.offer.OfferDatabaseTable;
+import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,9 +23,11 @@ import java.util.concurrent.CompletableFuture;
 public final class OfferInformationController extends OfferController {
   private OfferInformationController(
     @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable,
     OfferDatabaseTable offerDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable, offerDatabaseTable);
+    super(secretKey, userDatabaseTable, organizationDatabaseTable,
+      offerDatabaseTable);
   }
 
   @RequestMapping(path = "/offer/find/", method = RequestMethod.POST)

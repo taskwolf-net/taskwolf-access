@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class QuestionController {
@@ -26,21 +28,28 @@ public final class QuestionController {
   }
 
   @RequestMapping(path = "/question/create/", method = RequestMethod.POST)
-  public void createQuestion(
+  public CompletableFuture<Map<String, Object>> createQuestion(
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    questionMessageDatabaseTable.generateAvailableMessageId()
-      .thenAccept(messageId -> createQuestion(messageId, body.getString("email"),
+    return questionMessageDatabaseTable.generateAvailableMessageId()
+      .thenApply(messageId -> createQuestion(messageId, body.getString("email"),
         body.getString("title"), body.getString("question")));
   }
 
-  private void createQuestion(
+  private Map<String, Object> createQuestion(
     UUID messageId, String email, String title, String question
   ) {
+    if (email.isEmpty() || title.isEmpty() || question.isEmpty()) {
+      return Map.of("success", false);
+    }
+    if (!email.contains("@")) {
+      return Map.of("success", false);
+    }
     questionDatabaseTable.insertQuestion(messageId, email, title, -1,
       Lists.newArrayList());
     questionMessageDatabaseTable.insertQuestionMessage(messageId, email, question,
       System.currentTimeMillis());
+    return Map.of("success", true);
   }
 }

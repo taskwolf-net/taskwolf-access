@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class SaleController {
@@ -28,12 +30,12 @@ public final class SaleController {
   }
 
   @RequestMapping(path = "/sale/create/", method = RequestMethod.POST)
-  public void createSale(
+  public CompletableFuture<Map<String, Object>> createSale(
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    saleMessageDatabaseTable.generateAvailableMessageId()
-      .thenAccept(messageId -> createSale(messageId, body.getString("email"),
+    return saleMessageDatabaseTable.generateAvailableMessageId()
+      .thenApply(messageId -> createSale(messageId, body.getString("email"),
         body.getString("firstName"), body.getString("lastName"),
         body.getString("phoneNumber"), body.getString("country"),
         body.getString("companyName"), body.getString("companySize"),
@@ -41,15 +43,24 @@ public final class SaleController {
         body.getString("message")));
 }
 
-  private void createSale(
+  private Map<String, Object> createSale(
     UUID messageId, String email, String firstName, String lastName,
     String phoneNumber, String country, String companyName, String companySize,
     String companyRole, String title, String message
   ) {
+    if (email.isEmpty() || firstName.isEmpty() || lastName.isEmpty() ||
+      title.isEmpty() || message.isEmpty()
+    ) {
+      return Map.of("success", false);
+    }
+    if (!email.contains("@")) {
+      return Map.of("success", false);
+    }
     saleDatabaseTable.insertSale(messageId, email, firstName, lastName,
       phoneNumber, country, companyName, companySize, companyRole, title, -1,
       Lists.newArrayList());
     saleMessageDatabaseTable.insertSaleMessage(messageId, email, message,
       System.currentTimeMillis());
+    return Map.of("success", true);
   }
 }

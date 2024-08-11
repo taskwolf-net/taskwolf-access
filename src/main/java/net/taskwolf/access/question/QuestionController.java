@@ -30,18 +30,16 @@ public final class QuestionController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    questionDatabaseTable.generateAvailableQuestionId().thenAccept(questionId ->
-      questionMessageDatabaseTable.generateAvailableMessageId()
-        .thenAccept(messageId -> createQuestion(questionId,
-          messageId, body.getString("email"), body.getString("title"),
-          body.getString("question"))));
+    questionMessageDatabaseTable.generateAvailableMessageId()
+      .thenAccept(messageId -> createQuestion(messageId, body.getString("email"),
+        body.getString("title"), body.getString("question")));
   }
 
   private void createQuestion(
-    UUID questionId, UUID messageId, String email, String title, String question
+    UUID messageId, String email, String title, String question
   ) {
-    questionDatabaseTable.insertQuestion(questionId, email, title, -1,
-      Lists.newArrayList(messageId));
+    questionDatabaseTable.insertQuestion(messageId, email, title, -1,
+      Lists.newArrayList());
     questionMessageDatabaseTable.insertQuestionMessage(messageId, email, question,
       System.currentTimeMillis());
   }

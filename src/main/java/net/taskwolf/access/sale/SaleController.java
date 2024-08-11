@@ -38,7 +38,7 @@ public final class SaleController {
         body.getString("phoneNumber"), body.getString("country"),
         body.getString("companyName"), body.getString("companySize"),
         body.getString("companyRole"), body.getString("title"),
-        body.getString("question")));
+        body.getString("message")));
 }
 
   private void createSale(

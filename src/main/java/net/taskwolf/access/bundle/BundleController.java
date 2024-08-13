@@ -238,7 +238,7 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> findOrganizationUsage(
     UUID targetId, Bundle bundle
   ) {
-    if (bundle.bundleType().isTrial() || bundle.bundleType().isProfessional()) {
+    if (bundle.bundleType().isTrial() || bundle.bundleType().isIndividual()) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
     return organizationDatabaseTable.findOrganization(targetId).thenCompose(

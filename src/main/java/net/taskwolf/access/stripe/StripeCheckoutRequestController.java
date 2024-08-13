@@ -89,7 +89,7 @@ public final class StripeCheckoutRequestController extends TaskwolfHomeRestContr
   private CompletableFuture<String> findExistingAccount(
     User user, BundleType bundleType
   ) {
-    if (bundleType.isProfessional()) {
+    if (bundleType.isIndividual()) {
       return findAccountIfExists(user.id());
     }
     return organizationDatabaseTable.organizationExistsByOwner(user.id())
@@ -138,7 +138,7 @@ public final class StripeCheckoutRequestController extends TaskwolfHomeRestContr
   private CompletableFuture<Boolean> checkBundleUsability(
     User user, BundleType bundleType, BundleClass bundleClass
   ) {
-    if (bundleType.isProfessional()) {
+    if (bundleType.isIndividual()) {
       return checkPersonalBundleUsability(user, bundleClass);
     }
     if (bundleType.isTeam()) {

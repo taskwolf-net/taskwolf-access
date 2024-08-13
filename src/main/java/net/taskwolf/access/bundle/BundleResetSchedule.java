@@ -60,7 +60,7 @@ public final class BundleResetSchedule {
   }
 
   private void resetBundle(Bundle bundle) {
-    if (bundle.bundleType().isTrial() || bundle.bundleType().isProfessional()) {
+    if (bundle.bundleType().isTrial() || bundle.bundleType().isIndividual()) {
       accountSettingController.deleteAccountServices(bundle.ownerId());
       return;
     }

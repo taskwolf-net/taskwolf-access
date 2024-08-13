@@ -152,7 +152,7 @@ public final class StripePaymentResponseController extends StripeController {
       return offerDatabaseTable.findOffersByPriceId(price)
         .thenApply(offer -> Optional.of(offer.targetId()));
     }
-    if (stripeConfiguration().findPriceIdsOfType(BundleType.PROFESSIONAL).contains(price)) {
+    if (stripeConfiguration().findPriceIdsOfType(BundleType.INDIVIDUAL).contains(price)) {
       return CompletableFuture.completedFuture(Optional.of(user.id()));
     }
     return organizationDatabaseTable().organizationExistsByOwner(user.id())

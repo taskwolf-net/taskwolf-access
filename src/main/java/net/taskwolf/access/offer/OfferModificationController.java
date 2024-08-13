@@ -84,7 +84,7 @@ public final class OfferModificationController extends OfferController {
   private CompletableFuture<String> findExistingAccount(
     User user, BundleType bundleType
   ) {
-    if (bundleType.isProfessional()) {
+    if (bundleType.isIndividual()) {
       return findAccountIfExists(user.id());
     }
     return organizationDatabaseTable().organizationExistsByOwner(user.id())

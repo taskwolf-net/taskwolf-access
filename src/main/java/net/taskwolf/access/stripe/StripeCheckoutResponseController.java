@@ -307,7 +307,7 @@ public final class StripeCheckoutResponseController extends StripeController {
   private CompletableFuture<UUID> findBundleTarget(
     User user, BundleType bundleType
   ) {
-    if (bundleType == BundleType.PROFESSIONAL) {
+    if (bundleType == BundleType.INDIVIDUAL) {
       return CompletableFuture.completedFuture(user.id());
     }
     return organizationDatabaseTable().organizationExistsByOwner(user.id())

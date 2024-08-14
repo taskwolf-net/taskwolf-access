@@ -16,10 +16,7 @@ import net.taskwolf.core.workflow.component.ComponentInformation;
 import net.taskwolf.core.workflow.component.ComponentVariable;
 import net.taskwolf.core.workflow.component.input.InputComponentDataType;
 import net.taskwolf.core.workflow.component.input.InputComponentVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
 import java.util.List;
@@ -50,25 +47,43 @@ public final class ComponentController extends TaskwolfRestController {
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var registeredModule = moduleLoader.findRegisteredModuleById(body.getString("module"));
+    var registeredModule = moduleLoader.findRegisteredModuleById(
+      body.getString("module"));
     if (registeredModule.isEmpty()) {
-      return CompletableFuture.completedFuture(Map.of("components", Lists.newArrayList()));
+      return CompletableFuture.completedFuture(Map.of("components",
+        Lists.newArrayList()));
     }
     return findUser(request).thenApply(user ->
       body.getString("componentType").equalsIgnoreCase("trigger") ?
-        findTriggerComponents(user, registeredModule.get().module()) :
-        findActionComponents(user, registeredModule.get().module()));
+        findTriggerComponents(user.language(), registeredModule.get().module()) :
+        findActionComponents(user.language(), registeredModule.get().module()));
   }
 
-  private Map<String, Object> findTriggerComponents(User user, Module module) {
+  @RequestMapping(path = "/components/find/unauthorized/{language}/",
+    method = RequestMethod.POST)
+  public Map<String, Object> findComponentsUnauthorized(
+    @RequestBody String payload, HttpServletResponse response,
+    @PathVariable("language") String language
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var registeredModule = moduleLoader.findRegisteredModuleById(
+      body.getString("module"));
+      return registeredModule
+        .map(module -> body.getString("componentType").equalsIgnoreCase("trigger") ?
+          findTriggerComponents(language, module.module()) :
+          findActionComponents(language, module.module()))
+        .orElseGet(() -> Map.of("components", Lists.newArrayList()));
+  }
+
+  private Map<String, Object> findTriggerComponents(String language, Module module) {
     return Map.of("components", module.triggerRepository().allTriggers()
-      .stream().map(trigger -> superficialComponentInformation(user,
+      .stream().map(trigger -> superficialComponentInformation(language,
         trigger.type(), trigger.information())).toList());
   }
 
-  private Map<String, Object> findActionComponents(User user, Module module) {
+  private Map<String, Object> findActionComponents(String language, Module module) {
     return Map.of("components", module.actionRepository().allActions()
-      .stream().map(action -> superficialComponentInformation(user,
+      .stream().map(action -> superficialComponentInformation(language,
         action.type(), action.information())).toList());
   }
 
@@ -82,62 +97,62 @@ public final class ComponentController extends TaskwolfRestController {
     var type = body.getString("type");
     return findUser(request).thenApply(user ->
       body.getString("componentType").equalsIgnoreCase("trigger") ?
-        findTriggerComponent(user, module, type) :
-        findActionComponent(user, module, type));
+        findTriggerComponent(user.language(), module, type) :
+        findActionComponent(user.language(), module, type));
   }
 
   private Map<String, Object> findTriggerComponent(
-    User user, String module, String type
+    String language, String module, String type
   ) {
     return coreModule.findTrigger(module, type).map(trigger ->
-        detailedComponentInformation(user, trigger.type(), trigger.information()))
+        detailedComponentInformation(language, trigger.type(), trigger.information()))
       .orElseGet(Maps::newHashMap);
   }
 
   private Map<String, Object> findActionComponent(
-    User user, String module, String type
+    String language, String module, String type
   ) {
     return coreModule.findAction(module, type).map(action ->
-        detailedComponentInformation(user, action.type(), action.information()))
+        detailedComponentInformation(language, action.type(), action.information()))
       .orElseGet(Maps::newHashMap);
   }
 
   private Map<String, Object> superficialComponentInformation(
-    User user, String identifier, ComponentInformation component
+    String language, String identifier, ComponentInformation component
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("identifier", identifier);
-    information.put("name", coreModule.translate(user, component.name()));
-    information.put("description", coreModule.translate(user,
+    information.put("name", coreModule.translate(language, component.name()));
+    information.put("description", coreModule.translate(language,
       component.description()));
     information.put("novelty", component.novelty());
     return information;
   }
 
   private Map<String, Object> detailedComponentInformation(
-    User user, String identifier, ComponentInformation component
+    String language, String identifier, ComponentInformation component
   ) {
-    var information = superficialComponentInformation(user, identifier, component);
+    var information = superficialComponentInformation(language, identifier, component);
     information.put("inputVariables",
-      componentVariablesInformation(user, component.inputVariables()));
+      componentVariablesInformation(language, component.inputVariables()));
     information.put("outputVariables",
-      componentVariablesInformation(user, component.outputVariables()));
+      componentVariablesInformation(language, component.outputVariables()));
     return information;
   }
 
   private <T extends ComponentVariable> List<Map<String, Object>> componentVariablesInformation(
-    User user, List<T> variables
+    String language, List<T> variables
   ) {
     var variablesInformation = Lists.<Map<String, Object>>newArrayList();
     for (var variable : variables) {
       var variableInformation = Maps.<String, Object>newHashMap();
       variableInformation.put("identifier", variable.identifier());
-      variableInformation.put("name", coreModule.translate(user,
+      variableInformation.put("name", coreModule.translate(language,
         variable.displayName()));
       if (variable instanceof InputComponentVariable inputVariable) {
-        variableInformation.put("description", coreModule.translate(user,
+        variableInformation.put("description", coreModule.translate(language,
           inputVariable.description()));
-        variableInformation.put("placeholder", coreModule.translate(user,
+        variableInformation.put("placeholder", coreModule.translate(language,
           inputVariable.placeholder()));
         variableInformation.put("type", inputVariable.type());
         variableInformation.put("dataType", inputVariable.dataType());

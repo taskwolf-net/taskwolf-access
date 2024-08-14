@@ -14,10 +14,7 @@ import net.taskwolf.core.template.TemplateDatabaseTable;
 import net.taskwolf.core.trigger.TriggerInformation;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
 import java.util.Map;
@@ -45,12 +42,12 @@ public final class TemplateController extends TaskwolfRestController {
     return findUser(request).thenCompose(user -> findAllTemplates(user.language()));
   }
 
-  @RequestMapping(path = "/team/templates/all/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> findAllTemplates(
-    @RequestBody String payload, HttpServletResponse response
+  @RequestMapping(path = "/templates/all/unauthorized/{language}/",
+    method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findAllTemplatesUnauthorized(
+    @PathVariable("language") String language
   ) {
-    var body = TaskwolfRequestBody.of(payload, response);
-    return findAllTemplates(body.getString("language"));
+    return findAllTemplates(language);
   }
 
   private CompletableFuture<Map<String, Object>> findAllTemplates(String language) {
@@ -72,16 +69,16 @@ public final class TemplateController extends TaskwolfRestController {
           .map(template -> assemblyTemplateInformation(template, user)).toList())));
   }
 
-  @RequestMapping(path = "/team/template/find/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> findTemplate(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
+  @RequestMapping(path = "/template/find/unauthorized/{language}/",
+    method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findTemplateUnauthorized(
+    @RequestBody String payload, HttpServletResponse response,
+    @PathVariable("language") String language
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var templateId = body.getUUID("template");
     return templateDatabaseTable.templateExists(templateId)
-      .thenCompose(exists -> findTemplate(templateId,
-        body.getString("language"), exists));
+      .thenCompose(exists -> findTemplate(templateId, language, exists));
   }
 
   private CompletableFuture<Map<String, Object>> findTemplate(

@@ -68,8 +68,9 @@ public final class TemplateController extends TaskwolfRestController {
     User user, Template template
   ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("name", coreModule.translate(user, template.name()));
-    information.put("description", coreModule.translate(user, template.description()));
+    information.put("name", template.translateName(user.language()));
+    information.put("description", template.translateDescription(user.language()));
+    information.put("accessType", template.accessType());
     information.put("modules", template.modules());
     var triggerInformation = Maps.<String, Object>newHashMap();
     var triggerModule = template.trigger().module();

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -41,35 +42,71 @@ public final class TemplateController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> findAllTemplates(
     HttpServletRequest request
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user ->
-      templateDatabaseTable.findAllTemplates().thenAccept(templates ->
-        futureResponse.complete(Map.of("templates", templates.stream().map(template ->
-          assemblyTemplateInformation(user, template)).toList()))));
-    return futureResponse;
+    return findUser(request).thenCompose(user -> findAllTemplates(user.language()));
+  }
+
+  @RequestMapping(path = "/team/templates/all/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findAllTemplates(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    return findAllTemplates(body.getString("language"));
+  }
+
+  private CompletableFuture<Map<String, Object>> findAllTemplates(String language) {
+    return templateDatabaseTable.findAllTemplates()
+      .thenApply(templates -> Map.of("templates", templates.stream()
+        .map(template -> assemblyTemplateInformation(template, language)).toList()));
   }
 
   @RequestMapping(path = "/templates/find/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> findTemplate(
+  public CompletableFuture<Map<String, Object>> findModuleTemplates(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var module = body.getString("module");
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user ->
-      templateDatabaseTable.findTemplatesByModule(module).thenAccept(templates ->
-        futureResponse.complete(Map.of("templates", templates.stream().map(
-          template -> assemblyTemplateInformation(user, template)).toList()))));
-    return futureResponse;
+    return findUser(request)
+      .thenCompose(user -> templateDatabaseTable.findTemplatesByModule(module)
+        .thenApply(templates -> Map.of("templates", templates.stream()
+          .map(template -> assemblyTemplateInformation(template, user)).toList())));
+  }
+
+  @RequestMapping(path = "/team/template/find/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findTemplate(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var templateId = body.getUUID("template");
+    return templateDatabaseTable.templateExists(templateId)
+      .thenCompose(exists -> findTemplate(templateId,
+        body.getString("language"), exists));
+  }
+
+  private CompletableFuture<Map<String, Object>> findTemplate(
+    UUID templateId, String language, boolean templateExists
+  ) {
+    if (!templateExists) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return templateDatabaseTable.findTemplate(templateId)
+      .thenApply(template -> assemblyTemplateInformation(template, language));
   }
 
   private Map<String, Object> assemblyTemplateInformation(
-    User user, Template template
+    Template template, User user
+  ) {
+    return assemblyTemplateInformation(template, user.language());
+  }
+
+  private Map<String, Object> assemblyTemplateInformation(
+    Template template, String language
   ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("name", template.translateName(user.language()));
-    information.put("description", template.translateDescription(user.language()));
+    information.put("id", template.id());
+    information.put("name", template.translateName(language));
+    information.put("description", template.translateDescription(language));
     information.put("accessType", template.accessType());
     information.put("modules", template.modules());
     var triggerInformation = Maps.<String, Object>newHashMap();
@@ -79,7 +116,7 @@ public final class TemplateController extends TaskwolfRestController {
       .map(ModuleInformation::logo).orElse(""));
     var triggerType = template.trigger().type();
     triggerInformation.put("type", triggerType);
-    triggerInformation.put("typeDescription", coreModule.translate(user,
+    triggerInformation.put("typeDescription", coreModule.translate(language,
       coreModule.findTriggerInformation(triggerModule, triggerType)
         .map(TriggerInformation::description).orElse("")));
     information.put("trigger", triggerInformation);
@@ -93,7 +130,7 @@ public final class TemplateController extends TaskwolfRestController {
         .map(ModuleInformation::logo).orElse(""));
       var actionType = action.type();
       actionInformation.put("type", action.type());
-      actionInformation.put("typeDescription", coreModule.translate(user,
+      actionInformation.put("typeDescription", coreModule.translate(language,
         coreModule.findActionInformation(actionModule, actionType)
           .map(ActionInformation::description).orElse("")));
       actionsInformation.add(actionInformation);

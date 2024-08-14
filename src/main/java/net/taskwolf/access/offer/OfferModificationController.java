@@ -1,6 +1,7 @@
 package net.taskwolf.access.offer;
 
 import com.stripe.StripeClient;
+import com.stripe.param.PriceUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -109,7 +110,16 @@ public final class OfferModificationController extends OfferController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     performOfferOperation(findUserId(request), body.getUUID("offer"),
-      offer -> offerDatabaseTable().updateOfferStatus(offer, OfferStatus.DECLINED),
-      () -> {});
+      this::declineOffer, () -> {});
+  }
+
+  private void declineOffer(Offer offer) {
+    offerDatabaseTable().updateOfferStatus(offer, OfferStatus.DECLINED);
+    try {
+      stripeClient.prices().update(offer.priceId(),
+        PriceUpdateParams.builder().setActive(false).build());
+    } catch (Exception exception) {
+      exception.printStackTrace();
+    }
   }
 }

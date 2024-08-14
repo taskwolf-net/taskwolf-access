@@ -17,6 +17,7 @@ import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.operation.Operation;
 import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
+import net.taskwolf.process.structure.ProcessDatabaseTable;
 import net.taskwolf.table.structure.TableDatabaseTable;
 import net.taskwolf.table.structure.TableEntry;
 import net.taskwolf.webhook.structure.WebhookDatabaseTable;
@@ -42,6 +43,7 @@ public final class BundleController extends TaskwolfRestController {
   private final TeamDatabaseTable teamDatabaseTable;
   private final WorkflowDatabaseTable workflowDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
+  private final ProcessDatabaseTable processDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
   private final WebhookDatabaseTable webhookDatabaseTable;
 
@@ -54,6 +56,7 @@ public final class BundleController extends TaskwolfRestController {
     TeamDatabaseTable teamDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
     OperationDatabaseTable operationDatabaseTable,
+    ProcessDatabaseTable processDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
     WebhookDatabaseTable webhookDatabaseTable
   ) {
@@ -65,6 +68,7 @@ public final class BundleController extends TaskwolfRestController {
     this.teamDatabaseTable = teamDatabaseTable;
     this.workflowDatabaseTable = workflowDatabaseTable;
     this.operationDatabaseTable = operationDatabaseTable;
+    this.processDatabaseTable = processDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
     this.webhookDatabaseTable = webhookDatabaseTable;
   }
@@ -104,12 +108,17 @@ public final class BundleController extends TaskwolfRestController {
         preset.monthlyPrice() : preset.yearlyPrice()) : "NEGOTIABLE");
     }
     information.put("workflowAccess", preset.workflowAccess());
-    information.put("workflowNumberLimit", preset.workflowNumberLimit());
+    information.put("workflowNumberLimit", preset.hasWorkflowNumberLimit() ?
+      preset.workflowNumberLimit() : "NEGOTIABLE");
     information.put("workflowOperationLimit", preset.hasWorkflowOperationLimit() ?
       preset.workflowOperationLimit() : "NEGOTIABLE");
     information.put("workflowTemplateAccess", preset.workflowTemplateAccess());
+    information.put("processAccess", preset.processAccess());
+    information.put("processNumberLimit", preset.hasProcessNumberLimit() ?
+      preset.processNumberLimit() : "NEGOTIABLE");
     information.put("databaseAccess", preset.databaseAccess());
-    information.put("databaseNumberLimit", preset.databaseNumberLimit());
+    information.put("databaseNumberLimit", preset.hasDatabaseNumberLimit() ?
+      preset.databaseNumberLimit() : "NEGOTIABLE");
     information.put("databaseDataLimit", preset.hasDatabaseDataLimit() ?
       new DecimalFormat("#.#").format(preset.databaseDataLimit()) : "NEGOTIABLE");
     information.put("webhookAccess", preset.webhookAccess());
@@ -156,6 +165,8 @@ public final class BundleController extends TaskwolfRestController {
     information.put("workflowNumberLimit", bundle.workflowNumberLimit());
     information.put("workflowOperationLimit", bundle.workflowOperationLimit());
     information.put("workflowTemplateAccess", bundle.workflowTemplateAccess());
+    information.put("processAccess", bundle.processAccess());
+    information.put("processNumberLimit", bundle.processNumberLimit());
     information.put("databaseAccess", bundle.databaseAccess());
     information.put("databaseNumberLimit", bundle.databaseNumberLimit());
     information.put("databaseDataLimit", new DecimalFormat("#.#").format(
@@ -190,13 +201,24 @@ public final class BundleController extends TaskwolfRestController {
     return findOwnersOfTarget(user, targetId)
       .thenCompose(owners -> bundleDatabaseTable.findBundle(targetId)
         .thenCompose(bundle -> findWorkflowUsage(targetId, owners)
-          .thenCompose(workflowUsage -> findDatabaseUsage(owners)
-            .thenCompose(databaseUsage -> findWebhookUsage(owners)
-              .thenCompose(webhookUsage -> findOrganizationUsage(targetId, bundle)
-                .thenApply(organizationUsage -> Stream.of(workflowUsage.entrySet(),
-                    databaseUsage.entrySet(), webhookUsage.entrySet(),
-                    organizationUsage.entrySet()).flatMap(Set::stream)
-                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))))));
+          .thenCompose(workflowUsage -> findProcessUsage(owners)
+            .thenCompose(processUsage -> findDatabaseUsage(owners)
+              .thenCompose(databaseUsage -> findWebhookUsage(owners)
+                .thenCompose(webhookUsage -> findOrganizationUsage(targetId, bundle)
+                  .thenApply(organizationUsage -> combineBundleUsages(workflowUsage,
+                    processUsage, databaseUsage, webhookUsage, organizationUsage))))))));
+  }
+
+  private Map<String, Object> combineBundleUsages(
+    Map<String, Object> workflowUsage, Map<String, Object> processUsage,
+    Map<String, Object> databaseUsage, Map<String, Object> webhookUsage,
+    Map<String, Object> organizationUsage
+  ) {
+    return Stream.of(workflowUsage.entrySet(), processUsage.entrySet(),
+        databaseUsage.entrySet(), webhookUsage.entrySet(),
+        organizationUsage.entrySet())
+      .flatMap(Set::stream)
+      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private CompletableFuture<Map<String, Object>> findWorkflowUsage(
@@ -207,6 +229,13 @@ public final class BundleController extends TaskwolfRestController {
         sumFeatureUsage(ownerIds, workflowDatabaseTable::findWorkflowsOfOwner)
           .thenApply(workflows -> Map.of("workflowNumberUsage", workflows,
             "workflowOperationUsage", operations)));
+  }
+
+  private CompletableFuture<Map<String, Object>> findProcessUsage(
+    List<UUID> ownerIds
+  ) {
+    return sumFeatureUsage(ownerIds, processDatabaseTable::findProcessesOfOwner)
+      .thenApply(processes -> Map.of("processNumberUsage", processes));
   }
 
   private CompletableFuture<Map<String, Object>> findDatabaseUsage(

@@ -55,6 +55,8 @@ public final class OfferInformationController extends OfferController {
     information.put("workflowNumberLimit", offer.workflowNumberLimit());
     information.put("workflowOperationLimit", offer.workflowOperationLimit());
     information.put("workflowTemplateAccess", offer.workflowTemplateAccess());
+    information.put("processAccess", offer.processAccess());
+    information.put("processNumberLimit", offer.processNumberLimit());
     information.put("databaseAccess", offer.databaseAccess());
     information.put("databaseNumberLimit", offer.databaseNumberLimit());
     information.put("databaseDataLimit", new DecimalFormat("#.#").format(

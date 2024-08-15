@@ -88,7 +88,16 @@ public final class TemplateController extends TaskwolfRestController {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
     return templateDatabaseTable.findTemplate(templateId)
-      .thenApply(template -> assemblyTemplateInformation(template, language));
+      .thenApply(template -> assemblyAllTemplateContent(template,
+        assemblyTemplateInformation(template, language)));
+  }
+
+  private Map<String, Object> assemblyAllTemplateContent(
+    Template template, Map<String, Object> information
+  ) {
+    information.put("untranslatedNames", template.name());
+    information.put("untranslatedDescriptions", template.description());
+    return information;
   }
 
   private Map<String, Object> assemblyTemplateInformation(

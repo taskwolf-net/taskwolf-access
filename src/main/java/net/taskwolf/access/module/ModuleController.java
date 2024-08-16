@@ -105,7 +105,7 @@ public final class ModuleController extends TaskwolfRestController {
   }
 
   @RequestMapping(path = "/modules/all/unauthorized/{language}/",
-    method = RequestMethod.POST)
+    method = RequestMethod.GET)
   public Map<String, Object> findAllModulesUnauthorized(
     @PathVariable("language") String language
   ) {

@@ -21,7 +21,6 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
-import net.taskwolf.core.workflow.WorkflowExecutionDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -39,7 +38,6 @@ public final class WorkflowDuplicationController extends WorkflowController {
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
-  private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
 
   private WorkflowDuplicationController(
     Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
@@ -48,8 +46,7 @@ public final class WorkflowDuplicationController extends WorkflowController {
     ConditionDatabaseTable conditionDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable,
-    WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
@@ -58,7 +55,6 @@ public final class WorkflowDuplicationController extends WorkflowController {
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
-    this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
   }
 
   @RequestMapping(path = "/workflow/duplicate/", method = RequestMethod.POST)
@@ -103,8 +99,6 @@ public final class WorkflowDuplicationController extends WorkflowController {
       System.currentTimeMillis(), workflow.name() +
         " (" + coreModule.translate(user, "workflow.duplicated") + ")",
       workflow.description(), workflow.state()));
-    workflowExecutionDatabaseTable.insertWorkflowExecution(duplicateWorkflowId,
-      Lists.newArrayList());
     duplicateWorkflowTrigger(workflow, duplicateWorkflowId, duplicateTriggerId);
     duplicateWorkflowActions(workflow, duplicateWorkflowId, duplicateActionIds);
     duplicateWorkflowConditions(workflow, duplicateWorkflowId, duplicateConditionIds);

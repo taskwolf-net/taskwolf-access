@@ -7,6 +7,7 @@ import net.taskwolf.core.trial.TrialDatabaseTable;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
+import net.taskwolf.core.workflow.throttle.WorkflowThrottleDatabaseTable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -22,18 +23,21 @@ public final class TrialController extends TaskwolfHomeRestController {
   private final BundleDatabaseTable bundleDatabaseTable;
   private final BundlePresetRepository bundlePresetRepository;
   private final OperationDatabaseTable operationDatabaseTable;
+  private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
 
   private TrialController(
     @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     TrialDatabaseTable trialDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     BundlePresetRepository bundlePresetRepository,
-    OperationDatabaseTable operationDatabaseTable
+    OperationDatabaseTable operationDatabaseTable,
+    WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.trialDatabaseTable = trialDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.bundlePresetRepository = bundlePresetRepository;
     this.operationDatabaseTable = operationDatabaseTable;
+    this.workflowThrottleDatabaseTable = workflowThrottleDatabaseTable;
   }
 
   @RequestMapping(path = "/trial/use/", method = RequestMethod.GET)
@@ -60,6 +64,7 @@ public final class TrialController extends TaskwolfHomeRestController {
       bundlePresetRepository.findPreset(BundleType.TRIAL).get(),
       BundleRuntime.WEEKLY));
     operationDatabaseTable.insertOperations(user.id());
+    workflowThrottleDatabaseTable.insertThrottle(user.id());
     return Map.of("success", true);
   }
 }

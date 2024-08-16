@@ -9,8 +9,8 @@ import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
-import net.taskwolf.core.workflow.WorkflowExecutionDatabaseTable;
 import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
+import net.taskwolf.core.workflow.throttle.WorkflowThrottleDatabaseTable;
 import net.taskwolf.core.workflow.timeline.TimelineDatabaseTable;
 import net.taskwolf.core.workflow.timeline.TimelineFactory;
 import org.springframework.context.ApplicationContextInitializer;
@@ -20,8 +20,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({@Inject}))
 public class WorkflowContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
   private final WorkflowDatabaseTable workflowDatabaseTable;
-  private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
+  private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
@@ -33,8 +33,9 @@ public class WorkflowContextInitializer implements ApplicationContextInitializer
   public void initialize(ConfigurableApplicationContext applicationContext) {
     var beanFactory = applicationContext.getBeanFactory();
     beanFactory.registerSingleton("workflowDatabaseTable", workflowDatabaseTable);
-    beanFactory.registerSingleton("workflowExecutionDatabaseTable", workflowExecutionDatabaseTable);
     beanFactory.registerSingleton("operationDatabaseTable", operationDatabaseTable);
+    beanFactory.registerSingleton("workflowThrottleDatabaseTable",
+      workflowThrottleDatabaseTable);
     beanFactory.registerSingleton("triggerDatabaseTable", triggerDatabaseTable);
     beanFactory.registerSingleton("actionDatabaseTable", actionDatabaseTable);
     beanFactory.registerSingleton("conditionDatabaseTable", conditionDatabaseTable);

@@ -27,6 +27,7 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.worker.WorkerDistribution;
 import net.taskwolf.core.workflow.operation.OperationDatabaseTable;
+import net.taskwolf.core.workflow.throttle.WorkflowThrottleDatabaseTable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -49,6 +50,7 @@ public final class StripeCheckoutResponseController extends StripeController {
   private final TaskwolfMail orderMail;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
+  private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
   private final OfferDatabaseTable offerDatabaseTable;
   private final WorkerDistribution distribution;
   private final CoreModule coreModule;
@@ -63,6 +65,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     @Qualifier("orderMail") TaskwolfMail orderMail,
     BundleDatabaseTable bundleDatabaseTable,
     OperationDatabaseTable operationDatabaseTable,
+    WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
     OfferDatabaseTable offerDatabaseTable, WorkerDistribution distribution,
     CoreModule coreModule
   ) {
@@ -73,6 +76,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     this.orderMail = orderMail;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.operationDatabaseTable = operationDatabaseTable;
+    this.workflowThrottleDatabaseTable = workflowThrottleDatabaseTable;
     this.offerDatabaseTable = offerDatabaseTable;
     this.distribution = distribution;
     this.coreModule = coreModule;
@@ -250,6 +254,7 @@ public final class StripeCheckoutResponseController extends StripeController {
 
   private void applyBundle(UUID target, Bundle bundle, boolean bundleExists) {
     operationDatabaseTable.insertOperations(target);
+    workflowThrottleDatabaseTable.insertThrottle(target);
     if (bundleExists) {
       bundleDatabaseTable.updateBundle(bundle);
       return;

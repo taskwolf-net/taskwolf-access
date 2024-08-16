@@ -39,7 +39,6 @@ public final class WorkflowModificationController extends WorkflowController {
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
-  private final WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable;
   private final TimelineDatabaseTable timelineDatabaseTable;
 
   private WorkflowModificationController(
@@ -50,7 +49,6 @@ public final class WorkflowModificationController extends WorkflowController {
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable,
-    WorkflowExecutionDatabaseTable workflowExecutionDatabaseTable,
     TimelineDatabaseTable timelineDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
@@ -60,7 +58,6 @@ public final class WorkflowModificationController extends WorkflowController {
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
-    this.workflowExecutionDatabaseTable = workflowExecutionDatabaseTable;
     this.timelineDatabaseTable = timelineDatabaseTable;
   }
 
@@ -96,8 +93,7 @@ public final class WorkflowModificationController extends WorkflowController {
         createWorkflow(user, owner, body.getObject("trigger"),
           body.getObjectList("actions"), body.getObjectList("conditions"),
           created, body.getString("name"), body.getString("description"),
-          Lists.newArrayList(), Lists.newArrayList(workflowCreateEntry),
-          WorkflowState.OPERATIONAL)));
+          Lists.newArrayList(workflowCreateEntry), WorkflowState.OPERATIONAL)));
   }
 
   private CompletableFuture<UUID> findWorkflowOwner(User user, UUID target) {
@@ -128,22 +124,20 @@ public final class WorkflowModificationController extends WorkflowController {
     var body = TaskwolfRequestBody.of(payload, response);
     var workflowId = body.getUUID("workflow");
     findUser(request).thenAccept(user -> workflowDatabaseTable().findWorkflow(workflowId)
-      .thenAccept(workflow -> workflowExecutionDatabaseTable.findWorkflowExecutions(workflowId)
-        .thenAccept(executions -> timelineDatabaseTable.findEntriesByWorkflow(workflowId)
-          .thenAccept(timelineEntries -> checkWorkflowAuthorization(user, workflow)
-            .thenAccept(authorized -> updateWorkflow(user, workflow, authorized,
-              body.getObject("trigger"), body.getObjectList("actions"),
-              body.getObjectList("conditions"), body.getString("name"),
-              body.getString("description"), executions, timelineEntries,
-              workflow.state()))))));
+      .thenAccept(workflow -> timelineDatabaseTable.findEntriesByWorkflow(workflowId)
+        .thenAccept(timelineEntries -> checkWorkflowAuthorization(user, workflow)
+          .thenAccept(authorized -> updateWorkflow(user, workflow, authorized,
+            body.getObject("trigger"), body.getObjectList("actions"),
+            body.getObjectList("conditions"), body.getString("name"),
+            body.getString("description"), timelineEntries,
+            workflow.state())))));
   }
 
   private void updateWorkflow(
     User user, WorkflowEntry entry, boolean authorized,
     TaskwolfRequestBody triggerData, List<TaskwolfRequestBody> actionData,
     List<TaskwolfRequestBody> conditionData, String name, String description,
-    List<Long> executions, List<TimelineDatabaseEntry> timelineEntries,
-    WorkflowState state
+    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
     if (!authorized) {
       return;
@@ -152,19 +146,17 @@ public final class WorkflowModificationController extends WorkflowController {
     userDatabaseTable().findUser(entry.creatorId()).thenAccept(creator ->
       workflowDatabaseTable().generateAvailableWorkflowId().thenAccept(workflowId ->
         updateWorkflow(workflowId, user, creator, entry, triggerData, actionData,
-          conditionData, name, description, executions, timelineEntries, state)));
+          conditionData, name, description, timelineEntries, state)));
   }
 
   private void updateWorkflow(
     UUID workflowId, User user, User creator, WorkflowEntry entry,
     TaskwolfRequestBody triggerData, List<TaskwolfRequestBody> actionData,
     List<TaskwolfRequestBody> conditionData, String name, String description,
-    List<Long> executions, List<TimelineDatabaseEntry> timelineEntries,
-    WorkflowState state
+    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
     createWorkflow(workflowId, creator, entry.ownerId(), triggerData, actionData,
-      conditionData, entry.created(), name, description, executions,
-      timelineEntries, state);
+      conditionData, entry.created(), name, description, timelineEntries, state);
     WorkflowAlterationSupervisor.create(timelineDatabaseTable, workflowId,
       entry, name, description, actionData, conditionData).evaluate(user);
   }
@@ -172,28 +164,27 @@ public final class WorkflowModificationController extends WorkflowController {
   private void createWorkflow(
     User creator, UUID ownerId, TaskwolfRequestBody triggerData,
     List<TaskwolfRequestBody> actionData,  List<TaskwolfRequestBody> conditionData,
-    long created, String name, String description, List<Long> executions,
+    long created, String name, String description,
     List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
     workflowDatabaseTable().generateAvailableWorkflowId().thenAccept(workflowId ->
       createWorkflow(workflowId, creator, ownerId, triggerData, actionData,
-        conditionData, created, name, description, executions, timelineEntries,
-        state));
+        conditionData, created, name, description, timelineEntries, state));
   }
 
   private void createWorkflow(
     UUID workflowId, User creator, UUID ownerId,
     TaskwolfRequestBody triggerData, List<TaskwolfRequestBody> actionData,
     List<TaskwolfRequestBody> conditionData, long created, String name,
-    String description, List<Long> executions,
-    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
+    String description, List<TimelineDatabaseEntry> timelineEntries,
+    WorkflowState state
   ) {
     triggerDatabaseTable.generateAvailableTriggerId().thenAccept(triggerId ->
       generateActionIds(actionData.size()).thenAccept(actionIds ->
         generateConditionIds(conditionData.size()).thenAccept(conditionIds ->
           createWorkflow(workflowId, creator.id(), ownerId, triggerId,
             triggerData, actionIds, actionData, conditionIds, conditionData,
-            created, name, description, executions, timelineEntries, state))));
+            created, name, description, timelineEntries, state))));
   }
 
   private void createWorkflow(
@@ -201,8 +192,8 @@ public final class WorkflowModificationController extends WorkflowController {
     TaskwolfRequestBody triggerData, List<UUID> actionIds,
     List<TaskwolfRequestBody> actionData, List<UUID> conditionIds,
     List<TaskwolfRequestBody> conditionData, long created, String name,
-    String description, List<Long> executions,
-    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
+    String description, List<TimelineDatabaseEntry> timelineEntries,
+    WorkflowState state
   ) {
     var modules = Lists.<String>newArrayList();
     createTrigger(triggerId, ownerId, workflowId, triggerData);
@@ -217,7 +208,6 @@ public final class WorkflowModificationController extends WorkflowController {
     workflowDatabaseTable().insertWorkflow(workflowId, creatorId, ownerId,
       triggerId, actionIds, conditionIds, modules, created, name, description,
       state.toString());
-    workflowExecutionDatabaseTable.insertWorkflowExecution(workflowId, executions);
     for (var entry : timelineEntries) {
       timelineDatabaseTable.insertEntry(entry.id(), workflowId, entry.time(),
         entry.type(), entry.content());
@@ -298,7 +288,6 @@ public final class WorkflowModificationController extends WorkflowController {
     for (var condition : workflow.conditionIds()) {
       conditionDatabaseTable.deleteCondition(condition);
     }
-    workflowExecutionDatabaseTable.deleteWorkflowExecutions(workflow.id());
     timelineDatabaseTable.findEntriesByWorkflow(workflow.id()).thenAccept(entries ->
       entries.forEach(timelineDatabaseEntry ->
         timelineDatabaseTable.deleteEntry(timelineDatabaseEntry.id())));

@@ -63,8 +63,14 @@ public final class TrialController extends TaskwolfHomeRestController {
     bundleDatabaseTable.insertBundle(Bundle.of(user.id(),
       bundlePresetRepository.findPreset(BundleType.TRIAL).get(),
       BundleRuntime.WEEKLY));
-    operationDatabaseTable.insertOperations(user.id());
-    workflowThrottleDatabaseTable.insertThrottle(user.id());
+    operationDatabaseTable.operationsExists(user.id())
+      .thenCompose(exists -> !exists ?
+        operationDatabaseTable.insertOperations(user.id()) :
+        operationDatabaseTable.resetExpiration(user.id()));
+    workflowThrottleDatabaseTable.throttleExists(user.id())
+      .thenCompose(exists -> !exists ?
+        workflowThrottleDatabaseTable.insertThrottle(user.id()) :
+        workflowThrottleDatabaseTable.setThrottle(user.id(), 0, 0));
     return Map.of("success", true);
   }
 }

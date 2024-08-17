@@ -253,8 +253,14 @@ public final class StripeCheckoutResponseController extends StripeController {
   }
 
   private void applyBundle(UUID target, Bundle bundle, boolean bundleExists) {
-    operationDatabaseTable.insertOperations(target);
-    workflowThrottleDatabaseTable.insertThrottle(target);
+    operationDatabaseTable.operationsExists(target)
+      .thenCompose(exists -> !exists ?
+        operationDatabaseTable.insertOperations(target) :
+        operationDatabaseTable.resetExpiration(target));
+    workflowThrottleDatabaseTable.throttleExists(target)
+      .thenCompose(exists -> !exists ?
+        workflowThrottleDatabaseTable.insertThrottle(target) :
+        workflowThrottleDatabaseTable.setThrottle(target, 0, 0));
     if (bundleExists) {
       bundleDatabaseTable.updateBundle(bundle);
       return;

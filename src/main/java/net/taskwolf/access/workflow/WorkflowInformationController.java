@@ -86,12 +86,18 @@ public final class WorkflowInformationController extends WorkflowController {
         .thenApply(pages -> Map.of("pages", pages)));
   }
 
-  @RequestMapping(path = "/workflows/page/{page}/", method = RequestMethod.GET)
+  @RequestMapping(path = "/workflows/page/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findWorkflowPage(
-    HttpServletRequest request, @PathVariable(name="page") int page
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var pageState = body.getString("pageState");
+    var currentPage = body.getInt("currentPage");
+    var targetPage = body.getInt("targetPage");
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
-      .thenCompose(target -> workflowDatabaseTable().findWorkflowsOfOwner(target, page)
+      .thenCompose(target -> workflowDatabaseTable()
+        .findWorkflowsOfOwner(target, pageState, currentPage, targetPage)
         .thenCompose(result -> collectWorkflowInformation(user, result))));
   }
 

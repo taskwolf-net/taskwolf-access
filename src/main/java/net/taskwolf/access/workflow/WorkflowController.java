@@ -150,9 +150,9 @@ public class WorkflowController extends TaskwolfRestController {
 
   protected CompletableFuture<Boolean> checkWorkflowNumberLimit(User user, UUID target) {
     return findOwnersOfTarget(user, target)
-      .thenCompose(owners -> AsyncIterator.execute(owners, owner ->
-          workflowDatabaseTable().findWorkflowsOfOwner(owner).thenApply(List::size))
-        .thenApply(sizes -> sizes.stream().mapToInt(Integer::intValue).sum())
+      .thenCompose(owners -> AsyncIterator.execute(owners,
+          owner -> workflowDatabaseTable().findWorkflowCount(owner))
+        .thenApply(sizes -> sizes.stream().mapToLong(Long::longValue).sum())
         .thenCompose(number -> bundleDatabaseTable.findBundle(target)
           .thenApply(bundle ->  bundle.workflowNumberLimit() > 0 &&
             number >= bundle.workflowNumberLimit())));
@@ -166,17 +166,16 @@ public class WorkflowController extends TaskwolfRestController {
           Stream.of(target)).toList());
   }
 
-  protected CompletableFuture<List<WorkflowEntry>> findViewableWorkflows(UUID userId) {
+  protected CompletableFuture<UUID> findWorkflowTarget(UUID userId) {
     return userTargetDatabaseTable.findTargetSecured(userId)
-      .thenCompose(target -> findViewableWorkflows(userId, target));
+      .thenCompose(target -> findWorkflowTarget(userId, target));
   }
 
-  protected CompletableFuture<List<WorkflowEntry>> findViewableWorkflows(
+  private CompletableFuture<UUID> findWorkflowTarget(
     UUID userId, UUID target
   ) {
-    return userId.equals(target) ?
-      workflowDatabaseTable.findWorkflowsOfOwner(target) :
-      teamTargetDatabaseTable.findTargetSecured(userId).thenCompose(team ->
-        workflowDatabaseTable.findWorkflowsOfOwner(team.orElse(target)));
+    return userId.equals(target) ? CompletableFuture.completedFuture(target) :
+      teamTargetDatabaseTable.findTargetSecured(userId)
+        .thenApply(team -> team.orElse(target));
   }
 }

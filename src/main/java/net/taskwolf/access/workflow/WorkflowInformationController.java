@@ -12,6 +12,8 @@ import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.condition.ConditionEntry;
 import net.taskwolf.core.condition.ConditionInformationRepository;
+import net.taskwolf.core.database.DatabaseDirection;
+import net.taskwolf.core.database.DatabasePage;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
@@ -24,10 +26,7 @@ import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowDatabaseTable;
 import net.taskwolf.core.workflow.WorkflowEntry;
 import org.json.JSONObject;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
 import java.text.SimpleDateFormat;
@@ -78,25 +77,50 @@ public final class WorkflowInformationController extends WorkflowController {
     return futureResponse;
   }
 
-  @RequestMapping(path = "/workflows/selected/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> selectedWorkflows(
+  @RequestMapping(path = "/workflows/pages/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findWorkflowPageCount(
     HttpServletRequest request
   ) {
-    return findUser(request).thenCompose(user -> findViewableWorkflows(user.id())
-      .thenCompose(workflows -> collectWorkflowInformation(user, workflows)));
+    return findWorkflowTarget(findUserId(request))
+      .thenCompose(target -> workflowDatabaseTable().findWorkflowPages(target)
+        .thenApply(pages -> Map.of("pages", pages)));
+  }
+
+  @RequestMapping(path = "/workflows/page/{page}/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findWorkflowPage(
+    HttpServletRequest request, @PathVariable(name="page") int page
+  ) {
+    return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
+      .thenCompose(target -> workflowDatabaseTable().findWorkflowsOfOwner(target, page)
+        .thenCompose(result -> collectWorkflowInformation(user, result))));
+  }
+
+  @RequestMapping(path = "/workflows/page/shift/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findPreviousWorkflowPage(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var pageState = body.getString("pageState");
+    var direction = DatabaseDirection.valueOf(body.getString("direction"));
+    return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
+      .thenCompose(target -> workflowDatabaseTable()
+        .findWorkflowsOfOwner(target, pageState, direction))
+      .thenCompose(result -> collectWorkflowInformation(user, result)));
   }
 
   private CompletableFuture<Map<String, Object>> collectWorkflowInformation(
-    User user, List<WorkflowEntry> workflows
+    User user, DatabasePage<WorkflowEntry> page
   ) {
-    if (workflows.isEmpty()) {
+    if (page.content().isEmpty()) {
       return CompletableFuture.completedFuture(Map.of("workflows",
-        Lists.newArrayList()));
+        Lists.newArrayList(), "page", page.pageState()));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(workflows, workflow ->
-        gatherWorkflowInformation(user, workflow)).thenAccept(information ->
-      futureResponse.complete(Map.of("workflows", information)));
+    AsyncIterator.execute(page.content(),
+        workflow -> gatherWorkflowInformation(user, workflow))
+      .thenAccept(information -> futureResponse.complete(Map.of("workflows",
+        information, "page", page.pageState())));
     return futureResponse;
   }
 

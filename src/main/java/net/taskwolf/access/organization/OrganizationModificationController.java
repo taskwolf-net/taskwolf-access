@@ -150,7 +150,7 @@ public final class OrganizationModificationController extends OrganizationContro
     }
     teamDatabaseTable.findTeamsByOrganization(organization.id()).thenAccept(
       teams -> teams.forEach(team -> teamDatabaseTable.deleteTeam(team.id())));
-    workflowDatabaseTable.findWorkflowsOfOwner(organization.id()).thenAccept(
+    workflowDatabaseTable.findAllWorkflowsOfOwner(organization.id()).thenAccept(
       workflows -> workflows.forEach(workflowModificationController::deleteWorkflow));
     processDatabaseTable.findProcessesOfOwner(organization.id()).thenAccept(
       processes -> processes.forEach(processModificationController::deleteProcess));

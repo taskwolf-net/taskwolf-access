@@ -334,7 +334,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   }
 
   public void deleteAccountServices(UUID userId) {
-    workflowDatabaseTable.findWorkflowsOfOwner(userId).thenAccept(workflows ->
+    workflowDatabaseTable.findAllWorkflowsOfOwner(userId).thenAccept(workflows ->
       workflows.forEach(workflowModificationController::deleteWorkflow));
     processDatabaseTable.findProcessesOfOwner(userId).thenAccept(processes ->
       processes.forEach(processModificationController::deleteProcess));

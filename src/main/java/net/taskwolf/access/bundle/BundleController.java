@@ -226,7 +226,7 @@ public final class BundleController extends TaskwolfRestController {
   ) {
     return operationDatabaseTable.findOperations(target)
       .thenApply(Operation::operations).thenCompose(operations ->
-        sumFeatureUsage(ownerIds, workflowDatabaseTable::findWorkflowsOfOwner)
+        sumFeatureUsage(ownerIds, workflowDatabaseTable::findWorkflowCount)
           .thenApply(workflows -> Map.of("workflowNumberUsage", workflows,
             "workflowOperationUsage", operations)));
   }
@@ -234,7 +234,7 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> findProcessUsage(
     List<UUID> ownerIds
   ) {
-    return sumFeatureUsage(ownerIds, processDatabaseTable::findProcessesOfOwner)
+    return sumFeatureUsageList(ownerIds, processDatabaseTable::findProcessesOfOwner)
       .thenApply(processes -> Map.of("processNumberUsage", processes));
   }
 
@@ -260,7 +260,7 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> findWebhookUsage(
     List<UUID> ownerIds
   ) {
-    return sumFeatureUsage(ownerIds, webhookDatabaseTable::findWebhooksByOwner)
+    return sumFeatureUsageList(ownerIds, webhookDatabaseTable::findWebhooksByOwner)
       .thenApply(webhooks -> Map.of("webhookNumberUsage", webhooks));
   }
 
@@ -276,7 +276,14 @@ public final class BundleController extends TaskwolfRestController {
           organization.members().size(), "organizationTeamUsage", teams.size())));
   }
 
-  private <T> CompletableFuture<Long> sumFeatureUsage(
+  private CompletableFuture<Long> sumFeatureUsage(
+    List<UUID> ownerIds, Function<UUID, CompletableFuture<Long>> transformation
+  ) {
+    return AsyncIterator.execute(ownerIds, transformation).thenApply(sizes ->
+      sizes.stream().mapToLong(Long::longValue).sum());
+  }
+
+  private <T> CompletableFuture<Long> sumFeatureUsageList(
     List<UUID> ownerIds, Function<UUID, CompletableFuture<List<T>>> transformation
   ) {
     return AsyncIterator.execute(ownerIds, transformation).thenApply(sizes ->

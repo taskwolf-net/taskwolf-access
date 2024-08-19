@@ -84,12 +84,11 @@ public final class WorkflowInformationController extends WorkflowController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var targetPage = body.getInt("targetPage");
-    var creatorId = body.getUUID("creator");
-    var startTime = body.getLong("startTime");
-    var endTime = body.getLong("endTime");
+    var search = body.getString("search");
+    var creatorId = body.has("creator") ? body.getUUID("creator") : null;
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
       .thenCompose(target -> workflowDatabaseTable()
-        .findWorkflowsOfOwner(target, targetPage, creatorId, startTime, endTime)
+        .findWorkflowsOfOwner(target, targetPage, search, creatorId)
         .thenCompose(result -> collectWorkflowInformation(user, result))));
   }
 
@@ -102,13 +101,10 @@ public final class WorkflowInformationController extends WorkflowController {
     var pageState = body.getString("pageState");
     var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
     var direction = DatabaseDirection.valueOf(body.getString("direction"));
-    var creatorId = body.getUUID("creator");
-    var startTime = body.getLong("startTime");
-    var endTime = body.getLong("endTime");
+    var creatorId = body.has("creator") ? body.getUUID("creator") : null;
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
       .thenCompose(target -> workflowDatabaseTable()
-        .findWorkflowsOfOwner(target, pageState, startingPoint, direction,
-          creatorId, startTime, endTime))
+        .findWorkflowsOfOwner(target, pageState, startingPoint, direction, creatorId))
       .thenCompose(result -> collectWorkflowInformation(user, result)));
   }
 

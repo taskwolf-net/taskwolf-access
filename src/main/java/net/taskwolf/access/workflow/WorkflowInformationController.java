@@ -84,7 +84,7 @@ public final class WorkflowInformationController extends WorkflowController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var targetPage = body.getInt("targetPage");
-    var creatorId = body.getUUID("creatorId");
+    var creatorId = body.getUUID("creator");
     var startTime = body.getLong("startTime");
     var endTime = body.getLong("endTime");
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
@@ -100,9 +100,9 @@ public final class WorkflowInformationController extends WorkflowController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var pageState = body.getString("pageState");
-    var direction = DatabaseDirection.valueOf(body.getString("direction"));
     var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
-    var creatorId = body.getUUID("creatorId");
+    var direction = DatabaseDirection.valueOf(body.getString("direction"));
+    var creatorId = body.getUUID("creator");
     var startTime = body.getLong("startTime");
     var endTime = body.getLong("endTime");
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())

@@ -93,11 +93,10 @@ public final class WorkflowInformationController extends WorkflowController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var pageState = body.getString("pageState");
-    var currentPage = body.getInt("currentPage");
     var targetPage = body.getInt("targetPage");
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
       .thenCompose(target -> workflowDatabaseTable()
-        .findWorkflowsOfOwner(target, pageState, currentPage, targetPage)
+        .findWorkflowsOfOwner(target, pageState, targetPage)
         .thenCompose(result -> collectWorkflowInformation(user, result))));
   }
 
@@ -108,10 +107,11 @@ public final class WorkflowInformationController extends WorkflowController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var pageState = body.getString("pageState");
+    var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
     var direction = DatabaseDirection.valueOf(body.getString("direction"));
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
       .thenCompose(target -> workflowDatabaseTable()
-        .findWorkflowsOfOwner(target, pageState, direction))
+        .findWorkflowsOfOwner(target, pageState, startingPoint, direction))
       .thenCompose(result -> collectWorkflowInformation(user, result)));
   }
 

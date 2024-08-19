@@ -77,26 +77,19 @@ public final class WorkflowInformationController extends WorkflowController {
     return futureResponse;
   }
 
-  @RequestMapping(path = "/workflows/pages/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findWorkflowPageCount(
-    HttpServletRequest request
-  ) {
-    return findWorkflowTarget(findUserId(request))
-      .thenCompose(target -> workflowDatabaseTable().findWorkflowPages(target)
-        .thenApply(pages -> Map.of("pages", pages)));
-  }
-
   @RequestMapping(path = "/workflows/page/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findWorkflowPage(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var pageState = body.getString("pageState");
     var targetPage = body.getInt("targetPage");
+    var creatorId = body.getUUID("creatorId");
+    var startTime = body.getLong("startTime");
+    var endTime = body.getLong("endTime");
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
       .thenCompose(target -> workflowDatabaseTable()
-        .findWorkflowsOfOwner(target, pageState, targetPage)
+        .findWorkflowsOfOwner(target, targetPage, creatorId, startTime, endTime)
         .thenCompose(result -> collectWorkflowInformation(user, result))));
   }
 
@@ -107,11 +100,15 @@ public final class WorkflowInformationController extends WorkflowController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var pageState = body.getString("pageState");
-    var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
     var direction = DatabaseDirection.valueOf(body.getString("direction"));
+    var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
+    var creatorId = body.getUUID("creatorId");
+    var startTime = body.getLong("startTime");
+    var endTime = body.getLong("endTime");
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
       .thenCompose(target -> workflowDatabaseTable()
-        .findWorkflowsOfOwner(target, pageState, startingPoint, direction))
+        .findWorkflowsOfOwner(target, pageState, startingPoint, direction,
+          creatorId, startTime, endTime))
       .thenCompose(result -> collectWorkflowInformation(user, result)));
   }
 
@@ -120,7 +117,7 @@ public final class WorkflowInformationController extends WorkflowController {
   ) {
     if (page.content().isEmpty()) {
       return CompletableFuture.completedFuture(Map.of("workflows",
-        Lists.newArrayList(), "page", page.pageState()));
+        Lists.newArrayList(), "page", page.pageState(), "pageNumber", 0));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     AsyncIterator.execute(page.content(),
@@ -128,7 +125,7 @@ public final class WorkflowInformationController extends WorkflowController {
       .thenApply(information -> information.stream()
         .sorted(Comparator.comparing(content -> content.get("id").toString())))
       .thenAccept(information -> futureResponse.complete(Map.of("workflows",
-        information, "page", page.pageState())));
+        information, "page", page.pageState(), "pageNumber", page.pageNumber())));
     return futureResponse;
   }
 

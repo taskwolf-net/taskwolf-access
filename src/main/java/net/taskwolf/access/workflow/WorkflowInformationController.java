@@ -13,6 +13,7 @@ import net.taskwolf.core.condition.ConditionDatabaseTable;
 import net.taskwolf.core.condition.ConditionEntry;
 import net.taskwolf.core.condition.ConditionInformationRepository;
 import net.taskwolf.core.database.DatabaseDirection;
+import net.taskwolf.core.database.DatabaseOrder;
 import net.taskwolf.core.database.DatabasePage;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.team.TeamDatabaseTable;
@@ -84,11 +85,16 @@ public final class WorkflowInformationController extends WorkflowController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var targetPage = body.getInt("targetPage");
+    var sortingColumn = body.getString("sorting");
+    var sortingOrder = DatabaseOrder.valueOf(body.getString("order"));
     var search = body.getString("search");
     var creatorId = body.has("creator") ? body.getUUID("creator") : null;
+    var startTime = body.has("startTime") ? body.getLong("startTime") : -1;
+    var endTime = body.has("endTime") ? body.getLong("endTime") : -1;
+    var state = body.has("state") ? body.getString("state") : null;
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
       .thenCompose(target -> workflowDatabaseTable()
-        .findWorkflowsOfOwner(target, targetPage, search, creatorId)
+        .findWorkflowsOfOwner(target, targetPage, sortingColumn, sortingOrder, search, creatorId, startTime, endTime, state)
         .thenCompose(result -> collectWorkflowInformation(user, result))));
   }
 
@@ -101,10 +107,16 @@ public final class WorkflowInformationController extends WorkflowController {
     var pageState = body.getString("pageState");
     var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
     var direction = DatabaseDirection.valueOf(body.getString("direction"));
+    var sortingColumn = body.getString("sorting");
+    var sortingOrder = DatabaseOrder.valueOf(body.getString("order"));
     var creatorId = body.has("creator") ? body.getUUID("creator") : null;
+    var startTime = body.has("startTime") ? body.getLong("startTime") : -1;
+    var endTime = body.has("endTime") ? body.getLong("endTime") : -1;
+    var state = body.has("state") ? body.getString("state") : null;
     return findUser(request).thenCompose(user -> findWorkflowTarget(user.id())
       .thenCompose(target -> workflowDatabaseTable()
-        .findWorkflowsOfOwner(target, pageState, startingPoint, direction, creatorId))
+        .findWorkflowsOfOwner(target, pageState, startingPoint, direction,
+          sortingColumn, sortingOrder, creatorId, startTime, endTime, state))
       .thenCompose(result -> collectWorkflowInformation(user, result)));
   }
 

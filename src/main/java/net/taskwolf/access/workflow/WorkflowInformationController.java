@@ -133,11 +133,25 @@ public final class WorkflowInformationController extends WorkflowController {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     AsyncIterator.execute(page.content(),
         workflow -> gatherWorkflowInformation(user, workflow))
-      .thenApply(information -> information.stream()
-        .sorted(Comparator.comparing(content -> content.get("id").toString())))
+      .thenApply(information -> reconstructWorkflowOrder(page, information))
       .thenAccept(information -> futureResponse.complete(Map.of("workflows",
         information, "page", page.pageState(), "pageNumber", page.pageNumber())));
     return futureResponse;
+  }
+
+  private List<Map<String, Object>> reconstructWorkflowOrder(
+    DatabasePage<WorkflowEntry> page, List<Map<String, Object>> information
+  ) {
+    var result = Lists.<Map<String, Object>>newArrayList();
+    for (var workflow : page.content()) {
+      for (var entry : information) {
+        if (workflow.id().toString().equals(entry.get("id").toString())) {
+          result.add(entry);
+          break;
+        }
+      }
+    }
+    return result;
   }
 
   private CompletableFuture<Map<String, Object>> gatherWorkflowInformation(

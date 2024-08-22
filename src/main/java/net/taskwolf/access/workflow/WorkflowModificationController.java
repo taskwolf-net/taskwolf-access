@@ -205,7 +205,7 @@ public final class WorkflowModificationController extends WorkflowController {
     for (int i = 0; i < conditionData.size(); i++) {
       createCondition(conditionIds.get(i), ownerId, workflowId, conditionData.get(i));
     }
-    workflowDatabaseTable().insertWorkflow(workflowId, creatorId, ownerId,
+    workflowDatabaseTable().insertWorkflow(workflowId, ownerId, creatorId,
       triggerId, actionIds, conditionIds, modules, created, name, description,
       state.toString());
     for (var entry : timelineEntries) {

@@ -94,7 +94,7 @@ public final class WorkflowDuplicationController extends WorkflowController {
     List<UUID> duplicateConditionIds
   ) {
     workflowDatabaseTable().insertWorkflow(WorkflowEntry.create(duplicateWorkflowId,
-      workflow.creatorId(), workflow.ownerId(), duplicateTriggerId,
+      workflow.ownerId(), workflow.creatorId(), duplicateTriggerId,
       duplicateActionIds, duplicateConditionIds, workflow.modules(),
       System.currentTimeMillis(), workflow.name() +
         " (" + coreModule.translate(user, "workflow.duplicated") + ")",

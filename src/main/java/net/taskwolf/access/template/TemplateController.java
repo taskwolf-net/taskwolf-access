@@ -64,7 +64,7 @@ public final class TemplateController extends TaskwolfRestController {
         search, language)
       .thenApply(page -> Map.of("templates", page.content().stream()
         .map(template -> assemblyTemplateInformation(template, language)).toList(),
-        "page", page.pageState()));
+        "page", page.pageState(), "pageNumber", page.pageNumber()));
   }
 
   @RequestMapping(path = "/template/find/unauthorized/{language}/",

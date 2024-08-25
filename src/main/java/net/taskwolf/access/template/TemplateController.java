@@ -43,7 +43,7 @@ public final class TemplateController extends TaskwolfRestController {
     var body = TaskwolfRequestBody.of(payload, response);
     return findUser(request).thenCompose(user ->
       loadMoreTemplatesTemplates(user.language(), body.getString("pageState"),
-        body.getString("module"), body.getString("search")));
+        body.getString("search")));
   }
 
   @RequestMapping(path = "/templates/load/unauthorized/{language}/",
@@ -54,14 +54,13 @@ public final class TemplateController extends TaskwolfRestController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     return loadMoreTemplatesTemplates(language, body.getString("pageState"),
-      body.getString("module"), body.getString("search"));
+      body.getString("search"));
   }
 
   private CompletableFuture<Map<String, Object>> loadMoreTemplatesTemplates(
-    String language, String pageState, String module, String search
+    String language, String pageState, String search
   ) {
-    return templateDatabaseTable.loadNextTemplatePage(pageState, module,
-        search, language)
+    return templateDatabaseTable.loadNextTemplatePage(pageState, search, language)
       .thenApply(page -> Map.of("templates", page.content().stream()
         .map(template -> assemblyTemplateInformation(template, language)).toList(),
         "page", page.pageState(), "pageNumber", page.pageNumber()));

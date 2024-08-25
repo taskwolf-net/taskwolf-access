@@ -320,9 +320,8 @@ public final class AccountSettingController extends TaskwolfRestController {
       deviceDatabaseTable.deleteDevice(device.id())));
     futureDevices.thenAccept(devices -> devices.forEach(device ->
       userDeviceDatabaseTable.findUsersOfDevice(device.id()).thenAccept(users ->
-        users.forEach(entry -> userDeviceDatabaseTable.removeDevice(entry,
+        users.forEach(entry -> userDeviceDatabaseTable.deleteUserDevice(entry,
           device.id())))));
-    userDeviceDatabaseTable.deleteDevices(user.id());
     ticketDatabaseTable.findTicketsByCreator(user.id()).thenAccept(tables ->
       tables.forEach(ticketModificationController::deleteTicket));
     for (var organizationId : user.organizations()) {

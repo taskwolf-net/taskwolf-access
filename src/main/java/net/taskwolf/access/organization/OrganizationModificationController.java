@@ -158,7 +158,9 @@ public final class OrganizationModificationController extends OrganizationContro
       tables.forEach(tableModificationController::deleteTable));
     webhookDatabaseTable.findAllWebhooksOfOwner(organization.id()).thenAccept(webhooks ->
       webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
-    userDeviceDatabaseTable.deleteDevices(organization.id());
+    userDeviceDatabaseTable.findAllUserDevices(organization.id()).thenAccept(devices ->
+      devices.forEach(entry -> userDeviceDatabaseTable.deleteUserDevice(organization.id(),
+        entry.deviceId())));
     accountController.deleteAllAccounts(organization.id());
     bundleDatabaseTable.deleteBundle(organization.id());
     stripeDatabaseTable.deleteStripeAccountByTarget(organization.id());

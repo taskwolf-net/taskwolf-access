@@ -35,38 +35,36 @@ public final class TemplateController extends TaskwolfRestController {
     this.templateDatabaseTable = templateDatabaseTable;
   }
 
-  @RequestMapping(path = "/templates/all/", method = RequestMethod.GET)
+  @RequestMapping(path = "/templates/load/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findAllTemplates(
-    HttpServletRequest request
-  ) {
-    return findUser(request).thenCompose(user -> findAllTemplates(user.language()));
-  }
-
-  @RequestMapping(path = "/templates/all/unauthorized/{language}/",
-    method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findAllTemplatesUnauthorized(
-    @PathVariable("language") String language
-  ) {
-    return findAllTemplates(language);
-  }
-
-  private CompletableFuture<Map<String, Object>> findAllTemplates(String language) {
-    return templateDatabaseTable.findAllTemplates()
-      .thenApply(templates -> Map.of("templates", templates.stream()
-        .map(template -> assemblyTemplateInformation(template, language)).toList()));
-  }
-
-  @RequestMapping(path = "/templates/find/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> findModuleTemplates(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var module = body.getString("module");
-    return findUser(request)
-      .thenCompose(user -> templateDatabaseTable.findTemplatesByModule(module)
-        .thenApply(templates -> Map.of("templates", templates.stream()
-          .map(template -> assemblyTemplateInformation(template, user)).toList())));
+    return findUser(request).thenCompose(user ->
+      loadMoreTemplatesTemplates(user.language(), body.getString("pageState"),
+        body.getString("module"), body.getString("search")));
+  }
+
+  @RequestMapping(path = "/templates/load/unauthorized/{language}/",
+    method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findAllTemplatesUnauthorized(
+    @RequestBody String payload, HttpServletResponse response,
+    @PathVariable("language") String language
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    return loadMoreTemplatesTemplates(language, body.getString("pageState"),
+      body.getString("module"), body.getString("search"));
+  }
+
+  private CompletableFuture<Map<String, Object>> loadMoreTemplatesTemplates(
+    String language, String pageState, String module, String search
+  ) {
+    return templateDatabaseTable.loadNextTemplatePage(pageState, module,
+        search, language)
+      .thenApply(page -> Map.of("templates", page.content().stream()
+        .map(template -> assemblyTemplateInformation(template, language)).toList(),
+        "page", page.pageState()));
   }
 
   @RequestMapping(path = "/template/find/unauthorized/{language}/",
@@ -95,15 +93,11 @@ public final class TemplateController extends TaskwolfRestController {
   private Map<String, Object> assemblyAllTemplateContent(
     Template template, Map<String, Object> information
   ) {
-    information.put("untranslatedNames", template.name());
-    information.put("untranslatedDescriptions", template.description());
+    information.put("englishName", template.englishName());
+    information.put("englishDescription", template.englishDescription());
+    information.put("germanName", template.germanName());
+    information.put("germanDescription", template.germanDescription());
     return information;
-  }
-
-  private Map<String, Object> assemblyTemplateInformation(
-    Template template, User user
-  ) {
-    return assemblyTemplateInformation(template, user.language());
   }
 
   private Map<String, Object> assemblyTemplateInformation(

@@ -234,7 +234,7 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> findProcessUsage(
     List<UUID> ownerIds
   ) {
-    return sumFeatureUsageList(ownerIds, processDatabaseTable::findProcessesOfOwner)
+    return sumFeatureUsage(ownerIds, processDatabaseTable::findProcessCount)
       .thenApply(processes -> Map.of("processNumberUsage", processes));
   }
 
@@ -252,7 +252,7 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Map.Entry<Integer, Double>> findSingleOwnerDatabaseUsage(
     UUID owner
   ) {
-    return tableDatabaseTable.findTablesOfOwner(owner).thenApply(tables ->
+    return tableDatabaseTable.findAllTablesOfOwner(owner).thenApply(tables ->
       new AbstractMap.SimpleEntry<>(tables.size(),
         tables.stream().mapToLong(TableEntry::size).sum() * Math.pow(10, -9)));
   }
@@ -260,7 +260,7 @@ public final class BundleController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> findWebhookUsage(
     List<UUID> ownerIds
   ) {
-    return sumFeatureUsageList(ownerIds, webhookDatabaseTable::findWebhooksByOwner)
+    return sumFeatureUsage(ownerIds, webhookDatabaseTable::findWebhookCount)
       .thenApply(webhooks -> Map.of("webhookNumberUsage", webhooks));
   }
 

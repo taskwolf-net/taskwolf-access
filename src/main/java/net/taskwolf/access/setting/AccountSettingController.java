@@ -336,11 +336,11 @@ public final class AccountSettingController extends TaskwolfRestController {
   public void deleteAccountServices(UUID userId) {
     workflowDatabaseTable.findAllWorkflowsOfOwner(userId).thenAccept(workflows ->
       workflows.forEach(workflowModificationController::deleteWorkflow));
-    processDatabaseTable.findProcessesOfOwner(userId).thenAccept(processes ->
+    processDatabaseTable.findAllProcessesOfOwner(userId).thenAccept(processes ->
       processes.forEach(processModificationController::deleteProcess));
-    tableDatabaseTable.findTablesOfOwner(userId).thenAccept(tables ->
+    tableDatabaseTable.findAllTablesOfOwner(userId).thenAccept(tables ->
       tables.forEach(tableModificationController::deleteTable));
-    webhookDatabaseTable.findWebhooksByOwner(userId).thenAccept(webhooks ->
+    webhookDatabaseTable.findAllWebhooksOfOwner(userId).thenAccept(webhooks ->
       webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
     accountController.deleteAllAccounts(userId);
     bundleDatabaseTable.deleteBundle(userId);

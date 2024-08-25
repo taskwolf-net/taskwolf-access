@@ -152,11 +152,11 @@ public final class OrganizationModificationController extends OrganizationContro
       teams -> teams.forEach(team -> teamDatabaseTable.deleteTeam(team.id())));
     workflowDatabaseTable.findAllWorkflowsOfOwner(organization.id()).thenAccept(
       workflows -> workflows.forEach(workflowModificationController::deleteWorkflow));
-    processDatabaseTable.findProcessesOfOwner(organization.id()).thenAccept(
+    processDatabaseTable.findAllProcessesOfOwner(organization.id()).thenAccept(
       processes -> processes.forEach(processModificationController::deleteProcess));
-    tableDatabaseTable.findTablesOfOwner(organization.id()).thenAccept(tables ->
+    tableDatabaseTable.findAllTablesOfOwner(organization.id()).thenAccept(tables ->
       tables.forEach(tableModificationController::deleteTable));
-    webhookDatabaseTable.findWebhooksByOwner(organization.id()).thenAccept(webhooks ->
+    webhookDatabaseTable.findAllWebhooksOfOwner(organization.id()).thenAccept(webhooks ->
       webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
     userDeviceDatabaseTable.deleteDevices(organization.id());
     accountController.deleteAllAccounts(organization.id());

@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 public final class VerificationRegistrationController {
   private final Key homeKey;
   private final Key productKey;
+  private final Key refreshKey;
   private final TaskwolfMail verificationMail;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
@@ -48,6 +49,7 @@ public final class VerificationRegistrationController {
 
   private VerificationRegistrationController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
+    @Qualifier("productKey") Key refreshKey,
     @Qualifier("verificationMail") TaskwolfMail verificationMail,
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
@@ -59,6 +61,7 @@ public final class VerificationRegistrationController {
   ) {
     this.homeKey = homeKey;
     this.productKey = productKey;
+    this.refreshKey = refreshKey;
     this.verificationMail = verificationMail;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
@@ -207,8 +210,8 @@ public final class VerificationRegistrationController {
     userVerificationDatabaseTable.deleteVerification(userId);
     activityDatabaseTable.insertActivity(userId, "activity.setting.registration.title",
       "activity.setting.registration.description", ActivityType.SETTING);
-    var apiKey = Verification.create(userDatabaseTable, homeKey, productKey, "", "")
-      .generateHomeApiKey(userId);
+    var apiKey = Verification.create(userDatabaseTable, homeKey, productKey,
+      refreshKey, "", "").generateHomeApiKey(userId);
     return userDatabaseTable.findUser(userId).thenApply(user ->
       Map.of("success", true, "homeApiKey", apiKey));
   }

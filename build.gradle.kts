@@ -119,6 +119,8 @@ dependencies {
   compileOnly("com.sun.mail:javax.mail:1.6.2")
 
   compileOnly("com.stripe:stripe-java:26.1.0")
+
+  compileOnly("com.maxmind.geoip2:geoip2:2.15.0")
 }
 
 tasks.test {

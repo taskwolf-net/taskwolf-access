@@ -1,13 +1,19 @@
 package net.taskwolf.access.verification;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.hash.Hashing;
+import com.maxmind.geoip2.DatabaseReader;
 import io.jsonwebtoken.Jwts;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.bundle.Bundle;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.session.SessionDatabaseTable;
+import net.taskwolf.core.session.SessionStatus;
+import net.taskwolf.core.session.UserAgent;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserVerificationDatabaseTable;
@@ -18,9 +24,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -29,33 +37,41 @@ import java.util.concurrent.CompletableFuture;
 public final class VerificationLoginController {
   private final Key homeKey;
   private final Key productKey;
+  private final Key refreshKey;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final MultiFactorAuthFactory multiFactorAuthFactory;
+  private final SessionDatabaseTable sessionDatabaseTable;
+  private final DatabaseReader geoDatabaseReader;
 
   private VerificationLoginController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
-    UserDatabaseTable userDatabaseTable,
+    @Qualifier("refreshKey") Key refreshKey, UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
-    MultiFactorAuthFactory multiFactorAuthFactory
+    MultiFactorAuthFactory multiFactorAuthFactory,
+    SessionDatabaseTable sessionDatabaseTable, DatabaseReader geoDatabaseReader
   ) {
     this.homeKey = homeKey;
     this.productKey = productKey;
+    this.refreshKey = refreshKey;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.multiFactorAuthFactory = multiFactorAuthFactory;
+    this.sessionDatabaseTable = sessionDatabaseTable;
+    this.geoDatabaseReader = geoDatabaseReader;
   }
 
   @RequestMapping(path = "/verification/login/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> login(
-    @RequestBody String payload, HttpServletResponse response
-  ) {
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) throws Exception {
     var body = TaskwolfRequestBody.of(payload, response);
-    var loginFuture = login(body.getString("email"), body.getString("password"),
-      body.getString("multiFactorCode"));
+    var loginFuture = login(request, body.getString("email"),
+      body.getString("password"), body.getString("multiFactorCode"));
     loginFuture.thenAccept(result -> applyLoginResponseStatus(response, result));
     return loginFuture;
   }
@@ -71,19 +87,20 @@ public final class VerificationLoginController {
   }
 
   private CompletableFuture<Map<String, Object>> login(
-    String email, String password, String multiFactorCode
+    HttpServletRequest request, String email, String password,
+    String multiFactorCode
   ) {
     var verification = Verification.create(userDatabaseTable, homeKey, productKey,
-      email.replace(" ", ""), hashPassword(password));
+      refreshKey, email.replace(" ", ""), hashPassword(password));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
-      checkAuthorization(verification, multiFactorCode, futureResponse,
+      checkAuthorization(request, verification, multiFactorCode, futureResponse,
         isAuthenticated));
     return futureResponse;
   }
 
   private void checkAuthorization(
-    Verification verification, String multiFactorCode,
+    HttpServletRequest request, Verification verification, String multiFactorCode,
     CompletableFuture<Map<String, Object>> futureResponse, boolean isAuthenticated
   ) {
     if (!isAuthenticated) {
@@ -92,12 +109,12 @@ public final class VerificationLoginController {
     }
     userDatabaseTable.findUser(verification.email()).thenAccept(user ->
       multiFactorAuthFactory.createAuth(user.id()).verifyCode(multiFactorCode)
-        .thenAccept(verified -> checkMultiFactorAuth(user, verification,
+        .thenAccept(verified -> checkMultiFactorAuth(request, user, verification,
           futureResponse, verified)));
   }
 
   private void checkMultiFactorAuth(
-    User user, Verification verification,
+    HttpServletRequest request, User user, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse,
     boolean multiFactorVerified
   ) {
@@ -105,28 +122,29 @@ public final class VerificationLoginController {
       futureResponse.complete(Map.of("success", false, "error", 1002));
       return;
     }
-    processAuthorizedLogin(user, verification, futureResponse);
+    processAuthorizedLogin(request, user, verification, futureResponse);
   }
 
   public void processAuthorizedLogin(
-    Verification verification,
+    HttpServletRequest request, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse
   ) {
     userDatabaseTable.findUser(verification.email()).thenAccept(user ->
-      processAuthorizedLogin(user, verification, futureResponse));
+      processAuthorizedLogin(request, user, verification, futureResponse));
   }
 
   public void processAuthorizedLogin(
-    User user, Verification verification,
+    HttpServletRequest request, User user, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse
   ) {
     userVerificationDatabaseTable.verificationExists(user.id())
-      .thenAccept(completionPending -> checkBundle(verification, futureResponse,
-        user, completionPending));
+      .thenAccept(completionPending -> checkBundle(request, verification,
+        futureResponse, user, completionPending));
   }
 
   private void checkBundle(
-    Verification verification, CompletableFuture<Map<String, Object>> futureResponse,
+    HttpServletRequest request, Verification verification,
+    CompletableFuture<Map<String, Object>> futureResponse,
     User user, boolean completionPending
   ) {
     if (completionPending) {
@@ -135,8 +153,8 @@ public final class VerificationLoginController {
     }
     bundleDatabaseTable.bundleExists(user.id()).thenAccept(hasPersonalBundle ->
       findLatestBundleExpiration(user, hasPersonalBundle).thenAccept(
-        latestExpiration -> completeLogin(verification, futureResponse, user,
-          latestExpiration > System.currentTimeMillis(), latestExpiration)));
+        latestExpiration -> completeLogin(request, verification, futureResponse,
+          user, latestExpiration > System.currentTimeMillis(), latestExpiration)));
   }
 
   private CompletableFuture<Long> findLatestBundleExpiration(
@@ -155,7 +173,8 @@ public final class VerificationLoginController {
   }
 
   private void completeLogin(
-    Verification verification, CompletableFuture<Map<String, Object>> futureResponse,
+    HttpServletRequest request, Verification verification,
+    CompletableFuture<Map<String, Object>> futureResponse,
     User user, boolean bundleEnabled, long expiration
   ) {
     var homeApiKey = verification.generateHomeApiKey(user.id());
@@ -170,8 +189,41 @@ public final class VerificationLoginController {
       return;
     }
     var productApiKey = verification.generateProductApiKey(user.id(), expiration);
+    var refreshToken = verification.generateRefreshToken(user.id(), expiration);
+    storeSession(request, user, refreshToken);
     futureResponse.complete(Map.of("success", true, "productApiKey", productApiKey,
       "homeApiKey", homeApiKey));
+  }
+
+  private void storeSession(
+    HttpServletRequest request, User user, String refreshToken
+  ) {
+    try {
+      var ipAddress = request.getHeader("X-Real-IP");
+      var location = geoDatabaseReader.city(InetAddress.getByName(ipAddress));
+      var platform = UserAgent.create(request.getHeader("User-Agent"))
+        .findPlatform();
+      sessionDatabaseTable.generateAvailableSessionId().thenAccept(id ->
+        sessionDatabaseTable.insertSession(id, user.id(), platform, ipAddress,
+          location.getCountry().getName(), location.getCity().getName(),
+          System.currentTimeMillis(), refreshToken, SessionStatus.ACTIVE));
+    } catch (Exception exception) {
+      exception.printStackTrace();
+    }
+  }
+
+  @RequestMapping(path = "/verification/refresh/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> refreshVerification(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    return CompletableFuture.completedFuture(Maps.newHashMap());
+  }
+
+  @RequestMapping(path = "/verification/logout/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> logout(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    return CompletableFuture.completedFuture(Maps.newHashMap());
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)

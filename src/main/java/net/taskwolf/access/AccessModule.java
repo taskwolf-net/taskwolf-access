@@ -50,6 +50,7 @@ public final class AccessModule extends Module {
     application.addInitializers(AccessContextInitializer.create(log,
       injector().getInstance(Key.get(java.security.Key.class, Names.named("homeKey"))),
       injector().getInstance(Key.get(java.security.Key.class, Names.named("productKey"))),
+      injector().getInstance(Key.get(java.security.Key.class, Names.named("refreshKey"))),
       injector().getInstance(ModuleLoader.class),
       injector().getInstance(DatabaseConnection.class),
       injector().getInstance(DatabaseKeyspace.class),

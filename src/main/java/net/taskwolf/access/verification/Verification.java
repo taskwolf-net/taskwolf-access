@@ -17,6 +17,7 @@ public final class Verification {
   private final UserDatabaseTable userDatabaseTable;
   private final Key homeSecret;
   private final Key productSecret;
+  private final Key refreshSecret;
   @Getter
   private final String email;
   private final String passwordHash;
@@ -43,21 +44,39 @@ public final class Verification {
     return futureResponse;
   }
 
-  private static final long MAXIMUM_EXPIRATION_TIME = 1000L * 60 * 60 * 24 * 30;
+  private static final long MAXIMUM_PRODUCT_EXPIRATION_TIME = 1000L * 10;
 
   public String generateProductApiKey(UUID userId) {
     return generateProductApiKey(userId, System.currentTimeMillis() +
-      MAXIMUM_EXPIRATION_TIME);
+      MAXIMUM_PRODUCT_EXPIRATION_TIME);
   }
 
   public String generateProductApiKey(UUID userId, long expiration) {
-    if (expiration - System.currentTimeMillis() > MAXIMUM_EXPIRATION_TIME) {
-      expiration = System.currentTimeMillis() + MAXIMUM_EXPIRATION_TIME;
+    if (expiration - System.currentTimeMillis() > MAXIMUM_PRODUCT_EXPIRATION_TIME) {
+      expiration = System.currentTimeMillis() + MAXIMUM_PRODUCT_EXPIRATION_TIME;
     }
     var expirationDate = new Date(expiration);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", userId.toString())
       .signWith(productSecret)
+      .compact();
+  }
+
+  private static final long MAXIMUM_REFRESH_EXPIRATION_TIME = 1000L * 60 * 60 * 24 * 30;
+
+  public String generateRefreshToken(UUID userId) {
+    return generateRefreshToken(userId, System.currentTimeMillis() +
+      MAXIMUM_REFRESH_EXPIRATION_TIME);
+  }
+
+  public String generateRefreshToken(UUID userId, long expiration) {
+    if (expiration - System.currentTimeMillis() > MAXIMUM_REFRESH_EXPIRATION_TIME) {
+      expiration = System.currentTimeMillis() + MAXIMUM_REFRESH_EXPIRATION_TIME;
+    }
+    var expirationDate = new Date(expiration);
+    return Jwts.builder().expiration(expirationDate)
+      .claim("id", userId.toString())
+      .signWith(refreshSecret)
       .compact();
   }
 

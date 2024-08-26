@@ -22,6 +22,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final Log log;
   private final Key homeKey;
   private final Key productKey;
+  private final Key refreshKey;
   private final ModuleLoader moduleLoader;
   private final DatabaseConnection databaseConnection;
   private final DatabaseKeyspace databaseKeyspace;
@@ -40,16 +41,18 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("workerProxyClient", workerProxyClient);
     beanFactory.registerSingleton("coreModule", coreModule);
     applicationContext.addBeanFactoryPostProcessor(
-      new KeyPostProcessor(homeKey, productKey));
+      new KeyPostProcessor(homeKey, productKey, refreshKey));
   }
 
   private final class KeyPostProcessor implements BeanDefinitionRegistryPostProcessor {
     private final Key homeKey;
     private final Key productKey;
+    private final Key refreshKey;
 
-    private KeyPostProcessor(Key homeKey, Key productKey) {
+    private KeyPostProcessor(Key homeKey, Key productKey, Key refreshKey) {
       this.homeKey = homeKey;
       this.productKey = productKey;
+      this.refreshKey = refreshKey;
     }
 
     @Override
@@ -58,6 +61,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     ) throws BeansException {
       registerKey(registry, "homeKey", homeKey, false);
       registerKey(registry, "productKey", productKey, true);
+      registerKey(registry, "refreshKey", refreshKey, false);
     }
 
     private void registerKey(

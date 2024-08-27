@@ -262,7 +262,9 @@ public final class VerificationLoginController extends TaskwolfRestController {
     if (expiration == -10 || !bundleEnabled) {
       return Map.of("success", "false");
     }
-    if (!session.lastRefreshToken().equals(refreshToken)) {
+    if (session.status().isClosed() ||
+      !session.lastRefreshToken().equals(refreshToken)
+    ) {
       return Map.of("success", "false");
     }
     var verification = Verification.create(userDatabaseTable(), homeKey,

@@ -1,16 +1,19 @@
 package net.taskwolf.access.verification;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.hash.Hashing;
 import com.maxmind.geoip2.DatabaseReader;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
+import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.Bundle;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.session.Session;
 import net.taskwolf.core.session.SessionDatabaseTable;
 import net.taskwolf.core.session.SessionStatus;
 import net.taskwolf.core.session.UserAgent;
@@ -27,18 +30,14 @@ import org.springframework.web.bind.annotation.RestController;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
-import java.util.Comparator;
-import java.util.Enumeration;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class VerificationLoginController {
+public final class VerificationLoginController extends TaskwolfRestController {
   private final Key homeKey;
   private final Key productKey;
   private final Key refreshKey;
-  private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final MultiFactorAuthFactory multiFactorAuthFactory;
@@ -53,10 +52,10 @@ public final class VerificationLoginController {
     MultiFactorAuthFactory multiFactorAuthFactory,
     SessionDatabaseTable sessionDatabaseTable, DatabaseReader geoDatabaseReader
   ) {
+    super(productKey, userDatabaseTable);
     this.homeKey = homeKey;
     this.productKey = productKey;
     this.refreshKey = refreshKey;
-    this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.multiFactorAuthFactory = multiFactorAuthFactory;
@@ -90,7 +89,7 @@ public final class VerificationLoginController {
     HttpServletRequest request, String email, String password,
     String multiFactorCode
   ) {
-    var verification = Verification.create(userDatabaseTable, homeKey, productKey,
+    var verification = Verification.create(userDatabaseTable(), homeKey, productKey,
       refreshKey, email.replace(" ", ""), hashPassword(password));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
@@ -107,7 +106,7 @@ public final class VerificationLoginController {
       futureResponse.complete(Map.of("success", false, "error", 1000));
       return;
     }
-    userDatabaseTable.findUser(verification.email()).thenAccept(user ->
+    userDatabaseTable().findUser(verification.email()).thenAccept(user ->
       multiFactorAuthFactory.createAuth(user.id()).verifyCode(multiFactorCode)
         .thenAccept(verified -> checkMultiFactorAuth(request, user, verification,
           futureResponse, verified)));
@@ -129,7 +128,7 @@ public final class VerificationLoginController {
     HttpServletRequest request, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse
   ) {
-    userDatabaseTable.findUser(verification.email()).thenAccept(user ->
+    userDatabaseTable().findUser(verification.email()).thenAccept(user ->
       processAuthorizedLogin(request, user, verification, futureResponse));
   }
 
@@ -153,7 +152,7 @@ public final class VerificationLoginController {
     }
     bundleDatabaseTable.bundleExists(user.id()).thenAccept(hasPersonalBundle ->
       findLatestBundleExpiration(user, hasPersonalBundle).thenAccept(
-        latestExpiration -> completeLogin(request, verification, futureResponse,
+        latestExpiration -> checkBundle(request, verification, futureResponse,
           user, latestExpiration > System.currentTimeMillis(), latestExpiration)));
   }
 
@@ -172,7 +171,7 @@ public final class VerificationLoginController {
         .sorted(Comparator.reverseOrder()).findFirst().get());
   }
 
-  private void completeLogin(
+  private void checkBundle(
     HttpServletRequest request, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse,
     User user, boolean bundleEnabled, long expiration
@@ -188,25 +187,36 @@ public final class VerificationLoginController {
         "homeApiKey", homeApiKey));
       return;
     }
-    var productApiKey = verification.generateProductApiKey(user.id(), expiration);
-    var refreshToken = verification.generateRefreshToken(user.id(), expiration);
-    storeSession(request, user, refreshToken);
+    sessionDatabaseTable.generateAvailableSessionId().thenAccept(id ->
+      completeLogin(request, verification, futureResponse, user, expiration,
+        homeApiKey, id));
+  }
+
+  private void completeLogin(
+    HttpServletRequest request, Verification verification,
+    CompletableFuture<Map<String, Object>> futureResponse,
+    User user, long expiration, String homeApiKey, UUID sessionId
+  ) {
+    var productApiKey = verification.generateProductApiKey(user.id(),
+      sessionId, expiration);
+    var refreshToken = verification.generateRefreshToken(user.id(),
+      sessionId, expiration);
+    storeSession(request, user, sessionId, refreshToken);
     futureResponse.complete(Map.of("success", true, "productApiKey", productApiKey,
-      "homeApiKey", homeApiKey));
+      "homeApiKey", homeApiKey, "refreshToken", refreshToken));
   }
 
   private void storeSession(
-    HttpServletRequest request, User user, String refreshToken
+    HttpServletRequest request, User user, UUID sessionId, String refreshToken
   ) {
     try {
       var ipAddress = request.getHeader("X-Real-IP");
       var location = geoDatabaseReader.city(InetAddress.getByName(ipAddress));
       var platform = UserAgent.create(request.getHeader("User-Agent"))
         .findPlatform();
-      sessionDatabaseTable.generateAvailableSessionId().thenAccept(id ->
-        sessionDatabaseTable.insertSession(id, user.id(), platform, ipAddress,
-          location.getCountry().getName(), location.getCity().getName(),
-          System.currentTimeMillis(), refreshToken, SessionStatus.ACTIVE));
+      sessionDatabaseTable.insertSession(sessionId, user.id(), platform,
+        ipAddress, location.getCountry().getName(), location.getCity().getName(),
+        System.currentTimeMillis(), refreshToken, SessionStatus.ACTIVE);
     } catch (Exception exception) {
       exception.printStackTrace();
     }
@@ -216,14 +226,59 @@ public final class VerificationLoginController {
   public CompletableFuture<Map<String, Object>> refreshVerification(
     @RequestBody String payload, HttpServletResponse response
   ) {
-    return CompletableFuture.completedFuture(Maps.newHashMap());
+    var body = TaskwolfRequestBody.of(payload, response);
+    var refreshToken = body.getString("refreshToken");
+    var result = verifyToken(productKey, refreshToken);
+    if (result.getKey() != HttpServletResponse.SC_ACCEPTED) {
+      return CompletableFuture.completedFuture(Map.of("success", "false"));
+    }
+    var userId = UUID.fromString(result.getValue().get("id", String.class));
+    var sessionId = UUID.fromString(result.getValue().get("session", String.class));
+    return userDatabaseTable().userExists(userId)
+      .thenCompose(exists -> refreshVerification(refreshToken, userId,
+        sessionId, exists));
   }
 
-  @RequestMapping(path = "/verification/logout/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> logout(
-    @RequestBody String payload, HttpServletResponse response
+  private CompletableFuture<Map<String, Object>> refreshVerification(
+    String refreshToken, UUID userId, UUID sessionId, boolean userExists
   ) {
-    return CompletableFuture.completedFuture(Maps.newHashMap());
+    if (!userExists) {
+      return CompletableFuture.completedFuture(Map.of("success", "false"));
+    }
+    return userDatabaseTable().findUser(userId)
+      .thenCompose(user -> sessionDatabaseTable.findSession(sessionId)
+        .thenCompose(session -> bundleDatabaseTable.bundleExists(user.id())
+          .thenCompose(hasPersonalBundle ->
+            findLatestBundleExpiration(user, hasPersonalBundle)
+              .thenApply(latestExpiration -> refreshVerification(refreshToken,
+                user, session, latestExpiration > System.currentTimeMillis(),
+                latestExpiration)))));
+  }
+
+  private Map<String, Object> refreshVerification(
+    String refreshToken, User user, Session session, boolean bundleEnabled,
+    long expiration
+  ) {
+    if (expiration == -10 || !bundleEnabled) {
+      return Map.of("success", "false");
+    }
+    if (!session.lastRefreshToken().equals(refreshToken)) {
+      return Map.of("success", "false");
+    }
+    var verification = Verification.create(userDatabaseTable(), homeKey,
+      productKey, refreshKey, "", "");
+    var newProductApiKey = verification.generateProductApiKey(user.id(),
+      session.id(), expiration);
+    var newRefreshToken = verification.generateRefreshToken(user.id(),
+      session.id(), expiration);
+    sessionDatabaseTable.updateSessionRefreshToken(session.id(), newRefreshToken);
+    return Map.of("success", "true", "productApiKey", newProductApiKey,
+      "refreshToken", newRefreshToken);
+  }
+
+  @RequestMapping(path = "/verification/logout/", method = RequestMethod.GET)
+  public void logout(HttpServletRequest request) {
+    sessionDatabaseTable.closeSession(findSessionId(request));
   }
 
   @RequestMapping(path = "/verification/isValid/", method = RequestMethod.POST)
@@ -231,16 +286,30 @@ public final class VerificationLoginController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    try {
-      var userId = UUID.fromString(Jwts.parser()
-        .setSigningKey(productKey)
-        .build()
-        .parseClaimsJws(body.getString("token"))
-        .getPayload().get("id", String.class));
-      return userDatabaseTable.userExists(userId).thenApply(exists ->
-        Map.of("isValid", exists ? "true" : "false"));
-    } catch (Exception exception) {
+    var result = verifyToken(productKey, body.getString("token"));
+    if (result.getKey() != HttpServletResponse.SC_ACCEPTED) {
+      response.setStatus(result.getKey());
       return CompletableFuture.completedFuture(Map.of("isValid", "false"));
+    }
+    var userId = UUID.fromString(result.getValue().get("id", String.class));
+    return userDatabaseTable().userExists(userId)
+      .thenApply(exists -> Map.of("isValid", exists ? "true" : "false"));
+  }
+
+  private Map.Entry<Integer, Claims> verifyToken(Key key, String token) {
+    try {
+      return new AbstractMap.SimpleEntry(HttpServletResponse.SC_ACCEPTED,
+        Jwts.parser()
+          .setSigningKey(key)
+          .build()
+          .parseClaimsJws(token)
+          .getPayload());
+    } catch (ExpiredJwtException exception) {
+      return new AbstractMap.SimpleEntry(
+        HttpServletResponse.SC_EXPECTATION_FAILED, null);
+    } catch (Exception exception) {
+      return new AbstractMap.SimpleEntry(
+        HttpServletResponse.SC_FORBIDDEN, null);
     }
   }
 
@@ -254,7 +323,7 @@ public final class VerificationLoginController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    return userDatabaseTable.userExists(body.getString("email"))
+    return userDatabaseTable().userExists(body.getString("email"))
       .thenApply(exists -> Map.of("exists", exists));
   }
 }

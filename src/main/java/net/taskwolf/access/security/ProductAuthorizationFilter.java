@@ -1,6 +1,7 @@
 package net.taskwolf.access.security;
 
 import com.google.common.collect.Lists;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -32,8 +33,9 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
       return;
     }
     apiKey = apiKey.replace("Bearer ", "");
-    if (!validateApiKey(apiKey)) {
-      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+    var validation = validateApiKey(apiKey);
+    if (validation != HttpServletResponse.SC_ACCEPTED) {
+      response.setStatus(validation);
       return;
     }
     filterChain.doFilter(request, response);
@@ -58,6 +60,7 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/verification/email/resend/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/complete/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/login/");
+    controllers.add("/" + CURRENT_API_VERSION + "/verification/refresh/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/isValid/");
     controllers.add("/" + CURRENT_API_VERSION + "/email/exists/");
     controllers.add("/" + CURRENT_API_VERSION + "/question/create/");
@@ -73,15 +76,17 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
       url.contains("/webhook/trigger/") || url.contains("unauthorized");
   }
 
-  private boolean validateApiKey(String apiKey) {
+  private int validateApiKey(String apiKey) {
     try {
       Jwts.parser()
         .setSigningKey(productKey)
         .build()
         .parseClaimsJws(apiKey);
-      return true;
+      return HttpServletResponse.SC_ACCEPTED;
+    } catch (ExpiredJwtException exception) {
+      return HttpServletResponse.SC_EXPECTATION_FAILED;
     } catch (Exception exception) {
-      return false;
+      return HttpServletResponse.SC_FORBIDDEN;
     }
   }
 }

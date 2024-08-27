@@ -44,44 +44,46 @@ public final class Verification {
     return futureResponse;
   }
 
-  private static final long MAXIMUM_PRODUCT_EXPIRATION_TIME = 1000L * 10;
+  private static final long MAXIMUM_PRODUCT_EXPIRATION_TIME = 1000L * 60 * 10;
 
-  public String generateProductApiKey(UUID userId) {
-    return generateProductApiKey(userId, System.currentTimeMillis() +
-      MAXIMUM_PRODUCT_EXPIRATION_TIME);
+  public String generateProductApiKey(UUID userId, UUID sessionId) {
+    return generateProductApiKey(userId, sessionId,
+      System.currentTimeMillis() + MAXIMUM_PRODUCT_EXPIRATION_TIME);
   }
 
-  public String generateProductApiKey(UUID userId, long expiration) {
+  public String generateProductApiKey(UUID userId, UUID sessionId, long expiration) {
     if (expiration - System.currentTimeMillis() > MAXIMUM_PRODUCT_EXPIRATION_TIME) {
       expiration = System.currentTimeMillis() + MAXIMUM_PRODUCT_EXPIRATION_TIME;
     }
     var expirationDate = new Date(expiration);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", userId.toString())
+      .claim("session", sessionId.toString())
       .signWith(productSecret)
       .compact();
   }
 
   private static final long MAXIMUM_REFRESH_EXPIRATION_TIME = 1000L * 60 * 60 * 24 * 30;
 
-  public String generateRefreshToken(UUID userId) {
-    return generateRefreshToken(userId, System.currentTimeMillis() +
-      MAXIMUM_REFRESH_EXPIRATION_TIME);
+  public String generateRefreshToken(UUID userId, UUID sessionId) {
+    return generateRefreshToken(userId, sessionId,
+      System.currentTimeMillis() + MAXIMUM_REFRESH_EXPIRATION_TIME);
   }
 
-  public String generateRefreshToken(UUID userId, long expiration) {
+  public String generateRefreshToken(UUID userId, UUID sessionId, long expiration) {
     if (expiration - System.currentTimeMillis() > MAXIMUM_REFRESH_EXPIRATION_TIME) {
       expiration = System.currentTimeMillis() + MAXIMUM_REFRESH_EXPIRATION_TIME;
     }
     var expirationDate = new Date(expiration);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", userId.toString())
+      .claim("session", sessionId.toString())
       .signWith(refreshSecret)
       .compact();
   }
 
   public String generateHomeApiKey(UUID userId) {
-    var expirationDate = new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24);
+    var expirationDate = new Date(System.currentTimeMillis() + 1000L * 60 * 60);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", userId.toString())
       .signWith(homeSecret)

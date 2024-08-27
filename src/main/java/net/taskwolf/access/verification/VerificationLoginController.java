@@ -214,9 +214,9 @@ public final class VerificationLoginController extends TaskwolfRestController {
       var location = geoDatabaseReader.city(InetAddress.getByName(ipAddress));
       var platform = UserAgent.create(request.getHeader("User-Agent"))
         .findPlatform();
-      sessionDatabaseTable.insertSession(sessionId, user.id(), platform,
-        ipAddress, location.getCountry().getName(), location.getCity().getName(),
-        System.currentTimeMillis(), refreshToken, SessionStatus.ACTIVE);
+      sessionDatabaseTable.insertSession(sessionId, user.id(), SessionStatus.ACTIVE,
+        platform, ipAddress, location.getCountry().getName(),
+        location.getCity().getName(), System.currentTimeMillis(), refreshToken);
     } catch (Exception exception) {
       exception.printStackTrace();
     }

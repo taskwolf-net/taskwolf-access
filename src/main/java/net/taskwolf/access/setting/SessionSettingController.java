@@ -7,6 +7,7 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.session.Session;
 import net.taskwolf.core.session.SessionDatabaseTable;
+import net.taskwolf.core.session.SessionStatus;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,9 +38,10 @@ public final class SessionSettingController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> sessions(
     HttpServletRequest request
   ) {
-    return sessionDatabaseTable.findLastSessionsOfUser(findUserId(request))
-      .thenApply(sessions -> Map.of("sessions", sessions.stream()
-        .map(this::assemblySessionInformation).toList()));
+    return sessionDatabaseTable.findSessionsOfUserByStatus(
+      findUserId(request), SessionStatus.ACTIVE)
+      .thenApply(sessions -> Map.of("sessions",
+        sessions.stream().map(this::assemblySessionInformation).toList()));
   }
 
   private Map<String, Object> assemblySessionInformation(Session session) {

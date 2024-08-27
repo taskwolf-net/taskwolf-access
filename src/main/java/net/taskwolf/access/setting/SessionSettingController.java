@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class SessionSettingController extends TaskwolfRestController {
   private final SessionDatabaseTable sessionDatabaseTable;
-  private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
+  private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm");
 
   private SessionSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -66,8 +66,9 @@ public final class SessionSettingController extends TaskwolfRestController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var sessionId = body.getUUID("session");
+    var userId = findUserId(request);
     sessionDatabaseTable.sessionExists(sessionId)
-      .thenAccept(exists -> closeSession(sessionId, findUserId(request), exists));
+      .thenAccept(exists -> closeSession(sessionId, userId, exists));
   }
 
   private void closeSession(UUID sessionId, UUID userId, boolean sessionExists) {

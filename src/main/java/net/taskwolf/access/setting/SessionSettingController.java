@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class SessionSettingController extends TaskwolfRestController {
   private final SessionDatabaseTable sessionDatabaseTable;
-  private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm");
 
   private SessionSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -38,27 +37,25 @@ public final class SessionSettingController extends TaskwolfRestController {
   public CompletableFuture<Map<String, Object>> sessions(
     HttpServletRequest request
   ) {
+    var userSessionId = findSessionId(request);
     return sessionDatabaseTable.findSessionsOfUserByStatus(
       findUserId(request), SessionStatus.ACTIVE)
-      .thenApply(sessions -> Map.of("sessions",
-        sessions.stream().map(this::assemblySessionInformation).toList()));
+      .thenApply(sessions -> Map.of("sessions", sessions.stream().map(session ->
+        assemblySessionInformation(userSessionId, session)).toList()));
   }
 
-  private Map<String, Object> assemblySessionInformation(Session session) {
+  private Map<String, Object> assemblySessionInformation(
+    UUID userSessionId, Session session
+  ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", session.id());
     information.put("platform", session.devicePlatform());
     information.put("country", session.country());
     information.put("city", session.city());
-    information.put("openTime", timeMillisecondsToDate(session.openTime()));
+    information.put("openTime", session.openTime());
     information.put("status", session.status());
+    information.put("isCurrent", userSessionId.equals(session.id()));
     return information;
-  }
-
-  private String timeMillisecondsToDate(long milliseconds) {
-    Calendar calendar = Calendar.getInstance();
-    calendar.setTimeInMillis(milliseconds);
-    return simpleDateFormat.format(calendar.getTime());
   }
 
   @RequestMapping(path = "/settings/session/close/", method = RequestMethod.POST)
@@ -69,20 +66,26 @@ public final class SessionSettingController extends TaskwolfRestController {
     var body = TaskwolfRequestBody.of(payload, response);
     var sessionId = body.getUUID("session");
     var userId = findUserId(request);
+    var userSessionId = findSessionId(request);
     sessionDatabaseTable.sessionExists(sessionId)
-      .thenAccept(exists -> closeSession(sessionId, userId, exists));
+      .thenAccept(exists -> closeSession(sessionId, userId, userSessionId, exists));
   }
 
-  private void closeSession(UUID sessionId, UUID userId, boolean sessionExists) {
+  private void closeSession(
+    UUID sessionId, UUID userId, UUID userSessionId, boolean sessionExists
+  ) {
     if (!sessionExists) {
       return;
     }
     sessionDatabaseTable.findSession(sessionId)
-      .thenAccept(session -> closeSession(session, userId));
+      .thenAccept(session -> closeSession(session, userId, userSessionId));
   }
 
-  private void closeSession(Session session, UUID userId) {
+  private void closeSession(Session session, UUID userId, UUID userSessionId) {
     if (!session.userId().equals(userId)) {
+      return;
+    }
+    if (userSessionId.equals(session.id())) {
       return;
     }
     sessionDatabaseTable.closeSession(session.id());

@@ -26,27 +26,16 @@ public final class MaintenanceController extends TaskwolfRestController {
     this.maintenanceDatabaseTable = maintenanceDatabaseTable;
   }
 
-  @RequestMapping(path = "/maintenance/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findMaintenanceInformation() {
-    return findMaintenance(MaintenanceStatus.SCHEDULED).thenCompose(
-      scheduledMaintenance -> findMaintenance(MaintenanceStatus.RUNNING)
-        .thenApply(runningMaintenance -> assemblyMaintenanceInformation(
-          scheduledMaintenance, runningMaintenance)));
+  @RequestMapping(path = "/maintenance/scheduled/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findScheduledMaintenance() {
+    return maintenanceDatabaseTable.findMaintenanceByStatus(
+      MaintenanceStatus.SCHEDULED).thenApply(this::assemblyMaintenanceInformation);
   }
 
-  private CompletableFuture<List<Maintenance>> findMaintenance(
-    MaintenanceStatus status
-  ) {
-    return maintenanceDatabaseTable.findMaintenanceByStatus(status);
-  }
-
-  private Map<String, Object> assemblyMaintenanceInformation(
-    List<Maintenance> scheduledMaintenance, List<Maintenance> runningMaintenance
-  ) {
-    var information = Maps.<String, Object>newHashMap();
-    information.put("scheduled", assemblyMaintenanceInformation(scheduledMaintenance));
-    information.put("running", assemblyMaintenanceInformation(runningMaintenance));
-    return information;
+  @RequestMapping(path = "/maintenance/running/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findRunningMaintenanceInformation() {
+    return maintenanceDatabaseTable.findMaintenanceByStatus(
+      MaintenanceStatus.RUNNING).thenApply(this::assemblyMaintenanceInformation);
   }
 
   private Map<String, Object> assemblyMaintenanceInformation(

@@ -48,6 +48,8 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     var controllers = Lists.<String>newArrayList();
     controllers.add("/" + CURRENT_API_VERSION + "/");
     controllers.add("/" + CURRENT_API_VERSION + "/whitelist/isValid/");
+    controllers.add("/" + CURRENT_API_VERSION + "/maintenance/scheduled/");
+    controllers.add("/" + CURRENT_API_VERSION + "/maintenance/running/");
     controllers.add("/" + CURRENT_API_VERSION + "/bundle/preset/");
     controllers.add("/" + CURRENT_API_VERSION + "/checkout/");
     controllers.add("/" + CURRENT_API_VERSION + "/stripe/checkout/");

@@ -5,6 +5,7 @@ import com.google.inject.Key;
 import com.google.inject.name.Names;
 import net.taskwolf.access.activity.ActivityContextInitializer;
 import net.taskwolf.access.bundle.BundleContextInitializer;
+import net.taskwolf.access.maintenance.MaintenanceContextInitializer;
 import net.taskwolf.access.offer.OfferContextInitializer;
 import net.taskwolf.access.organization.OrganizationContextInitializer;
 import net.taskwolf.access.question.QuestionContextInitializer;
@@ -58,6 +59,7 @@ public final class AccessModule extends Module {
       injector().getInstance(WorkerProxyClient.class),
       injector().getInstance(CoreModule.class)));
     application.addInitializers(injector().getInstance(WhitelistContextInitializer.class));
+    application.addInitializers(injector().getInstance(MaintenanceContextInitializer.class));
     application.addInitializers(injector().getInstance(VerificationContextInitializer.class));
     application.addInitializers(injector().getInstance(StripeContextInitializer.class));
     application.addInitializers(injector().getInstance(TrialContextInitializer.class));

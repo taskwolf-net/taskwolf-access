@@ -4,7 +4,7 @@ import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.mail.TaskwolfMail;
+import net.taskwolf.core.mail.Mail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.recaptcha.RecaptchaConfiguration;
 import net.taskwolf.core.tutorial.TutorialDatabaseTable;
@@ -37,7 +37,7 @@ public final class VerificationRegistrationController {
   private final Key homeKey;
   private final Key productKey;
   private final Key refreshKey;
-  private final TaskwolfMail verificationMail;
+  private final Mail verificationMail;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final RecaptchaConfiguration recaptchaConfiguration;
@@ -50,7 +50,7 @@ public final class VerificationRegistrationController {
   private VerificationRegistrationController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
     @Qualifier("productKey") Key refreshKey,
-    @Qualifier("verificationMail") TaskwolfMail verificationMail,
+    @Qualifier("verificationMail") Mail verificationMail,
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     RecaptchaConfiguration recaptchaConfiguration,

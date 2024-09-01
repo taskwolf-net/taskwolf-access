@@ -1,41 +1,44 @@
 package net.taskwolf.access;
 
 import jakarta.annotation.PostConstruct;
-import net.taskwolf.core.mail.TaskwolfMail;
-import net.taskwolf.core.mail.TaskwolfMailConfiguration;
+import net.taskwolf.core.mail.Mail;
+import net.taskwolf.core.mail.MailConfiguration;
+import net.taskwolf.core.mail.MailFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class AccessSpringConfiguration {
-  private TaskwolfMail verificationMail;
-  private TaskwolfMail orderMail;
-  private TaskwolfMail changeMail;
+  private @Autowired MailFactory mailFactory;
+  private Mail verificationMail;
+  private Mail orderMail;
+  private Mail changeMail;
 
   @Bean
   @Qualifier("verificationMail")
-  TaskwolfMail provideVerificationMail() {
+  Mail provideVerificationMail() {
     return verificationMail;
   }
 
   @Bean
   @Qualifier("orderMail")
-  TaskwolfMail provideOrderMail() {
+  Mail provideOrderMail() {
     return orderMail;
   }
 
   @Bean
   @Qualifier("changeMail")
-  TaskwolfMail provideChangeMail() {
+  Mail provideChangeMail() {
     return changeMail;
   }
 
 
   @PostConstruct
   private void initializeVerificationMail() throws Exception {
-    var mailConfiguration = TaskwolfMailConfiguration.createAndLoad("verification");
-    verificationMail = TaskwolfMail.create(mailConfiguration.mail(),
+    var mailConfiguration = MailConfiguration.createAndLoad("verification");
+    verificationMail = mailFactory.create(mailConfiguration.mail(),
       mailConfiguration.smtpMailHost(), mailConfiguration.smtpMailPort(),
       mailConfiguration.imapMailHost(), mailConfiguration.imapMailPort(),
       mailConfiguration.mailUser(), mailConfiguration.mailPassword());
@@ -43,8 +46,8 @@ public class AccessSpringConfiguration {
 
   @PostConstruct
   private void initializeOrderMail() throws Exception {
-    var mailConfiguration = TaskwolfMailConfiguration.createAndLoad("order");
-    orderMail = TaskwolfMail.create(mailConfiguration.mail(),
+    var mailConfiguration = MailConfiguration.createAndLoad("order");
+    orderMail = mailFactory.create(mailConfiguration.mail(),
       mailConfiguration.smtpMailHost(), mailConfiguration.smtpMailPort(),
       mailConfiguration.imapMailHost(), mailConfiguration.imapMailPort(),
       mailConfiguration.mailUser(), mailConfiguration.mailPassword());
@@ -52,8 +55,8 @@ public class AccessSpringConfiguration {
 
   @PostConstruct
   private void initializeChangeMail() throws Exception {
-    var mailConfiguration = TaskwolfMailConfiguration.createAndLoad("change");
-    changeMail = TaskwolfMail.create(mailConfiguration.mail(),
+    var mailConfiguration = MailConfiguration.createAndLoad("change");
+    changeMail = mailFactory.create(mailConfiguration.mail(),
       mailConfiguration.smtpMailHost(), mailConfiguration.smtpMailPort(),
       mailConfiguration.imapMailHost(), mailConfiguration.imapMailPort(),
       mailConfiguration.mailUser(), mailConfiguration.mailPassword());

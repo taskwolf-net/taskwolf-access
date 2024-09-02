@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.user.User;
@@ -29,16 +30,19 @@ public final class ComponentController extends TaskwolfRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
+  private final Translation translation;
 
   private ComponentController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    UserTargetDatabaseTable userTargetDatabaseTable, ModuleLoader moduleLoader,
-    CoreModule coreModule
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    ModuleLoader moduleLoader, CoreModule coreModule,
+    Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/components/find/", method = RequestMethod.POST)
@@ -122,8 +126,8 @@ public final class ComponentController extends TaskwolfRestController {
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("identifier", identifier);
-    information.put("name", coreModule.translate(language, component.name()));
-    information.put("description", coreModule.translate(language,
+    information.put("name", translation.translate(language, component.name()));
+    information.put("description", translation.translate(language,
       component.description()));
     information.put("novelty", component.novelty());
     return information;
@@ -147,12 +151,12 @@ public final class ComponentController extends TaskwolfRestController {
     for (var variable : variables) {
       var variableInformation = Maps.<String, Object>newHashMap();
       variableInformation.put("identifier", variable.identifier());
-      variableInformation.put("name", coreModule.translate(language,
+      variableInformation.put("name", translation.translate(language,
         variable.displayName()));
       if (variable instanceof InputComponentVariable inputVariable) {
-        variableInformation.put("description", coreModule.translate(language,
+        variableInformation.put("description", translation.translate(language,
           inputVariable.description()));
-        variableInformation.put("placeholder", coreModule.translate(language,
+        variableInformation.put("placeholder", translation.translate(language,
           inputVariable.placeholder()));
         variableInformation.put("type", inputVariable.type());
         variableInformation.put("dataType", inputVariable.dataType());

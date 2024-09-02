@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.log.Log;
 import net.taskwolf.core.mail.MailFactory;
 import net.taskwolf.core.module.ModuleLoader;
@@ -30,6 +31,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final WorkerDistribution distribution;
   private final WorkerProxyClient workerProxyClient;
   private final CoreModule coreModule;
+  private final Translation translation;
   private final MailFactory mailFactory;
 
   @Override
@@ -42,6 +44,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("workerProxyClient", workerProxyClient);
     beanFactory.registerSingleton("coreModule", coreModule);
+    beanFactory.registerSingleton("translation", translation);
     beanFactory.registerSingleton("mailFactory", mailFactory);
     applicationContext.addBeanFactoryPostProcessor(
       new KeyPostProcessor(homeKey, productKey, refreshKey));

@@ -10,6 +10,7 @@ import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.mail.Mail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
@@ -43,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class AccountSettingController extends TaskwolfRestController {
   private final Mail changeMail;
+  private final Translation translation;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
@@ -68,7 +70,7 @@ public final class AccountSettingController extends TaskwolfRestController {
 
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    @Qualifier("changeMail") Mail changeMail,
+    @Qualifier("changeMail") Mail changeMail, Translation translation,
     UserTargetDatabaseTable userTargetDatabaseTable,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
     UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
@@ -94,6 +96,7 @@ public final class AccountSettingController extends TaskwolfRestController {
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
+    this.translation = translation;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
     this.userEmailChangeDatabaseTable = userEmailChangeDatabaseTable;
@@ -137,17 +140,7 @@ public final class AccountSettingController extends TaskwolfRestController {
         unlockAccountSettings(user, requestExists)));
   }
 
-  private static final String PASSWORD_EMAIL_TITLE = "Set Password";
   private static final String PASSWORD_RESET_URL = "https://taskwolf.net/password/reset/complete/%s/%s/";
-  private static final String PASSWORD_EMAIL_BODY = "Hey %s,\n" +
-    "\n" +
-    "there was a request to set your password!\n" +
-    "\n" +
-    "If you did not make this request then please ignore this email.\n" +
-    "\n" +
-    "Otherwise, please click this link to set your password:\n" +
-    "\n" +
-    "%s";
 
   private void unlockAccountSettings(User user, boolean requestExists) {
     if (!user.passwordHash().equals("") || requestExists) {
@@ -155,9 +148,11 @@ public final class AccountSettingController extends TaskwolfRestController {
     }
     var token = UUID.randomUUID().toString();
     userPasswordResetDatabaseTable.insertResetToken(user.id(), token);
-    var body = String.format(PASSWORD_EMAIL_BODY, user.name(),
+    var title = translation.translate(user, "password.set.email.title");
+    var body = String.format(
+      translation.translate(user, "password.set.email.body"), user.name(),
       String.format(PASSWORD_RESET_URL, user.id().toString(), token));
-    changeMail.send(user.email(), PASSWORD_EMAIL_TITLE, body);
+    changeMail.send(user.email(), title, body);
   }
 
   @RequestMapping(path = "/settings/account/password/change/", method = RequestMethod.POST)
@@ -221,17 +216,7 @@ public final class AccountSettingController extends TaskwolfRestController {
     return futureResponse;
   }
 
-  private static final String EMAIL_TITLE = "Email Change";
   private static final String EMAIL_CHANGE_URL = "https://taskwolf.net/email/change/complete/%s/%s/";
-  private static final String EMAIL_BODY = "Hey, \n" +
-    "\n" +
-    "we have received a request to replace the email of one of our accounts with this email.\n" +
-    "\n" +
-    "If you are not a Taskwolf customer or have not requested the replacement, please ignore this email.\n" +
-    "\n" +
-    "However, if this is a genuine request, please click on the link below to complete the change:\n" +
-    "\n" +
-    "%s";
 
   private Map<String, Object> requestEmailChange(
     User user, String newEmail, boolean requestExists
@@ -242,9 +227,11 @@ public final class AccountSettingController extends TaskwolfRestController {
     } else {
       userEmailChangeDatabaseTable.insertChange(user.id(), newEmail, token);
     }
-    var body = String.format(EMAIL_BODY, String.format(EMAIL_CHANGE_URL,
-      user.id().toString(), token));
-    changeMail.send(newEmail, EMAIL_TITLE, body);
+    var title = translation.translate(user, "email.change.email.title");
+    var body = String.format(
+      translation.translate(user, "email.change.email.body"),
+      String.format(EMAIL_CHANGE_URL, user.id().toString(), token));
+    changeMail.send(newEmail, title, body);
     return Map.of("success", true);
   }
 

@@ -19,8 +19,7 @@ publishing {
       url = uri("https://git.taskwolf.net/api/v4/projects/20/packages/maven")
       credentials(HttpHeaderCredentials::class) {
         name = "Private-Token"
-        value = System.getenv("TASKWOLF_GITLAB_PRIVATE_TOKEN") ?:
-          findProperty("taskwolfGitlabPrivateToken") as String?
+        value = "***REMOVED***"
       }
       authentication {
         create("header", HttpHeaderAuthentication::class)
@@ -35,8 +34,7 @@ repositories {
     url = uri("https://git.taskwolf.net/api/v4/projects/8/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = System.getenv("TASKWOLF_GITLAB_PRIVATE_TOKEN") ?:
-        findProperty("taskwolfGitlabPrivateToken") as String?
+      value = "***REMOVED***"
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)
@@ -46,8 +44,7 @@ repositories {
     url = uri("https://git.taskwolf.net/api/v4/projects/12/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = System.getenv("TASKWOLF_GITLAB_PRIVATE_TOKEN") ?:
-        findProperty("taskwolfGitlabPrivateToken") as String?
+      value = "***REMOVED***"
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)
@@ -57,8 +54,7 @@ repositories {
     url = uri("https://git.taskwolf.net/api/v4/projects/22/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = System.getenv("TASKWOLF_GITLAB_PRIVATE_TOKEN") ?:
-        findProperty("taskwolfGitlabPrivateToken") as String?
+      value = "***REMOVED***"
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)
@@ -68,8 +64,7 @@ repositories {
     url = uri("https://git.taskwolf.net/api/v4/projects/17/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = System.getenv("TASKWOLF_GITLAB_PRIVATE_TOKEN") ?:
-        findProperty("taskwolfGitlabPrivateToken") as String?
+      value = "***REMOVED***"
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)
@@ -79,8 +74,7 @@ repositories {
     url = uri("https://git.taskwolf.net/api/v4/projects/11/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = System.getenv("TASKWOLF_GITLAB_PRIVATE_TOKEN") ?:
-        findProperty("taskwolfGitlabPrivateToken") as String?
+      value = "***REMOVED***"
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)

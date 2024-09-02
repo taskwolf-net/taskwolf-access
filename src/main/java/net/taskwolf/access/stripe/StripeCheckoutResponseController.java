@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.bundle.*;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.mail.Mail;
 import net.taskwolf.core.mail.MailAttachment;
 import net.taskwolf.core.offer.Offer;
@@ -53,7 +54,7 @@ public final class StripeCheckoutResponseController extends StripeController {
   private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
   private final OfferDatabaseTable offerDatabaseTable;
   private final WorkerDistribution distribution;
-  private final CoreModule coreModule;
+  private final Translation translation;
 
   private StripeCheckoutResponseController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -67,7 +68,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     OperationDatabaseTable operationDatabaseTable,
     WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
     OfferDatabaseTable offerDatabaseTable, WorkerDistribution distribution,
-    CoreModule coreModule
+    Translation translation
   ) {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
       targetDatabaseTable, organizationDatabaseTable);
@@ -79,7 +80,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     this.workflowThrottleDatabaseTable = workflowThrottleDatabaseTable;
     this.offerDatabaseTable = offerDatabaseTable;
     this.distribution = distribution;
-    this.coreModule = coreModule;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/stripe/checkout/", method = RequestMethod.POST)
@@ -175,23 +176,6 @@ public final class StripeCheckoutResponseController extends StripeController {
     }
   }
 
-  private static final String UPGRADE_EMAIL_TITLE = "Upgrade";
-  private static final String UPGRADE_EMAIL_BODY = "Hey %s,\n" +
-    "\n" +
-    "We have noticed that you have upgraded your Taskwolf package.\n" +
-    "\n" +
-    "As a result of the upgrade, we have canceled your old subscription and " +
-    "activated the subscription for the new package.\n" +
-    "\n" +
-    "In the course of canceling your old package (by upgrading the package) " +
-    "we have refunded you the last payment for this month in the amount of %s €.\n" +
-    "\n" +
-    "It may take a few days for the refund to reach you. If you have any " +
-    "problems with this, you can contact support at support@taskwolf.net " +
-    "at any time.\n" +
-    "\n" +
-    "We hope you enjoy your new package and thank you for your purchase.";
-
   private void refundLastPayment(User user, String accountId) throws Exception  {
     var payments = stripeClient.paymentIntents()
       .list(PaymentIntentListParams.builder().setCustomer(accountId).build())
@@ -206,8 +190,10 @@ public final class StripeCheckoutResponseController extends StripeController {
       .setPaymentIntent(payment.getId())
       .setAmount(amount)
       .build());
-    orderMail.send(user.email(), UPGRADE_EMAIL_TITLE,
-      String.format(UPGRADE_EMAIL_BODY, user.name(), amount / 100D));
+    var title = translation.translate(user, "upgrade.email.title");
+    var body = String.format(translation.translate(user, "upgrade.email.body"),
+      user.name(), amount / 100D);
+    orderMail.send(user.email(), title, body);
   }
 
   private long calculatePaymentRefundAmount(PaymentIntent payment) {
@@ -276,20 +262,6 @@ public final class StripeCheckoutResponseController extends StripeController {
     return BundleRuntime.YEARLY;
   }
 
-  private static final String PAYMENT_EMAIL_TITLE = "Payment";
-  private static final String PAYMENT_EMAIL_BODY = "Hey %s,\n" +
-    "\n" +
-    "thank you for your order from Taskwolf. " +
-    "We are delighted that you have chosen a product from Taskwolf.\n" +
-    "\n" +
-    "Your Taskwolf product is available to you immediately. " +
-    "Log in now with the login details you entered when you registered.\n" +
-    "\n" +
-    "You can register under the following link:\n" +
-    "https://taskwolf.net/login/\n" +
-    "\n" +
-    "We look forward to working with you!";
-
   private void sendPaymentEmail(
     User user, Subscription subscription
   ) throws Exception {
@@ -299,8 +271,10 @@ public final class StripeCheckoutResponseController extends StripeController {
     invoiceFile.getParentFile().mkdirs();
     invoiceFile.createNewFile();
     downloadInvoice(invoice.getInvoicePdf(), invoiceFile.getAbsoluteFile());
-    orderMail.send(user.email(), PAYMENT_EMAIL_TITLE,
-        String.format(PAYMENT_EMAIL_BODY, user.name()),
+    var title = translation.translate(user, "payment.email.title");
+    var body = String.format(translation.translate(user, "upgrade.email.body"),
+      user.name());
+    orderMail.send(user.email(), title, body,
         Lists.newArrayList(MailAttachment.create("Invoice.pdf", invoiceFile)))
       .thenAccept(value -> invoiceFile.delete());
   }
@@ -334,7 +308,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     }
     var organizationIdFuture = organizationDatabaseTable()
       .generateAvailableOrganizationId();
-    var organizationName = String.format(coreModule.translate(user,
+    var organizationName = String.format(translation.translate(user,
       "organization.default.name"), user.name());
     organizationIdFuture.thenAccept(organizationId ->
       createOrganization(organizationId, organizationName, user.id()));

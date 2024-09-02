@@ -4,6 +4,7 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.activity.Activity;
@@ -22,15 +23,15 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class ActivityController extends TaskwolfRestController {
   private final UserActivityDatabaseTable activityDatabaseTable;
-  private final CoreModule coreModule;
+  private final Translation translation;
 
   private ActivityController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    UserActivityDatabaseTable activityDatabaseTable, CoreModule coreModule
+    UserActivityDatabaseTable activityDatabaseTable, Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.activityDatabaseTable = activityDatabaseTable;
-    this.coreModule = coreModule;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/activities/", method = RequestMethod.GET)
@@ -48,8 +49,8 @@ public final class ActivityController extends TaskwolfRestController {
     User user, Activity activity
   ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("title", coreModule.translate(user, activity.title()));
-    information.put("description", coreModule.translate(user, activity.description()));
+    information.put("title", translation.translate(user, activity.title()));
+    information.put("description", translation.translate(user, activity.description()));
     information.put("time", formatTime(activity.time()));
     information.put("type", activity.type().toString());
     return information;

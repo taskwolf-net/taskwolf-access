@@ -8,6 +8,7 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.account.AccountLink;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.module.RegisteredModule;
@@ -34,19 +35,19 @@ public final class AccountController extends TaskwolfRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final TeamTargetDatabaseTable teamTargetDatabaseTable;
   private final ModuleLoader moduleLoader;
-  private final CoreModule coreModule;
+  private final Translation translation;
 
   private AccountController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
-    ModuleLoader moduleLoader, CoreModule coreModule
+    ModuleLoader moduleLoader, Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.teamTargetDatabaseTable = teamTargetDatabaseTable;
     this.moduleLoader = moduleLoader;
-    this.coreModule = coreModule;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/account/apps/", method = RequestMethod.GET)
@@ -159,7 +160,7 @@ public final class AccountController extends TaskwolfRestController {
     var information = Maps.<String, Object>newHashMap();
     information.put("accountExists", accountExists);
     information.put("registrationUrl", accountLink.registrationUrl(target, apiKey));
-    information.put("linkDescription", coreModule.translate(user,
+    information.put("linkDescription", translation.translate(user,
       accountLink.description()));
     return information;
   }

@@ -2,8 +2,11 @@ package net.taskwolf.access.verification;
 
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
+import com.maxmind.geoip2.DatabaseReader;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.mail.Mail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.recaptcha.RecaptchaConfiguration;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -38,6 +42,7 @@ public final class VerificationRegistrationController {
   private final Key productKey;
   private final Key refreshKey;
   private final Mail verificationMail;
+  private final Translation translation;
   private final UserDatabaseTable userDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final RecaptchaConfiguration recaptchaConfiguration;
@@ -46,23 +51,26 @@ public final class VerificationRegistrationController {
   private final WorkerDistribution distribution;
   private final TutorialDatabaseTable tutorialDatabaseTable;
   private final UserActivityDatabaseTable activityDatabaseTable;
+  private final DatabaseReader geoDatabaseReader;
 
   private VerificationRegistrationController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
     @Qualifier("productKey") Key refreshKey,
-    @Qualifier("verificationMail") Mail verificationMail,
+    @Qualifier("verificationMail") Mail verificationMail, Translation translation,
     UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     RecaptchaConfiguration recaptchaConfiguration,
     UserTargetDatabaseTable userTargetDatabaseTable,
     NotificationDatabaseTable notificationDatabaseTable,
     WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable,
-    UserActivityDatabaseTable activityDatabaseTable
+    UserActivityDatabaseTable activityDatabaseTable,
+    DatabaseReader geoDatabaseReader
   ) {
     this.homeKey = homeKey;
     this.productKey = productKey;
     this.refreshKey = refreshKey;
     this.verificationMail = verificationMail;
+    this.translation = translation;
     this.userDatabaseTable = userDatabaseTable;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.recaptchaConfiguration = recaptchaConfiguration;
@@ -71,20 +79,23 @@ public final class VerificationRegistrationController {
     this.distribution = distribution;
     this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.activityDatabaseTable = activityDatabaseTable;
+    this.geoDatabaseReader = geoDatabaseReader;
   }
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> register(
-    @RequestBody String payload, HttpServletResponse response
+    HttpServletRequest request,  @RequestBody String payload,
+    HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
+    var ipAddress = request.getHeader("X-Real-IP");
     var email = body.getString("email");
     userDatabaseTable.userExists(email)
       .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
         .thenAccept(recaptchaVerified -> completeRegistration(futureResponse,
           exists, recaptchaVerified, email, body.getString("name"),
-          body.getString("password"))));
+          body.getString("password"), ipAddress)));
     return futureResponse;
   }
 
@@ -103,7 +114,8 @@ public final class VerificationRegistrationController {
 
   private void completeRegistration(
     CompletableFuture<Map<String, Object>> futureResponse, boolean alreadyExists,
-    boolean recaptchaVerified, String email, String name, String password
+    boolean recaptchaVerified, String email, String name, String password,
+    String ipAddress
   ) {
     if (alreadyExists) {
       futureResponse.complete(Map.of("success", false, "error", 1000));
@@ -114,41 +126,42 @@ public final class VerificationRegistrationController {
       return;
     }
     userDatabaseTable.generateAvailableUserId().thenAccept(id ->
-      insertNewUser(id, name, email, hashPassword(password)));
+      insertNewUser(id, name, email, hashPassword(password), ipAddress));
     futureResponse.complete(Map.of("success", true));
   }
 
-  private static final String VERIFICATION_EMAIL_TITLE = "Verification";
   private static final String VERIFICATION_URL = "https://taskwolf.net/register/confirm/%s/%s/";
-  private static final String VERIFICATION_EMAIL_BODY = "Hey %s,\n" +
-    "\n" +
-    "we’re excited to welcome you to Taskwolf! Before you begin your " +
-    "journey, we need to verify your account. Follow these steps to complete " +
-    "the verification process:\n" +
-    "\n" +
-    "Click the link below to verify your account:\n" +
-    "%s\n" +
-    "\n" +
-    "After verification, you’ll have access to all the amazing features on Taskwolf.\n" +
-    "\n" +
-    "If you encounter any issues or have questions, our support team is here to help. Simply reply to this email or reach out to us at support@taskwolf.net\n" +
-    "\n" +
-    "Welcome aboard!";
 
   private void insertNewUser(
-    UUID userId, String name, String email, String passwordHash
+    UUID userId, String name, String email, String passwordHash, String ipAddress
   ) {
-    userDatabaseTable.insertUser(userId, name, email, passwordHash, "en",
+    var language = findUserLanguage(ipAddress);
+    userDatabaseTable.insertUser(userId, name, email, passwordHash, language,
       Lists.newArrayList());
     userTargetDatabaseTable.insertTarget(userId, userId);
     var token = UUID.randomUUID().toString();
     notificationDatabaseTable.insertNotificationSettings(userId, true, true);
     userVerificationDatabaseTable.insertVerification(userId, token);
-    var body = String.format(VERIFICATION_EMAIL_BODY, name,
+    var title = translation.translate(language, "registration.email.title");
+    var body = String.format(
+      translation.translate(language, "registration.email.body"), name,
       String.format(VERIFICATION_URL, userId.toString(), token));
-    verificationMail.send(email, VERIFICATION_EMAIL_TITLE, body);
+    verificationMail.send(email, title, body);
     distribution.addUser(userId);
     tutorialDatabaseTable.insertTutorial(userId, 0, 0);
+  }
+
+  private String findUserLanguage(String ipAddress) {
+    try {
+      var location = geoDatabaseReader.city(InetAddress.getByName(ipAddress));
+      if (location.getCountry().getIsoCode().equalsIgnoreCase("de")) {
+        return "de";
+      }
+      return "en";
+    } catch (Exception exception) {
+      exception.printStackTrace();
+      return "en";
+    }
   }
 
   @RequestMapping(path = "/verification/email/resend/", method = RequestMethod.POST)
@@ -175,10 +188,12 @@ public final class VerificationRegistrationController {
     if (!verificationExists) {
       return;
     }
-    userVerificationDatabaseTable.findVerification(user.id()).thenAccept(token ->
-      verificationMail.send(user.email(), VERIFICATION_EMAIL_TITLE,
-        String.format(VERIFICATION_EMAIL_BODY, user.name(),
-          String.format(VERIFICATION_URL, user.id().toString(), token))));
+    var title = translation.translate(user, "registration.email.title");
+    userVerificationDatabaseTable.findVerification(user.id())
+      .thenApply(token -> String.format(
+        translation.translate(user, "registration.email.body"), user.name(),
+        String.format(VERIFICATION_URL, user.id().toString(), token)))
+      .thenAccept(body -> verificationMail.send(user.email(), title, body));
   }
 
   @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)

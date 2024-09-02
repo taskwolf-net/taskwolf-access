@@ -8,6 +8,7 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.user.User;
@@ -31,21 +32,22 @@ public final class TargetController extends TaskwolfRestController {
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TeamTargetDatabaseTable teamTargetDatabaseTable;
-  private final CoreModule coreModule;
+  private final Translation translation;
 
   private TargetController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
-    TeamTargetDatabaseTable teamTargetDatabaseTable, CoreModule coreModule
+    TeamTargetDatabaseTable teamTargetDatabaseTable,
+    Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.teamTargetDatabaseTable = teamTargetDatabaseTable;
-    this.coreModule = coreModule;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/targets/all/", method = RequestMethod.GET)
@@ -81,7 +83,7 @@ public final class TargetController extends TaskwolfRestController {
   ) {
     var targets = Lists.<Map<String, Object>>newArrayList();
     if (personalBundleExists) {
-      targets.add(Map.of("id", applicantId, "name", coreModule.translate(user,
+      targets.add(Map.of("id", applicantId, "name", translation.translate(user,
         "target.you"), "type", "PERSONAL"));
     }
     organizations.sort(Comparator.comparing(firstOrganization ->

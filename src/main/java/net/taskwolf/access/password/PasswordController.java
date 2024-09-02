@@ -4,6 +4,7 @@ import com.google.common.hash.Hashing;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.mail.Mail;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -24,15 +25,18 @@ import java.util.concurrent.CompletableFuture;
 public final class PasswordController extends TaskwolfRestController {
   private final Mail changeMail;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
+  private final Translation translation;
 
   private PasswordController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     @Qualifier("changeMail") Mail changeMail,
-    UserPasswordResetDatabaseTable userPasswordResetDatabaseTable
+    UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
+    Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/password/reset/request/", method = RequestMethod.POST)
@@ -60,17 +64,7 @@ public final class PasswordController extends TaskwolfRestController {
     return futureResponse;
   }
 
-  private static final String PASSWORD_EMAIL_TITLE = "Password Reset";
   private static final String PASSWORD_RESET_URL = "https://taskwolf.net/password/reset/complete/%s/%s/";
-  private static final String PASSWORD_EMAIL_BODY = "Hey %s,\n" +
-    "\n" +
-    "there was a request to change your password!\n" +
-    "\n" +
-    "If you did not make this request then please ignore this email.\n" +
-    "\n" +
-    "Otherwise, please click this link to change your password:\n" +
-    "\n" +
-    "%s";
 
   private Map<String, Object> requestPasswordReset(User user, boolean requestExists) {
     if (requestExists) {
@@ -78,9 +72,11 @@ public final class PasswordController extends TaskwolfRestController {
     }
     var token = UUID.randomUUID().toString();
     userPasswordResetDatabaseTable.insertResetToken(user.id(), token);
-    var body = String.format(PASSWORD_EMAIL_BODY, user.name(),
+    var title = translation.translate(user, "password.reset.email.title");
+    var body = String.format(
+      translation.translate(user, "password.reset.email.body"), user.name(),
       String.format(PASSWORD_RESET_URL, user.id().toString(), token));
-    changeMail.send(user.email(), PASSWORD_EMAIL_TITLE, body);
+    changeMail.send(user.email(), title, body);
     return Map.of("success", true);
   }
 

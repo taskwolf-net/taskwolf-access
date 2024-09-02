@@ -23,6 +23,7 @@ import net.taskwolf.access.workflow.WorkflowContextInitializer;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.log.Log;
 import net.taskwolf.core.mail.MailFactory;
 import net.taskwolf.core.module.*;
@@ -59,6 +60,7 @@ public final class AccessModule extends Module {
       injector().getInstance(WorkerDistribution.class),
       injector().getInstance(WorkerProxyClient.class),
       injector().getInstance(CoreModule.class),
+      injector().getInstance(Translation.class),
       injector().getInstance(MailFactory.class)));
     application.addInitializers(injector().getInstance(WhitelistContextInitializer.class));
     application.addInitializers(injector().getInstance(MaintenanceContextInitializer.class));

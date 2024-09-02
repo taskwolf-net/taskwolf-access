@@ -4,9 +4,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.organization.team.Team;
@@ -30,21 +30,22 @@ public final class OrganizationTeamTargetController extends TaskwolfRestControll
   private final TeamDatabaseTable teamDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
-  private final CoreModule coreModule;
+  private final Translation translation;
 
   private OrganizationTeamTargetController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
     TeamDatabaseTable teamDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
-    UserTargetDatabaseTable userTargetDatabaseTable, CoreModule coreModule
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.teamTargetDatabaseTable = teamTargetDatabaseTable;
     this.teamDatabaseTable = teamDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
-    this.coreModule = coreModule;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/organization/team/targets/find/", method = RequestMethod.POST)
@@ -109,7 +110,7 @@ public final class OrganizationTeamTargetController extends TaskwolfRestControll
     User user, List<Map<String, Object>> teams, Optional<UUID> currentTarget
   ) {
     var targets = Lists.<Map<String, Object>>newArrayList();
-    targets.add(Map.of("id", "", "name", coreModule.translate(user,
+    targets.add(Map.of("id", "", "name", translation.translate(user,
       "organization.team.target.global"), "type", "GLOBAL"));
     targets.addAll(teams);
     return Map.of("targets", targets, "currentTarget", currentTarget.isEmpty() ?

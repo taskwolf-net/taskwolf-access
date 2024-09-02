@@ -16,6 +16,7 @@ import net.taskwolf.core.database.DatabaseDirection;
 import net.taskwolf.core.database.DatabaseOrder;
 import net.taskwolf.core.database.DatabasePage;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.organization.team.TeamDatabaseTable;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.trigger.TriggerDatabaseTable;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 @RestController
 public final class WorkflowInformationController extends WorkflowController {
   private final CoreModule coreModule;
+  private final Translation translation;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
@@ -47,7 +49,8 @@ public final class WorkflowInformationController extends WorkflowController {
   private WorkflowInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable, CoreModule coreModule,
-    TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
+    Translation translation, TriggerDatabaseTable triggerDatabaseTable,
+    ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
@@ -58,6 +61,7 @@ public final class WorkflowInformationController extends WorkflowController {
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
       teamTargetDatabaseTable, bundleDatabaseTable, teamDatabaseTable);
     this.coreModule = coreModule;
+    this.translation = translation;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
@@ -209,7 +213,7 @@ public final class WorkflowInformationController extends WorkflowController {
     information.put("triggerModuleLogo",
       coreModule.findModuleInformation(trigger.module()).get().logo());
     information.put("triggerType", trigger.type());
-    information.put("triggerTypeDescription", coreModule.translate(user,
+    information.put("triggerTypeDescription", translation.translate(user,
       coreModule.findTriggerInformation(trigger.module(),
         trigger.type()).get().description()));
     information.put("triggerContent", new JSONObject(content).toString());
@@ -230,7 +234,7 @@ public final class WorkflowInformationController extends WorkflowController {
       actionInformation.put("actionModuleLogo",
         coreModule.findModuleInformation(action.module()).get().logo());
       actionInformation.put("actionType", action.type());
-      actionInformation.put("actionTypeDescription", coreModule.translate(user,
+      actionInformation.put("actionTypeDescription", translation.translate(user,
         coreModule.findActionInformation(action.module(),
           action.type()).get().description()));
       actionInformation.put("actionContent", new JSONObject(content).toString());
@@ -251,7 +255,7 @@ public final class WorkflowInformationController extends WorkflowController {
       conditionInformation.put("conditionConditionIndex",
         condition.conditionIndex());
       conditionInformation.put("conditionType", condition.type());
-      conditionInformation.put("conditionTypeName", coreModule.translate(user,
+      conditionInformation.put("conditionTypeName", translation.translate(user,
         conditionRepository.findByIdentifier(condition.type()).get().name()));
       conditionInformation.put("conditionContent", condition.content());
       conditionsInformation.add(conditionInformation);

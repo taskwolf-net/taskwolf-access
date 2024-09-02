@@ -4,6 +4,7 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.tutorial.Tutorial;
 import net.taskwolf.core.tutorial.TutorialDatabaseTable;
 import net.taskwolf.core.tutorial.level.TutorialLevel;
@@ -29,19 +30,19 @@ public final class TutorialController extends TaskwolfRestController {
   private final TutorialDatabaseTable tutorialDatabaseTable;
   private final TutorialLevelRegistry tutorialLevelRegistry;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
-  private final CoreModule coreModule;
+  private final Translation translation;
 
   private TutorialController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TutorialDatabaseTable tutorialDatabaseTable,
     TutorialLevelRegistry tutorialLevelRegistry,
-    UserTargetDatabaseTable userTargetDatabaseTable, CoreModule coreModule
+    UserTargetDatabaseTable userTargetDatabaseTable, Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.tutorialLevelRegistry = tutorialLevelRegistry;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
-    this.coreModule = coreModule;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/tutorial/", method = RequestMethod.GET)
@@ -74,17 +75,17 @@ public final class TutorialController extends TaskwolfRestController {
       tutorial.step() == level.steps().size() - 1;
     state.put("active", true);
     state.put("page", level.page());
-    state.put("title", coreModule.translate(user, step.title()));
-    state.put("description", coreModule.translate(user, step.description()));
+    state.put("title", translation.translate(user, step.title()));
+    state.put("description", translation.translate(user, step.description()));
     state.put("element", step.element());
     state.put("position", step.position());
     state.put("shiftContentDown", step.shiftContentDown());
     var exclusions = findTutorialLevelExclusions(user, target);
     state.put("progress", tutorialLevelRegistry.findStepProgress(step, exclusions));
     state.put("allSteps", tutorialLevelRegistry.findStepNumber(exclusions));
-    state.put("continue", isFinished ? coreModule.translate(user, "tutorial.finish") :
-      coreModule.translate(user, "tutorial.continue"));
-    state.put("cancel", coreModule.translate(user, "tutorial.cancel"));
+    state.put("continue", isFinished ? translation.translate(user, "tutorial.finish") :
+      translation.translate(user, "tutorial.continue"));
+    state.put("cancel", translation.translate(user, "tutorial.cancel"));
     return state;
   }
 

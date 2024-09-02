@@ -8,6 +8,7 @@ import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.action.ActionInformation;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.module.ModuleInformation;
 import net.taskwolf.core.template.Template;
 import net.taskwolf.core.template.TemplateDatabaseTable;
@@ -24,13 +25,15 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class TemplateController extends TaskwolfRestController {
   private final CoreModule coreModule;
+  private final Translation translation;
   private final TemplateDatabaseTable templateDatabaseTable;
 
   private TemplateController(
     Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
-    TemplateDatabaseTable templateDatabaseTable
+    Translation translation, TemplateDatabaseTable templateDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
+    this.translation = translation;
     this.coreModule = coreModule;
     this.templateDatabaseTable = templateDatabaseTable;
   }
@@ -115,7 +118,7 @@ public final class TemplateController extends TaskwolfRestController {
       .map(ModuleInformation::logo).orElse(""));
     var triggerType = template.trigger().type();
     triggerInformation.put("type", triggerType);
-    triggerInformation.put("typeDescription", coreModule.translate(language,
+    triggerInformation.put("typeDescription", translation.translate(language,
       coreModule.findTriggerInformation(triggerModule, triggerType)
         .map(TriggerInformation::description).orElse("")));
     information.put("trigger", triggerInformation);
@@ -129,7 +132,7 @@ public final class TemplateController extends TaskwolfRestController {
         .map(ModuleInformation::logo).orElse(""));
       var actionType = action.type();
       actionInformation.put("type", action.type());
-      actionInformation.put("typeDescription", coreModule.translate(language,
+      actionInformation.put("typeDescription", translation.translate(language,
         coreModule.findActionInformation(actionModule, actionType)
           .map(ActionInformation::description).orElse("")));
       actionsInformation.add(actionInformation);

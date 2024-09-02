@@ -8,6 +8,7 @@ import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.condition.ConditionInformation;
 import net.taskwolf.core.condition.ConditionInformationRepository;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,15 +22,16 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class ConditionController extends TaskwolfRestController {
-  private final CoreModule coreModule;
+  private final Translation translation;
   private final ConditionInformationRepository conditionRepository;
 
   private ConditionController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
+    Key secretKey, UserDatabaseTable userDatabaseTable,
+    Translation translation,
     ConditionInformationRepository conditionRepository
   ) {
     super(secretKey, userDatabaseTable);
-    this.coreModule = coreModule;
+    this.translation = translation;
     this.conditionRepository = conditionRepository;
   }
 
@@ -58,7 +60,7 @@ public final class ConditionController extends TaskwolfRestController {
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("identifier", condition.identifier());
-    information.put("name", coreModule.translate(user, condition.name()));
+    information.put("name", translation.translate(user, condition.name()));
     information.put("dataType", condition.dataType());
     return information;
   }

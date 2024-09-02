@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.module.ModuleLoader;
 import net.taskwolf.core.module.RegisteredModule;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -19,15 +20,15 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class ModuleController extends TaskwolfRestController {
   private final ModuleLoader moduleLoader;
-  private final CoreModule coreModule;
+  private final Translation translation;
 
   private ModuleController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
-    CoreModule coreModule
+    Key secretKey, UserDatabaseTable userDatabaseTable,
+    ModuleLoader moduleLoader, Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.moduleLoader = moduleLoader;
-    this.coreModule = coreModule;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/module/find/", method = RequestMethod.POST)
@@ -119,9 +120,9 @@ public final class ModuleController extends TaskwolfRestController {
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", module.name());
-    information.put("name", coreModule.translate(language,
+    information.put("name", translation.translate(language,
       module.module().moduleInformation().name()));
-    information.put("description", coreModule.translate(language,
+    information.put("description", translation.translate(language,
       module.module().moduleInformation().description()));
     information.put("novelty", module.module().moduleInformation().novelty());
     information.put("logo", module.module().moduleInformation().logo());

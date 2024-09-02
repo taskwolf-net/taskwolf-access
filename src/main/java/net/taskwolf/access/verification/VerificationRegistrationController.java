@@ -118,7 +118,7 @@ public final class VerificationRegistrationController {
     futureResponse.complete(Map.of("success", true));
   }
 
-  private static final String VERIFICATIION_EMAIL_TITLE = "Verification";
+  private static final String VERIFICATION_EMAIL_TITLE = "Verification";
   private static final String VERIFICATION_URL = "https://taskwolf.net/register/confirm/%s/%s/";
   private static final String VERIFICATION_EMAIL_BODY = "Hey %s,\n" +
     "\n" +
@@ -146,7 +146,7 @@ public final class VerificationRegistrationController {
     userVerificationDatabaseTable.insertVerification(userId, token);
     var body = String.format(VERIFICATION_EMAIL_BODY, name,
       String.format(VERIFICATION_URL, userId.toString(), token));
-    verificationMail.send(email, VERIFICATIION_EMAIL_TITLE, body);
+    verificationMail.send(email, VERIFICATION_EMAIL_TITLE, body);
     distribution.addUser(userId);
     tutorialDatabaseTable.insertTutorial(userId, 0, 0);
   }
@@ -176,7 +176,7 @@ public final class VerificationRegistrationController {
       return;
     }
     userVerificationDatabaseTable.findVerification(user.id()).thenAccept(token ->
-      verificationMail.send(user.email(), VERIFICATIION_EMAIL_TITLE,
+      verificationMail.send(user.email(), VERIFICATION_EMAIL_TITLE,
         String.format(VERIFICATION_EMAIL_BODY, user.name(),
           String.format(VERIFICATION_URL, user.id().toString(), token))));
   }

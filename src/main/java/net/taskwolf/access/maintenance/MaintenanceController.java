@@ -1,5 +1,6 @@
 package net.taskwolf.access.maintenance;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.maintenance.Maintenance;
@@ -46,8 +47,8 @@ public final class MaintenanceController extends TaskwolfRestController {
     if (maintenanceList.isEmpty()) {
       return information;
     }
-    maintenanceList.sort(Comparator.comparingLong(Maintenance::startTime));
-    var maintenance = maintenanceList.get(0);
+    var maintenance = maintenanceList.stream()
+      .sorted(Comparator.comparingLong(Maintenance::startTime)).findFirst().get();
     information.put("id", maintenance.id());
     information.put("startTime", maintenance.startTime());
     information.put("duration", maintenance.duration());

@@ -4,7 +4,7 @@ import com.google.common.hash.Hashing;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
-import net.taskwolf.core.mail.TaskwolfMail;
+import net.taskwolf.core.mail.Mail;
 import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserPasswordResetDatabaseTable;
@@ -22,12 +22,12 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class PasswordController extends TaskwolfRestController {
-  private final TaskwolfMail changeMail;
+  private final Mail changeMail;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
 
   private PasswordController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    @Qualifier("changeMail") TaskwolfMail changeMail,
+    @Qualifier("changeMail") Mail changeMail,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);

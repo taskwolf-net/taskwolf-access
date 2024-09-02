@@ -11,8 +11,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.bundle.*;
-import net.taskwolf.core.mail.TaskwolfMail;
-import net.taskwolf.core.mail.TaskwolfMailAttachment;
+import net.taskwolf.core.mail.Mail;
+import net.taskwolf.core.mail.MailAttachment;
 import net.taskwolf.core.offer.Offer;
 import net.taskwolf.core.offer.OfferDatabaseTable;
 import net.taskwolf.core.offer.OfferStatus;
@@ -47,7 +47,7 @@ import java.util.concurrent.CompletableFuture;
 public final class StripeCheckoutResponseController extends StripeController {
   private final StripeClient stripeClient;
   private final TerminationDatabaseTable terminationDatabaseTable;
-  private final TaskwolfMail orderMail;
+  private final Mail orderMail;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final OperationDatabaseTable operationDatabaseTable;
   private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
@@ -62,7 +62,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     UserTargetDatabaseTable targetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     TerminationDatabaseTable terminationDatabaseTable,
-    @Qualifier("orderMail") TaskwolfMail orderMail,
+    @Qualifier("orderMail") Mail orderMail,
     BundleDatabaseTable bundleDatabaseTable,
     OperationDatabaseTable operationDatabaseTable,
     WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
@@ -301,7 +301,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     downloadInvoice(invoice.getInvoicePdf(), invoiceFile.getAbsoluteFile());
     orderMail.send(user.email(), PAYMENT_EMAIL_TITLE,
         String.format(PAYMENT_EMAIL_BODY, user.name()),
-        Lists.newArrayList(TaskwolfMailAttachment.create("Invoice.pdf", invoiceFile)))
+        Lists.newArrayList(MailAttachment.create("Invoice.pdf", invoiceFile)))
       .thenAccept(value -> invoiceFile.delete());
   }
 

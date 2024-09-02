@@ -10,7 +10,7 @@ import net.taskwolf.access.workflow.WorkflowModificationController;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
-import net.taskwolf.core.mail.TaskwolfMail;
+import net.taskwolf.core.mail.Mail;
 import net.taskwolf.core.notification.NotificationDatabaseTable;
 import net.taskwolf.core.organization.Organization;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
@@ -42,7 +42,7 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class AccountSettingController extends TaskwolfRestController {
-  private final TaskwolfMail changeMail;
+  private final Mail changeMail;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
@@ -68,7 +68,7 @@ public final class AccountSettingController extends TaskwolfRestController {
 
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    @Qualifier("changeMail") TaskwolfMail changeMail,
+    @Qualifier("changeMail") Mail changeMail,
     UserTargetDatabaseTable userTargetDatabaseTable,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
     UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,

@@ -9,7 +9,6 @@ import com.stripe.param.PaymentIntentListParams;
 import com.stripe.param.RefundCreateParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.bundle.*;
 import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.mail.Mail;
@@ -272,7 +271,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     invoiceFile.createNewFile();
     downloadInvoice(invoice.getInvoicePdf(), invoiceFile.getAbsoluteFile());
     var title = translation.translate(user, "payment.email.title");
-    var body = String.format(translation.translate(user, "upgrade.email.body"),
+    var body = String.format(translation.translate(user, "payment.email.body"),
       user.name());
     orderMail.send(user.email(), title, body,
         Lists.newArrayList(MailAttachment.create("Invoice.pdf", invoiceFile)))

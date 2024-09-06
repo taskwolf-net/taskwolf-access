@@ -24,7 +24,7 @@ public class MaintenanceFilter extends OncePerRequestFilter {
     FilterChain filterChain
   ) throws ServletException, IOException {
     if (maintenanceSchedule.isMaintenanceRunning()) {
-      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      response.setStatus(HttpServletResponse.SC_CONFLICT);
       return;
     }
     filterChain.doFilter(request, response);

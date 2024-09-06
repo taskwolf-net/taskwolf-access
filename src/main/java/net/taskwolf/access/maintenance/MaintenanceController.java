@@ -1,9 +1,11 @@
 package net.taskwolf.access.maintenance;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.maintenance.Maintenance;
 import net.taskwolf.core.maintenance.MaintenanceDatabaseTable;
+import net.taskwolf.core.maintenance.MaintenanceSchedule;
 import net.taskwolf.core.maintenance.MaintenanceStatus;
 import net.taskwolf.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,13 +19,16 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class MaintenanceController extends TaskwolfRestController {
   private final MaintenanceDatabaseTable maintenanceDatabaseTable;
+  private final MaintenanceSchedule maintenanceSchedule;
 
   private MaintenanceController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    MaintenanceDatabaseTable maintenanceDatabaseTable
+    MaintenanceDatabaseTable maintenanceDatabaseTable,
+    MaintenanceSchedule maintenanceSchedule
   ) {
     super(secretKey, userDatabaseTable);
     this.maintenanceDatabaseTable = maintenanceDatabaseTable;
+    this.maintenanceSchedule = maintenanceSchedule;
   }
 
   @RequestMapping(path = "/maintenance/scheduled/", method = RequestMethod.GET)
@@ -33,9 +38,9 @@ public final class MaintenanceController extends TaskwolfRestController {
   }
 
   @RequestMapping(path = "/maintenance/running/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findRunningMaintenanceInformation() {
-    return maintenanceDatabaseTable.findMaintenanceByStatus(
-      MaintenanceStatus.RUNNING).thenApply(this::assemblyMaintenanceInformation);
+  public Map<String, Object> findRunningMaintenanceInformation() {
+    return assemblyMaintenanceInformation(maintenanceSchedule.currentMaintenance()
+      .map(Lists::newArrayList).orElse(Lists.newArrayList()));
   }
 
   private Map<String, Object> assemblyMaintenanceInformation(

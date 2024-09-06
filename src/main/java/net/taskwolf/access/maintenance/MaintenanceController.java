@@ -1,6 +1,5 @@
 package net.taskwolf.access.maintenance;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.maintenance.Maintenance;

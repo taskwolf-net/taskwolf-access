@@ -14,6 +14,8 @@ public class FilterConfiguration {
   @Autowired
   private WhitelistFilter whitelistFilter;
   @Autowired
+  private MaintenanceFilter maintenanceFilter;
+  @Autowired
   private ProductAuthorizationFilter productAuthorizationFilter;
   @Autowired
   private HomeAuthorizationFilter homeAuthorizationFilter;
@@ -35,10 +37,18 @@ public class FilterConfiguration {
   }
 
   @Bean
+  public FilterRegistrationBean<MaintenanceFilter> provideMaintenanceFilter() {
+    var registrationBean = new FilterRegistrationBean<MaintenanceFilter>();
+    registrationBean.setFilter(maintenanceFilter);
+    registrationBean.setOrder(3);
+    return registrationBean;
+  }
+
+  @Bean
   public FilterRegistrationBean<ProductAuthorizationFilter> provideProductAuthorizationFilter() {
     var registrationBean = new FilterRegistrationBean<ProductAuthorizationFilter>();
     registrationBean.setFilter(productAuthorizationFilter);
-    registrationBean.setOrder(3);
+    registrationBean.setOrder(4);
     return registrationBean;
   }
 
@@ -46,7 +56,7 @@ public class FilterConfiguration {
   public FilterRegistrationBean<HomeAuthorizationFilter> provideHomeAuthorizationFilter() {
     var registrationBean = new FilterRegistrationBean<HomeAuthorizationFilter>();
     registrationBean.setFilter(homeAuthorizationFilter);
-    registrationBean.setOrder(4);
+    registrationBean.setOrder(5);
     return registrationBean;
   }
 }

@@ -10,13 +10,13 @@ import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.locale.Translation;
 import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleLoader;
-import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.core.workflow.component.ComponentInformation;
 import net.taskwolf.core.workflow.component.ComponentVariable;
 import net.taskwolf.core.workflow.component.input.InputComponentDataType;
 import net.taskwolf.core.workflow.component.input.InputComponentVariable;
+import org.json.JSONObject;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
@@ -194,6 +194,8 @@ public final class ComponentController extends TaskwolfRestController {
     findUser(request).thenAccept(user ->
       userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
         select.get().select().compile(user, target, previousInputs)
+          .thenApply(items -> items.stream().map(item -> new JSONObject(Map.of(
+            "identifier", item.identifier(), "name", item.name())).toString()))
           .thenAccept(items -> futureResponse.complete(Map.of("items", items)))));
     return futureResponse;
   }

@@ -3,7 +3,7 @@ plugins {
   id("maven-publish")
 }
 
-group = "net.taskwolf"
+group = "com.dulno"
 version = "1.0.0-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_21
 java.targetCompatibility = JavaVersion.VERSION_21
@@ -16,10 +16,11 @@ publishing {
   }
   repositories {
     maven {
-      url = uri("https://git.taskwolf.net/api/v4/projects/20/packages/maven")
+      url = uri("https://git.dulno.com/api/v4/projects/20/packages/maven")
       credentials(HttpHeaderCredentials::class) {
         name = "Private-Token"
-        value = "***REMOVED***"
+        value = System.getenv("DULNO_GITLAB_PRIVATE_TOKEN") ?:
+          findProperty("dulnoGitlabPrivateToken") as String?
       }
       authentication {
         create("header", HttpHeaderAuthentication::class)
@@ -31,50 +32,55 @@ publishing {
 repositories {
   mavenCentral()
   maven {
-    url = uri("https://git.taskwolf.net/api/v4/projects/8/packages/maven")
+    url = uri("https://git.dulno.com/api/v4/projects/8/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = "***REMOVED***"
+      value = System.getenv("DULNO_GITLAB_PRIVATE_TOKEN") ?:
+        findProperty("dulnoGitlabPrivateToken") as String?
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)
     }
   }
   maven {
-    url = uri("https://git.taskwolf.net/api/v4/projects/12/packages/maven")
+    url = uri("https://git.dulno.com/api/v4/projects/12/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = "***REMOVED***"
+      value = System.getenv("DULNO_GITLAB_PRIVATE_TOKEN") ?:
+        findProperty("dulnoGitlabPrivateToken") as String?
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)
     }
   }
   maven {
-    url = uri("https://git.taskwolf.net/api/v4/projects/22/packages/maven")
+    url = uri("https://git.dulno.com/api/v4/projects/22/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = "***REMOVED***"
+      value = System.getenv("DULNO_GITLAB_PRIVATE_TOKEN") ?:
+        findProperty("dulnoGitlabPrivateToken") as String?
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)
     }
   }
   maven {
-    url = uri("https://git.taskwolf.net/api/v4/projects/17/packages/maven")
+    url = uri("https://git.dulno.com/api/v4/projects/17/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = "***REMOVED***"
+      value = System.getenv("DULNO_GITLAB_PRIVATE_TOKEN") ?:
+        findProperty("dulnoGitlabPrivateToken") as String?
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)
     }
   }
   maven {
-    url = uri("https://git.taskwolf.net/api/v4/projects/11/packages/maven")
+    url = uri("https://git.dulno.com/api/v4/projects/11/packages/maven")
     credentials(HttpHeaderCredentials::class) {
       name = "Private-Token"
-      value = "***REMOVED***"
+      value = System.getenv("DULNO_GITLAB_PRIVATE_TOKEN") ?:
+        findProperty("dulnoGitlabPrivateToken") as String?
     }
     authentication {
       create("header", HttpHeaderAuthentication::class)
@@ -86,11 +92,11 @@ dependencies {
   testCompileOnly(platform("org.junit:junit-bom:5.10.2"))
   testCompileOnly("org.junit.jupiter:junit-jupiter:5.10.2")
 
-  compileOnly("net.taskwolf:core:1.0.0-SNAPSHOT")
-  compileOnly("net.taskwolf:table:1.0.0-SNAPSHOT")
-  compileOnly("net.taskwolf:process:1.0.0-SNAPSHOT")
-  compileOnly("net.taskwolf:webhook:1.0.0-SNAPSHOT")
-  compileOnly("net.taskwolf:device:1.0.0-SNAPSHOT")
+  compileOnly("com.dulno:core:1.0.0-SNAPSHOT")
+  compileOnly("com.dulno:table:1.0.0-SNAPSHOT")
+  compileOnly("com.dulno:process:1.0.0-SNAPSHOT")
+  compileOnly("com.dulno:webhook:1.0.0-SNAPSHOT")
+  compileOnly("com.dulno:device:1.0.0-SNAPSHOT")
 
   compileOnly("com.google.inject:guice:7.0.0")
 

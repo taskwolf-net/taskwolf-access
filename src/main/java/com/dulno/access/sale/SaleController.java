@@ -1,0 +1,66 @@
+package com.dulno.access.sale;
+
+import com.google.common.collect.Lists;
+import jakarta.servlet.http.HttpServletResponse;
+import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.core.question.QuestionDatabaseTable;
+import com.dulno.core.question.QuestionMessageDatabaseTable;
+import com.dulno.core.sale.SaleDatabaseTable;
+import com.dulno.core.sale.SaleMessageDatabaseTable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
+@RestController
+public final class SaleController {
+  private final SaleDatabaseTable saleDatabaseTable;
+  private final SaleMessageDatabaseTable saleMessageDatabaseTable;
+
+  private SaleController(
+    SaleDatabaseTable saleDatabaseTable,
+    SaleMessageDatabaseTable saleMessageDatabaseTable
+  ) {
+    this.saleDatabaseTable = saleDatabaseTable;
+    this.saleMessageDatabaseTable = saleMessageDatabaseTable;
+  }
+
+  @RequestMapping(path = "/sale/create/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> createSale(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    return saleMessageDatabaseTable.generateAvailableMessageId()
+      .thenApply(messageId -> createSale(messageId, body.getString("email"),
+        body.getString("firstName"), body.getString("lastName"),
+        body.getString("phoneNumber"), body.getString("country"),
+        body.getString("companyName"), body.getString("companySize"),
+        body.getString("companyRole"), body.getString("title"),
+        body.getString("message")));
+}
+
+  private Map<String, Object> createSale(
+    UUID messageId, String email, String firstName, String lastName,
+    String phoneNumber, String country, String companyName, String companySize,
+    String companyRole, String title, String message
+  ) {
+    if (email.isEmpty() || firstName.isEmpty() || lastName.isEmpty() ||
+      title.isEmpty() || message.isEmpty()
+    ) {
+      return Map.of("success", false);
+    }
+    if (!email.contains("@")) {
+      return Map.of("success", false);
+    }
+    saleDatabaseTable.insertSale(messageId, email, firstName, lastName,
+      phoneNumber, country, companyName, companySize, companyRole, title, -1,
+      Lists.newArrayList());
+    saleMessageDatabaseTable.insertSaleMessage(messageId, email, message,
+      System.currentTimeMillis());
+    return Map.of("success", true);
+  }
+}

@@ -1,12 +1,12 @@
 {
   "registration.email.title": "Registration",
-  "registration.email.body": "Hey %s,\n\nwe’re excited to welcome you to Taskwolf! Before you begin your journey, we need to verify your account. Follow these steps to complete the verification process:\n\nClick the link below to verify your account:\n%s\n\nAfter verification, you’ll have access to all the amazing features on Taskwolf.\n\nIf you encounter any issues or have questions, our support team is here to help. Simply reply to this email or reach out to us at support@taskwolf.net\n\nWelcome aboard!",
+  "registration.email.body": "Hey %s,\n\nwe’re excited to welcome you to Dulno! Before you begin your journey, we need to verify your account. Follow these steps to complete the verification process:\n\nClick the link below to verify your account:\n%s\n\nAfter verification, you’ll have access to all the amazing features on Dulno.\n\nIf you encounter any issues or have questions, our support team is here to help. Simply reply to this email or reach out to us at support@dulno.com\n\nWelcome aboard!",
 
   "payment.email.title": "Payment",
-  "payment.email.body": "Hey %s,\n\nthank you for your order from Taskwolf. We are delighted that you have chosen a product from Taskwolf.\n\nYour Taskwolf product is available to you immediately. Log in now with the login details you entered when you registered.\n\nYou can register under the following link:\nhttps://taskwolf.net/login/\n\nWe look forward to working with you!",
+  "payment.email.body": "Hey %s,\n\nthank you for your order from Dulno. We are delighted that you have chosen a product from Dulno.\n\nYour Dulno product is available to you immediately. Log in now with the login details you entered when you registered.\n\nYou can register under the following link:\nhttps://dulno.com/login/\n\nWe look forward to working with you!",
 
   "upgrade.email.title": "Upgrade",
-  "upgrade.email.body": "Hey %s,\n\nWe have noticed that you have upgraded your Taskwolf package.\n\nAs a result of the upgrade, we have canceled your old subscription and activated the subscription for the new package.\n\nIn the course of canceling your old package (by upgrading the package) we have refunded you the last payment for this month in the amount of %s €.\n\nIt may take a few days for the refund to reach you. If you have any problems with this, you can contact support at support@taskwolf.net at any time.\n\nWe hope you enjoy your new package and thank you for your purchase.",
+  "upgrade.email.body": "Hey %s,\n\nWe have noticed that you have upgraded your Dulno package.\n\nAs a result of the upgrade, we have canceled your old subscription and activated the subscription for the new package.\n\nIn the course of canceling your old package (by upgrading the package) we have refunded you the last payment for this month in the amount of %s €.\n\nIt may take a few days for the refund to reach you. If you have any problems with this, you can contact support at support@dulno.com at any time.\n\nWe hope you enjoy your new package and thank you for your purchase.",
 
   "password.set.email.title": "Set password",
   "password.set.email.body": "Hey %s,\n\nthere was a request to set your password!\n\nIf you did not make this request then please ignore this email.\n\nOtherwise, please click this link to set your password:\n\n%s",
@@ -15,5 +15,5 @@
   "password.reset.email.body": "Hey %s,\n\nthere was a request to change your password!\n\nIf you did not make this request then please ignore this email.\n\nOtherwise, please click this link to change your password:\n\n%s",
 
   "email.change.email.title": "Email change",
-  "email.change.email.body": "Hey,\n\nwe have received a request to replace the email of one of our accounts with this email.\n\nIf you are not a Taskwolf customer or have not requested the replacement, please ignore this email.\n\nHowever, if this is a genuine request, please click on the link below to complete the change:\n\n%s"
+  "email.change.email.body": "Hey,\n\nwe have received a request to replace the email of one of our accounts with this email.\n\nIf you are not a Dulno customer or have not requested the replacement, please ignore this email.\n\nHowever, if this is a genuine request, please click on the link below to complete the change:\n\n%s"
 }

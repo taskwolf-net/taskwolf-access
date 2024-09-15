@@ -1,5 +1,6 @@
 package com.dulno.access;
 
+import com.dulno.core.worker.WorkerConfiguration;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.name.Names;
@@ -59,6 +60,7 @@ public final class AccessModule extends Module {
       injector().getInstance(DatabaseKeyspace.class),
       injector().getInstance(WorkerDistribution.class),
       injector().getInstance(WorkerProxyClient.class),
+      injector().getInstance(WorkerConfiguration.class),
       injector().getInstance(CoreModule.class),
       injector().getInstance(Translation.class),
       injector().getInstance(MailFactory.class)));

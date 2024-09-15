@@ -1,5 +1,6 @@
 package com.dulno.access;
 
+import com.dulno.core.worker.WorkerConfiguration;
 import lombok.RequiredArgsConstructor;
 import com.dulno.core.CoreModule;
 import com.dulno.core.database.DatabaseConnection;
@@ -30,6 +31,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final DatabaseKeyspace databaseKeyspace;
   private final WorkerDistribution distribution;
   private final WorkerProxyClient workerProxyClient;
+  private final WorkerConfiguration workerConfiguration;
   private final CoreModule coreModule;
   private final Translation translation;
   private final MailFactory mailFactory;
@@ -43,6 +45,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("databaseKeyspace", databaseKeyspace);
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("workerProxyClient", workerProxyClient);
+    beanFactory.registerSingleton("workerConfiguration", workerConfiguration);
     beanFactory.registerSingleton("coreModule", coreModule);
     beanFactory.registerSingleton("translation", translation);
     beanFactory.registerSingleton("mailFactory", mailFactory);

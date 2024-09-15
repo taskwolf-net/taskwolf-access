@@ -53,6 +53,7 @@ public class WhitelistFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/discord/guild/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/login/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");
+    controllers.add("/" + CURRENT_API_VERSION + "/distribution/add/");
     return controllers.contains(request.getRequestURI());
   }
 }

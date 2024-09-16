@@ -53,13 +53,18 @@ public final class StripeTerminationController extends StripeController {
         bundleDatabaseTable.findBundle(account.targetId())
           .thenComposeAsync(bundle -> findTerminationStatus(account.targetId(),
             bundle, account.accountId()).thenAccept(futureResponse::complete)),
-      () -> futureResponse.complete(Maps.newHashMap()));
+      () -> futureResponse.complete(Map.of("terminable", false,
+        "terminated", false)));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> findTerminationStatus(
     UUID targetId, Bundle bundle, String stripeAccountId
   ) {
+    if (bundle.bundleType().isTrial() || bundle.bundleRuntime().isUnbound()) {
+      return CompletableFuture.completedFuture(Map.of("terminable", false,
+        "terminated", false));
+    }
     try {
       var subscriptions = stripeClient.subscriptions()
         .list(SubscriptionListParams.builder().setCustomer(stripeAccountId).build())

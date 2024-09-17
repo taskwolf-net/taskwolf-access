@@ -89,13 +89,18 @@ public final class VerificationRegistrationController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
+    var legalAccepted = body.getBoolean("legalAccepted");
+    if (!legalAccepted) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
     var ipAddress = request.getHeader("X-Real-IP");
     var email = body.getString("email");
     userDatabaseTable.userExists(email)
       .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
         .thenAccept(recaptchaVerified -> completeRegistration(futureResponse,
           exists, recaptchaVerified, email, body.getString("name"),
-          body.getString("password"), ipAddress)));
+          body.getString("password"), ipAddress, legalAccepted,
+          body.getBoolean("newsletter"))));
     return futureResponse;
   }
 
@@ -115,7 +120,7 @@ public final class VerificationRegistrationController {
   private void completeRegistration(
     CompletableFuture<Map<String, Object>> futureResponse, boolean alreadyExists,
     boolean recaptchaVerified, String email, String name, String password,
-    String ipAddress
+    String ipAddress, boolean legalAccepted, boolean newsletter
   ) {
     if (alreadyExists) {
       futureResponse.complete(Map.of("success", false, "error", 1000));
@@ -126,18 +131,20 @@ public final class VerificationRegistrationController {
       return;
     }
     userDatabaseTable.generateAvailableUserId().thenAccept(id ->
-      insertNewUser(id, name, email, hashPassword(password), ipAddress));
+      insertNewUser(id, name, email, hashPassword(password), ipAddress,
+        legalAccepted, newsletter));
     futureResponse.complete(Map.of("success", true));
   }
 
   private static final String VERIFICATION_URL = "https://dulno.com/register/confirm/%s/%s/";
 
   private void insertNewUser(
-    UUID userId, String name, String email, String passwordHash, String ipAddress
+    UUID userId, String name, String email, String passwordHash, String ipAddress,
+    boolean legalAccepted, boolean newsletter
   ) {
     var language = findUserLanguage(ipAddress);
     userDatabaseTable.insertUser(userId, name, email, passwordHash, language,
-      Lists.newArrayList());
+      Lists.newArrayList(), legalAccepted, newsletter);
     userTargetDatabaseTable.insertTarget(userId, userId);
     var token = UUID.randomUUID().toString();
     notificationDatabaseTable.insertNotificationSettings(userId, true, true);

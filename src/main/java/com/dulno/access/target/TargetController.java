@@ -3,7 +3,6 @@ package com.dulno.access.target;
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.bundle.BundleDatabaseTable;
@@ -20,10 +19,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -56,17 +52,28 @@ public final class TargetController extends DulnoRestController {
   ) {
     return findUser(request)
       .thenCompose(user -> userTargetDatabaseTable.findTargetSecured(user.id())
-        .thenCompose(target -> collectTargetsInformation(user,
-          user.organizations(), user.id(), target)));
+        .thenCompose(target -> filterUsableTargets(user.organizations())
+          .thenCompose(organizations -> collectTargetsInformation(user,
+            organizations, user.id(), target))));
+  }
+
+  private CompletableFuture<List<UUID>> filterUsableTargets(
+    List<UUID> organizations
+  ) {
+    return AsyncIterator.execute(organizations,
+        organization -> checkTargetUsability(organization)
+          .thenApply(usable -> new AbstractMap.SimpleEntry<>(organization, usable)))
+      .thenApply(result -> result.stream().filter(AbstractMap.SimpleEntry::getValue)
+        .map(AbstractMap.SimpleEntry::getKey).toList());
   }
 
   private CompletableFuture<Map<String, Object>> collectTargetsInformation(
     User user, List<UUID> organizations, UUID applicantId, UUID currentTarget
   ) {
     return AsyncIterator.execute(organizations, this::gatherTargetInformation)
-      .thenCompose(information -> bundleDatabaseTable.bundleExists(user.id())
-        .thenApply(bundleExists -> finishTargetsInformation(user, information,
-          applicantId, currentTarget, bundleExists)));
+      .thenCompose(information -> checkTargetUsability(user.id())
+        .thenApply(personalBundleUsable -> finishTargetsInformation(user,
+          information, applicantId, personalBundleUsable, currentTarget)));
   }
 
   private CompletableFuture<Map<String, Object>> gatherTargetInformation(
@@ -79,10 +86,10 @@ public final class TargetController extends DulnoRestController {
 
   private Map<String, Object> finishTargetsInformation(
     User user, List<Map<String, Object>> organizations, UUID applicantId,
-    UUID currentTarget, boolean personalBundleExists
+    boolean personalBundleUsable, UUID currentTarget
   ) {
     var targets = Lists.<Map<String, Object>>newArrayList();
-    if (personalBundleExists) {
+    if (personalBundleUsable) {
       targets.add(Map.of("id", applicantId, "name", translation.translate(user,
         "target.you"), "type", "PERSONAL"));
     }
@@ -122,8 +129,18 @@ public final class TargetController extends DulnoRestController {
   }
 
   private CompletableFuture<Boolean> checkTargetValidity(UUID userId, UUID target) {
+    return checkTargetUsability(target)
+      .thenCompose(usable -> checkTargetValidity(userId, target, usable));
+  }
+
+  private CompletableFuture<Boolean> checkTargetValidity(
+    UUID userId, UUID target, boolean isUsable
+  ) {
+    if (!isUsable) {
+      return CompletableFuture.completedFuture(false);
+    }
     if (userId.equals(target)) {
-      return bundleDatabaseTable.bundleExists(userId);
+      return CompletableFuture.completedFuture(true);
     }
     return organizationDatabaseTable.organizationExists(target).thenCompose(
       exists -> checkTargetOrganizationExistence(userId, target, exists));
@@ -138,6 +155,13 @@ public final class TargetController extends DulnoRestController {
     return organizationDatabaseTable.findOrganization(target).thenApply(
       organization -> organization.owner().equals(userId) ||
         organization.members().contains(userId));
+  }
+
+  private CompletableFuture<Boolean> checkTargetUsability(UUID target) {
+    return bundleDatabaseTable.bundleExists(target)
+      .thenCompose(exists -> !exists ? CompletableFuture.completedFuture(false) :
+        bundleDatabaseTable.findBundle(target).thenApply(bundle ->
+          bundle.expiration() > System.currentTimeMillis()));
   }
 }
 

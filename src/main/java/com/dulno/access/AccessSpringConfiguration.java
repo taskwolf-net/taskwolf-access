@@ -15,6 +15,7 @@ public class AccessSpringConfiguration {
   private Mail verificationMail;
   private Mail orderMail;
   private Mail changeMail;
+  private Mail notificationMail;
 
   @Bean
   @Qualifier("verificationMail")
@@ -34,6 +35,11 @@ public class AccessSpringConfiguration {
     return changeMail;
   }
 
+  @Bean
+  @Qualifier("notificationMail")
+  Mail provideNotificationMail() {
+    return notificationMail;
+  }
 
   @PostConstruct
   private void initializeVerificationMail() throws Exception {
@@ -57,6 +63,15 @@ public class AccessSpringConfiguration {
   private void initializeChangeMail() throws Exception {
     var mailConfiguration = MailConfiguration.createAndLoad("change");
     changeMail = mailFactory.create(mailConfiguration.mail(),
+      mailConfiguration.smtpMailHost(), mailConfiguration.smtpMailPort(),
+      mailConfiguration.imapMailHost(), mailConfiguration.imapMailPort(),
+      mailConfiguration.mailUser(), mailConfiguration.mailPassword());
+  }
+
+  @PostConstruct
+  private void initializeNotificationMail() throws Exception {
+    var mailConfiguration = MailConfiguration.createAndLoad("notification");
+    notificationMail = mailFactory.create(mailConfiguration.mail(),
       mailConfiguration.smtpMailHost(), mailConfiguration.smtpMailPort(),
       mailConfiguration.imapMailHost(), mailConfiguration.imapMailPort(),
       mailConfiguration.mailUser(), mailConfiguration.mailPassword());

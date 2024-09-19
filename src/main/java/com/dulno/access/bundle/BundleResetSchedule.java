@@ -2,6 +2,8 @@ package com.dulno.access.bundle;
 
 import com.dulno.access.organization.OrganizationModificationController;
 import com.dulno.access.setting.AccountSettingController;
+import com.dulno.core.iterator.AsyncIterator;
+import com.dulno.core.worker.WorkerDistribution;
 import lombok.RequiredArgsConstructor;
 import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
@@ -10,10 +12,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Calendar;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.Objects;
+import java.util.concurrent.*;
 
 @Component
 @RequiredArgsConstructor
@@ -22,6 +22,7 @@ public final class BundleResetSchedule {
   private final AccountSettingController accountSettingController;
   private final OrganizationModificationController organizationModificationController;
   private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final WorkerDistribution distribution;
   private final ScheduledExecutorService executorService =
     Executors.newScheduledThreadPool(1);
   private ScheduledFuture<?> scheduler;
@@ -45,7 +46,12 @@ public final class BundleResetSchedule {
   }
 
   private void execute() {
-    bundleDatabaseTable.findAllBundles().thenAcceptAsync(this::findBundlesToReset);
+    AsyncIterator.execute(distribution.findAssignedUsers("access"), owner ->
+        bundleDatabaseTable.bundleExists(owner).thenCompose(exists -> exists ?
+          bundleDatabaseTable.findBundle(owner) :
+          CompletableFuture.completedFuture(null)))
+      .thenAcceptAsync(bundles -> findBundlesToReset(bundles.stream()
+        .filter(Objects::nonNull).toList()));
   }
 
   private static final long RESET_THRESHOLD = 1000L * 60 * 60 * 24 * 30 * 6;

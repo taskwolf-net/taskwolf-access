@@ -1,5 +1,6 @@
 package com.dulno.access.verification;
 
+import com.dulno.core.organization.OrganizationDatabaseTable;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.maxmind.geoip2.DatabaseReader;
@@ -40,6 +41,7 @@ public final class VerificationLoginController extends DulnoRestController {
   private final Key refreshKey;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final OrganizationDatabaseTable organizationDatabaseTable;
   private final MultiFactorAuthFactory multiFactorAuthFactory;
   private final SessionDatabaseTable sessionDatabaseTable;
   private final DatabaseReader geoDatabaseReader;
@@ -49,6 +51,7 @@ public final class VerificationLoginController extends DulnoRestController {
     @Qualifier("refreshKey") Key refreshKey, UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
+    OrganizationDatabaseTable organizationDatabaseTable,
     MultiFactorAuthFactory multiFactorAuthFactory,
     SessionDatabaseTable sessionDatabaseTable, DatabaseReader geoDatabaseReader
   ) {
@@ -58,6 +61,7 @@ public final class VerificationLoginController extends DulnoRestController {
     this.refreshKey = refreshKey;
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.organizationDatabaseTable = organizationDatabaseTable;
     this.multiFactorAuthFactory = multiFactorAuthFactory;
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.geoDatabaseReader = geoDatabaseReader;
@@ -143,17 +147,20 @@ public final class VerificationLoginController extends DulnoRestController {
 
   private void checkBundle(
     HttpServletRequest request, Verification verification,
-    CompletableFuture<Map<String, Object>> futureResponse,
-    User user, boolean completionPending
+    CompletableFuture<Map<String, Object>> futureResponse, User user,
+    boolean completionPending
   ) {
     if (completionPending) {
       futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
     bundleDatabaseTable.bundleExists(user.id()).thenAccept(hasPersonalBundle ->
-      findLatestBundleExpiration(user, hasPersonalBundle).thenAccept(
-        latestExpiration -> checkBundle(request, verification, futureResponse,
-          user, latestExpiration > System.currentTimeMillis(), latestExpiration)));
+      findLatestBundleExpiration(user, hasPersonalBundle)
+        .thenAccept(latestExpiration ->
+          organizationDatabaseTable.organizationExistsByOwner(user.id())
+            .thenAccept(hasOwnOrganization -> checkBundle(request, verification,
+              futureResponse, user, hasPersonalBundle, hasOwnOrganization,
+              latestExpiration > System.currentTimeMillis(), latestExpiration))));
   }
 
   private CompletableFuture<Long> findLatestBundleExpiration(
@@ -173,18 +180,17 @@ public final class VerificationLoginController extends DulnoRestController {
 
   private void checkBundle(
     HttpServletRequest request, Verification verification,
-    CompletableFuture<Map<String, Object>> futureResponse,
-    User user, boolean bundleEnabled, long expiration
+    CompletableFuture<Map<String, Object>> futureResponse, User user,
+    boolean hasPersonalBundle, boolean hasOwnOrganization,
+    boolean bundleEnabled, long expiration
   ) {
     var homeApiKey = verification.generateHomeApiKey(user.id());
-    if (expiration == -10) {
+    if (expiration == -10 || !bundleEnabled) {
       futureResponse.complete(Map.of("success", false, "error", 1003,
-        "homeApiKey", homeApiKey));
-      return;
-    }
-    if (!bundleEnabled) {
-      futureResponse.complete(Map.of("success", false, "error", 1004,
-        "homeApiKey", homeApiKey));
+        "homeApiKey", homeApiKey, "userName", user.name(),
+        "hasPersonalBundle", hasPersonalBundle,
+        "hasOwnOrganization", hasOwnOrganization, "isOrganizationMember",
+        !user.organizations().isEmpty()));
       return;
     }
     sessionDatabaseTable.generateAvailableSessionId().thenAccept(id ->

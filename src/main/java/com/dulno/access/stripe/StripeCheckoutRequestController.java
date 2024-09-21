@@ -1,15 +1,12 @@
 package com.dulno.access.stripe;
 
+import com.dulno.core.bundle.*;
 import com.stripe.StripeClient;
 import com.stripe.param.checkout.SessionCreateParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoHomeRestController;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.bundle.BundleClass;
-import com.dulno.core.bundle.BundleDatabaseTable;
-import com.dulno.core.bundle.BundleRuntime;
-import com.dulno.core.bundle.BundleType;
 import com.dulno.core.organization.OrganizationDatabaseTable;
 import com.dulno.core.stripe.StripeAccount;
 import com.dulno.core.stripe.StripeConfiguration;
@@ -161,8 +158,8 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
     if (!bundleExists) {
       return CompletableFuture.completedFuture(true);
     }
-    return bundleDatabaseTable.findBundle(user.id()).thenApply(bundle ->
-      bundle.bundleClass().weight() < bundleClass.weight());
+    return bundleDatabaseTable.findBundle(user.id())
+      .thenApply(bundle -> checkBundleUsability(bundle, bundleClass));
   }
 
   private CompletableFuture<Boolean> checkTeamBundleUsability(
@@ -181,6 +178,11 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
     }
     return organizationDatabaseTable.findOrganizationByOwner(user.id())
       .thenCompose(organization -> bundleDatabaseTable.findBundle(organization.id())
-        .thenApply(bundle -> bundle.bundleClass().weight() < bundleClass.weight()));
+        .thenApply(bundle -> checkBundleUsability(bundle, bundleClass)));
+  }
+
+  private boolean checkBundleUsability(Bundle bundle, BundleClass bundleClass) {
+    return bundle.bundleClass().weight() < bundleClass.weight() ||
+      System.currentTimeMillis() > bundle.expiration();
   }
 }

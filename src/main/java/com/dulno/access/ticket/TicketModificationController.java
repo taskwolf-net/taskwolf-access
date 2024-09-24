@@ -80,17 +80,19 @@ public final class TicketModificationController extends TicketController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var userId = findUserId(request);
-    performTicketOperation(userId, body.getUUID("ticket"), this::deleteTicket,
-      () -> {});
+    performTicketOperation(userId, body.getUUID("ticket"),
+      ticket -> deleteTicket(ticket, true), () -> {});
   }
 
-  public void deleteTicket(Ticket ticket) {
+  public void deleteTicket(Ticket ticket, boolean activity) {
     ticketDatabaseTable().deleteTicket(ticket.id());
     for (var message : ticket.messages()) {
       ticketMessageDatabaseTable().deleteTicketMessage(message);
     }
-    activityDatabaseTable.insertActivity(ticket.creator(), "activity.ticket.delete.title",
-      "activity.ticket.delete.description", ActivityType.TICKET);
+    if (activity) {
+      activityDatabaseTable.insertActivity(ticket.creator(), "activity.ticket.delete.title",
+        "activity.ticket.delete.description", ActivityType.TICKET);
+    }
   }
 
   @RequestMapping(path = "/ticket/message/add/", method = RequestMethod.POST)

@@ -1,6 +1,13 @@
 package com.dulno.access.setting;
 
 import com.dulno.access.organization.OrganizationModificationController;
+import com.dulno.access.stripe.StripeTerminationController;
+import com.dulno.core.organization.team.TeamTargetDatabaseTable;
+import com.dulno.core.session.SessionDatabaseTable;
+import com.dulno.core.user.mfa.MultiFactorAuthDatabaseTable;
+import com.dulno.core.workflow.operation.OperationDatabaseTable;
+import com.dulno.core.workflow.throttle.WorkflowThrottleDatabaseTable;
+import com.dulno.device.access.DeviceModificationController;
 import com.google.common.hash.Hashing;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,7 +30,6 @@ import com.dulno.core.user.activity.ActivityType;
 import com.dulno.core.user.activity.UserActivityDatabaseTable;
 import com.dulno.core.workflow.WorkflowDatabaseTable;
 import com.dulno.device.structure.DeviceDatabaseTable;
-import com.dulno.device.structure.UserDeviceDatabaseTable;
 import com.dulno.process.access.ProcessModificationController;
 import com.dulno.process.structure.ProcessDatabaseTable;
 import com.dulno.table.access.TableModificationController;
@@ -46,12 +52,16 @@ public final class AccountSettingController extends DulnoRestController {
   private final Mail changeMail;
   private final Translation translation;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final TeamTargetDatabaseTable teamTargetDatabaseTable;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
   private final NotificationDatabaseTable notificationDatabaseTable;
+  private final MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final OrganizationModificationController organizationModificationController;
   private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
+  private final OperationDatabaseTable operationDatabaseTable;
   private final WorkflowModificationController workflowModificationController;
   private final ProcessDatabaseTable processDatabaseTable;
   private final ProcessModificationController processModificationController;
@@ -61,23 +71,29 @@ public final class AccountSettingController extends DulnoRestController {
   private final TicketDatabaseTable ticketDatabaseTable;
   private final TicketModificationController ticketModificationController;
   private final DeviceDatabaseTable deviceDatabaseTable;
-  private final UserDeviceDatabaseTable userDeviceDatabaseTable;
+  private final DeviceModificationController deviceModificationController;
   private final AccountController accountController;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final StripeDatabaseTable stripeDatabaseTable;
+  private final StripeTerminationController terminationController;
   private final TutorialDatabaseTable tutorialDatabaseTable;
   private final UserActivityDatabaseTable activityDatabaseTable;
+  private final SessionDatabaseTable sessionDatabaseTable;
 
   private AccountSettingController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     @Qualifier("changeMail") Mail changeMail, Translation translation,
     UserTargetDatabaseTable userTargetDatabaseTable,
+    TeamTargetDatabaseTable teamTargetDatabaseTable,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
     UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
     NotificationDatabaseTable notificationDatabaseTable,
+    MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     OrganizationModificationController organizationModificationController,
     WorkflowDatabaseTable workflowDatabaseTable,
+    WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
+    OperationDatabaseTable operationDatabaseTable,
     WorkflowModificationController workflowModificationController,
     ProcessDatabaseTable processDatabaseTable,
     ProcessModificationController processModificationController,
@@ -87,23 +103,29 @@ public final class AccountSettingController extends DulnoRestController {
     TicketDatabaseTable ticketDatabaseTable,
     TicketModificationController ticketModificationController,
     DeviceDatabaseTable deviceDatabaseTable,
-    UserDeviceDatabaseTable userDeviceDatabaseTable,
+    DeviceModificationController deviceModificationController,
     AccountController accountController,
     BundleDatabaseTable bundleDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable,
+    StripeTerminationController terminationController,
     TutorialDatabaseTable tutorialDatabaseTable,
-    UserActivityDatabaseTable activityDatabaseTable
+    UserActivityDatabaseTable activityDatabaseTable,
+    SessionDatabaseTable sessionDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
     this.translation = translation;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.teamTargetDatabaseTable = teamTargetDatabaseTable;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
     this.userEmailChangeDatabaseTable = userEmailChangeDatabaseTable;
     this.notificationDatabaseTable = notificationDatabaseTable;
+    this.multiFactorAuthDatabaseTable = multiFactorAuthDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.organizationModificationController = organizationModificationController;
     this.workflowDatabaseTable = workflowDatabaseTable;
+    this.workflowThrottleDatabaseTable = workflowThrottleDatabaseTable;
+    this.operationDatabaseTable = operationDatabaseTable;
     this.workflowModificationController = workflowModificationController;
     this.processDatabaseTable = processDatabaseTable;
     this.processModificationController = processModificationController;
@@ -113,12 +135,14 @@ public final class AccountSettingController extends DulnoRestController {
     this.ticketDatabaseTable = ticketDatabaseTable;
     this.ticketModificationController = ticketModificationController;
     this.deviceDatabaseTable = deviceDatabaseTable;
-    this.userDeviceDatabaseTable = userDeviceDatabaseTable;
+    this.deviceModificationController = deviceModificationController;
     this.accountController = accountController;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.stripeDatabaseTable = stripeDatabaseTable;
+    this.terminationController = terminationController;
     this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.activityDatabaseTable = activityDatabaseTable;
+    this.sessionDatabaseTable = sessionDatabaseTable;
   }
 
   @RequestMapping(path = "/settings/account/unlocked/", method = RequestMethod.GET)
@@ -299,29 +323,33 @@ public final class AccountSettingController extends DulnoRestController {
     deleteAccountServices(user.id());
     userDatabaseTable().deleteUser(user.id());
     userTargetDatabaseTable.deleteTarget(user.id());
+    teamTargetDatabaseTable.deleteTarget(user.id());
     userPasswordResetDatabaseTable.deleteResetToken(user.id());
     userEmailChangeDatabaseTable.deleteChange(user.id());
     notificationDatabaseTable.deleteNotificationSettings(user.id());
-    var futureDevices = deviceDatabaseTable.findDevicesOfOwner(user.id());
-    futureDevices.thenAccept(devices -> devices.forEach(device ->
-      deviceDatabaseTable.deleteDevice(device.id())));
-    futureDevices.thenAccept(devices -> devices.forEach(device ->
-      userDeviceDatabaseTable.findUsersOfDevice(device.id()).thenAccept(users ->
-        users.forEach(entry -> userDeviceDatabaseTable.deleteUserDevice(entry,
-          device.id())))));
-    ticketDatabaseTable.findTicketsByCreator(user.id()).thenAccept(tables ->
-      tables.forEach(ticketModificationController::deleteTicket));
+    multiFactorAuthDatabaseTable.deleteAuth(user.id());
+    deviceDatabaseTable.findDevicesOfOwner(user.id()).thenAccept(devices ->
+      devices.forEach(deviceModificationController::deleteDevice));
+    ticketDatabaseTable.findTicketsByCreator(user.id())
+      .thenAccept(tickets -> tickets.forEach(ticket ->
+        ticketModificationController.deleteTicket(ticket, false)));
     for (var organizationId : user.organizations()) {
       organizationDatabaseTable.findOrganization(organizationId).thenAccept(
         organization -> accountDeletionHandleOrganization(user, organization));
     }
     tutorialDatabaseTable.deleteTutorial(user.id());
-    activityDatabaseTable.deleteActivity(user.id());
+    activityDatabaseTable.findActivitiesOfUser(user.id())
+      .thenAccept(activities -> activities.forEach(activity ->
+        activityDatabaseTable.deleteActivity(activity.id())));
+    sessionDatabaseTable.findSessionsOfUser(user.id()).thenAccept(sessions ->
+      sessions.forEach(session -> sessionDatabaseTable.deleteSession(session.id())));
   }
 
   public void deleteAccountServices(UUID userId) {
     workflowDatabaseTable.findAllWorkflowsOfOwner(userId).thenAccept(workflows ->
       workflows.forEach(workflowModificationController::deleteWorkflow));
+    workflowThrottleDatabaseTable.deleteThrottle(userId);
+    operationDatabaseTable.deleteOperations(userId);
     processDatabaseTable.findAllProcessesOfOwner(userId).thenAccept(processes ->
       processes.forEach(processModificationController::deleteProcess));
     tableDatabaseTable.findAllTablesOfOwner(userId).thenAccept(tables ->
@@ -329,8 +357,10 @@ public final class AccountSettingController extends DulnoRestController {
     webhookDatabaseTable.findAllWebhooksOfOwner(userId).thenAccept(webhooks ->
       webhooks.forEach(webhook -> webhookDatabaseTable.deleteWebhook(webhook.id())));
     accountController.deleteAllAccounts(userId);
-    bundleDatabaseTable.deleteBundle(userId);
-    stripeDatabaseTable.deleteStripeAccountByTarget(userId);
+    terminationController.terminate(userId).thenAccept(terminationValue ->
+      bundleDatabaseTable.deleteBundle(userId).thenAccept(deletionValue ->
+        stripeDatabaseTable.findStripeAccountByTarget(userId).thenAccept(account ->
+          stripeDatabaseTable.deleteStripeAccount(account.accountId()))));
   }
 
   private void accountDeletionHandleOrganization(User user, Organization organization) {

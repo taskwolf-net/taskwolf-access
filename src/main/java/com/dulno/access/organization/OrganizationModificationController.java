@@ -1,5 +1,8 @@
 package com.dulno.access.organization;
 
+import com.dulno.access.stripe.StripeTerminationController;
+import com.dulno.core.workflow.operation.OperationDatabaseTable;
+import com.dulno.core.workflow.throttle.WorkflowThrottleDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.access.account.AccountController;
@@ -32,7 +35,10 @@ import java.util.UUID;
 @RestController
 public final class OrganizationModificationController extends OrganizationController {
   private final TeamDatabaseTable teamDatabaseTable;
+  private final OrganizationTeamModificationController teamModificationController;
   private final WorkflowDatabaseTable workflowDatabaseTable;
+  private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
+  private final OperationDatabaseTable operationDatabaseTable;
   private final WorkflowModificationController workflowModificationController;
   private final ProcessDatabaseTable processDatabaseTable;
   private final ProcessModificationController processModificationController;
@@ -43,14 +49,18 @@ public final class OrganizationModificationController extends OrganizationContro
   private final AccountController accountController;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final StripeDatabaseTable stripeDatabaseTable;
+  private final StripeTerminationController terminationController;
   private final UserActivityDatabaseTable activityDatabaseTable;
 
   private OrganizationModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable,
+    OrganizationTeamModificationController teamModificationController,
     UserTargetDatabaseTable targetDatabaseTable,
     WorkflowDatabaseTable workflowDatabaseTable,
+    WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
+    OperationDatabaseTable operationDatabaseTable,
     WorkflowModificationController workflowModificationController,
     ProcessDatabaseTable processDatabaseTable,
     ProcessModificationController processModificationController,
@@ -60,12 +70,16 @@ public final class OrganizationModificationController extends OrganizationContro
     UserDeviceDatabaseTable userDeviceDatabaseTable,
     AccountController accountController, BundleDatabaseTable bundleDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable,
+    StripeTerminationController terminationController,
     UserActivityDatabaseTable activityDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, organizationDatabaseTable,
       targetDatabaseTable);
     this.teamDatabaseTable = teamDatabaseTable;
+    this.teamModificationController = teamModificationController;
     this.workflowDatabaseTable = workflowDatabaseTable;
+    this.workflowThrottleDatabaseTable = workflowThrottleDatabaseTable;
+    this.operationDatabaseTable = operationDatabaseTable;
     this.workflowModificationController = workflowModificationController;
     this.processDatabaseTable = processDatabaseTable;
     this.processModificationController = processModificationController;
@@ -76,6 +90,7 @@ public final class OrganizationModificationController extends OrganizationContro
     this.accountController = accountController;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.stripeDatabaseTable = stripeDatabaseTable;
+    this.terminationController = terminationController;
     this.activityDatabaseTable = activityDatabaseTable;
   }
 
@@ -143,15 +158,17 @@ public final class OrganizationModificationController extends OrganizationContro
 
   public void deleteOrganization(Organization organization) {
     organizationDatabaseTable().deleteOrganization(organization.id());
-    userDatabaseTable().removeUserOrganization(organization.owner(),
-      organization.id());
+    removeUserOrganization(organization.owner(), organization.id());
     for (var member : organization.members()) {
-      userDatabaseTable().removeUserOrganization(member, organization.id());
+      removeUserOrganization(member, organization.id());
     }
-    teamDatabaseTable.findTeamsByOrganization(organization.id()).thenAccept(
-      teams -> teams.forEach(team -> teamDatabaseTable.deleteTeam(team.id())));
+    teamDatabaseTable.findTeamsByOrganization(organization.id())
+      .thenAccept(teams -> teams.forEach(team ->
+        teamModificationController.removeTeam(team, false)));
     workflowDatabaseTable.findAllWorkflowsOfOwner(organization.id()).thenAccept(
       workflows -> workflows.forEach(workflowModificationController::deleteWorkflow));
+    workflowThrottleDatabaseTable.deleteThrottle(organization.id());
+    operationDatabaseTable.deleteOperations(organization.id());
     processDatabaseTable.findAllProcessesOfOwner(organization.id()).thenAccept(
       processes -> processes.forEach(processModificationController::deleteProcess));
     tableDatabaseTable.findAllTablesOfOwner(organization.id()).thenAccept(tables ->
@@ -162,7 +179,23 @@ public final class OrganizationModificationController extends OrganizationContro
       devices.forEach(entry -> userDeviceDatabaseTable.deleteUserDevice(organization.id(),
         entry.deviceId())));
     accountController.deleteAllAccounts(organization.id());
-    bundleDatabaseTable.deleteBundle(organization.id());
-    stripeDatabaseTable.deleteStripeAccountByTarget(organization.id());
+    terminationController.terminate(organization.id()).thenAccept(terminationValue ->
+      bundleDatabaseTable.deleteBundle(organization.id()).thenAccept(deletionValue ->
+        stripeDatabaseTable.findStripeAccountByTarget(organization.id()).thenAccept(
+          account -> stripeDatabaseTable.deleteStripeAccount(account.accountId()))));
+  }
+
+  private void removeUserOrganization(UUID userId, UUID organizationId) {
+    userDatabaseTable().userExists(userId).thenAccept(exists ->
+      removeUserOrganization(userId, organizationId, exists));
+  }
+
+  private void removeUserOrganization(
+    UUID userId, UUID organizationId, boolean userExists
+  ) {
+    if (!userExists) {
+      return;
+    }
+    userDatabaseTable().removeUserOrganization(userId, organizationId);
   }
 }

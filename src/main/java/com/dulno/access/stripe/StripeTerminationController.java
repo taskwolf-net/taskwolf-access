@@ -101,42 +101,53 @@ public final class StripeTerminationController extends StripeController {
       () -> {});
   }
 
-  private void terminate(
+  public CompletableFuture<Void> terminate(UUID targetId) {
+    return stripeDatabaseTable().stripeAccountExistsByTarget(targetId)
+      .thenCompose(exists -> exists ?
+        stripeDatabaseTable().findStripeAccountByTarget(targetId)
+          .thenCompose(account -> bundleDatabaseTable.findBundle(account.targetId())
+            .thenAcceptAsync(bundle -> terminate(account.targetId(), bundle, account))) :
+        CompletableFuture.completedFuture(null));
+  }
+
+  private CompletableFuture<Void> terminate(
     UUID targetId, Bundle bundle, StripeAccount account
   ) {
     if (bundle.bundleRuntime().isMonthly()) {
-      cancelSubscription(account);
+      return cancelSubscription(account);
     } else if (bundle.bundleRuntime().isYearly()) {
-      terminateYearly(targetId, bundle, account);
+      return terminateYearly(targetId, bundle, account);
     }
+    return CompletableFuture.completedFuture(null);
   }
 
-  private void terminateYearly(UUID targetId, Bundle bundle, StripeAccount account) {
+  private CompletableFuture<Void> terminateYearly(UUID targetId, Bundle bundle, StripeAccount account) {
     if (bundle.expiration() - System.currentTimeMillis() < 1000L * 60 * 60 * 24 * 30) {
       cancelSubscription(account);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
-    terminationDatabaseTable.insertTermination(targetId);
+    return terminationDatabaseTable.insertTermination(targetId);
   }
 
-  public void cancelSubscription(String stripeAccountId) {
-    stripeDatabaseTable().findStripeAccount(stripeAccountId)
-      .thenAcceptAsync(this::cancelSubscription);
+  public CompletableFuture<Void> cancelSubscription(String stripeAccountId) {
+    return stripeDatabaseTable().findStripeAccount(stripeAccountId)
+      .thenComposeAsync(this::cancelSubscription);
   }
 
-  public void cancelSubscription(StripeAccount account) {
+  public CompletableFuture<Void> cancelSubscription(StripeAccount account) {
     try {
       var subscriptions = stripeClient.subscriptions()
         .list(SubscriptionListParams.builder().setCustomer(account.accountId()).build())
         .getData();
       if (subscriptions.isEmpty()) {
-        return;
+        return CompletableFuture.completedFuture(null);
       }
       subscriptions.get(0).cancel();
-      stripeDatabaseTable().updateStripeAccount(account.accountId(),
+      return stripeDatabaseTable().updateStripeAccount(account.accountId(),
         account.targetId(), account.userId(), "");
     } catch (Exception exception) {
       exception.printStackTrace();
+      return CompletableFuture.completedFuture(null);
     }
   }
 }

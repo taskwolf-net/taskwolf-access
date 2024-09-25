@@ -86,11 +86,11 @@ public final class ModuleController extends DulnoRestController {
   ) {
     var modules = Lists.<RegisteredModule>newArrayList();
     modules.add(moduleLoader.findRegisteredModuleById("table").get());
+    modules.add(moduleLoader.findRegisteredModuleById("webhook").get());
     modules.add(moduleLoader.findRegisteredModuleById("discord").get());
-    modules.add(moduleLoader.findRegisteredModuleById("gmail").get());
     modules.add(moduleLoader.findRegisteredModuleById("device").get());
     modules.add(moduleLoader.findRegisteredModuleById("google-calendar").get());
-    modules.add(moduleLoader.findRegisteredModuleById("google-drive").get());
+    modules.add(moduleLoader.findRegisteredModuleById("google-docs").get());
     return findUser(request).thenApply(user -> Map.of("modules", modules.stream()
       .map(module -> moduleInformation(user.language(), module)).toList()));
   }

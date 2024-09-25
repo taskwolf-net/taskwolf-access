@@ -48,7 +48,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class AccountSettingController extends DulnoRestController {
+public final class AccountSettingController extends SettingController {
   private final Mail changeMail;
   private final Translation translation;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
@@ -81,9 +81,9 @@ public final class AccountSettingController extends DulnoRestController {
   private final SessionDatabaseTable sessionDatabaseTable;
 
   private AccountSettingController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
-    @Qualifier("changeMail") Mail changeMail, Translation translation,
-    UserTargetDatabaseTable userTargetDatabaseTable,
+    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    UserDatabaseTable userDatabaseTable, @Qualifier("changeMail") Mail changeMail,
+    Translation translation, UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
     UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
@@ -112,7 +112,7 @@ public final class AccountSettingController extends DulnoRestController {
     UserActivityDatabaseTable activityDatabaseTable,
     SessionDatabaseTable sessionDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
+    super(productKey, homeKey, userDatabaseTable);
     this.changeMail = changeMail;
     this.translation = translation;
     this.userTargetDatabaseTable = userTargetDatabaseTable;

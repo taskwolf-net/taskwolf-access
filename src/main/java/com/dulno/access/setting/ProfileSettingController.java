@@ -7,6 +7,7 @@ import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.activity.ActivityType;
 import com.dulno.core.user.activity.UserActivityDatabaseTable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -17,14 +18,15 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class ProfileSettingController extends DulnoRestController {
+public final class ProfileSettingController extends SettingController {
   private final UserActivityDatabaseTable activityDatabaseTable;
 
   private ProfileSettingController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    UserDatabaseTable userDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
+    super(productKey, homeKey, userDatabaseTable);
     this.activityDatabaseTable = activityDatabaseTable;
   }
 

@@ -19,6 +19,8 @@ public class FilterConfiguration {
   private ProductAuthorizationFilter productAuthorizationFilter;
   @Autowired
   private HomeAuthorizationFilter homeAuthorizationFilter;
+  @Autowired
+  private MixedAuthorizationFilter mixedAuthorizationFilter;
 
   @Bean
   public FilterRegistrationBean<EquipmentFilter> provideEquipmentFilter() {
@@ -57,6 +59,14 @@ public class FilterConfiguration {
     var registrationBean = new FilterRegistrationBean<HomeAuthorizationFilter>();
     registrationBean.setFilter(homeAuthorizationFilter);
     registrationBean.setOrder(5);
+    return registrationBean;
+  }
+
+  @Bean
+  public FilterRegistrationBean<MixedAuthorizationFilter> provideMixedAuthorizationFilter() {
+    var registrationBean = new FilterRegistrationBean<MixedAuthorizationFilter>();
+    registrationBean.setFilter(mixedAuthorizationFilter);
+    registrationBean.setOrder(6);
     return registrationBean;
   }
 }

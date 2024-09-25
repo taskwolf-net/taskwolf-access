@@ -6,6 +6,7 @@ import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.notification.NotificationDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -16,14 +17,15 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class NotificationSettingController extends DulnoRestController {
+public final class NotificationSettingController extends SettingController {
   private final NotificationDatabaseTable notificationDatabaseTable;
 
   private NotificationSettingController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    UserDatabaseTable userDatabaseTable,
     NotificationDatabaseTable notificationDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
+    super(productKey, homeKey, userDatabaseTable);
     this.notificationDatabaseTable = notificationDatabaseTable;
   }
 

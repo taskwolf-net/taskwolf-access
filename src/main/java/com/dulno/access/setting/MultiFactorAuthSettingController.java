@@ -12,6 +12,7 @@ import com.dulno.core.user.mfa.MultiFactorAuthDatabaseTable;
 import com.dulno.core.user.mfa.MultiFactorAuthFactory;
 import com.dulno.core.user.mfa.MultiFactorAuthUser;
 import org.apache.tomcat.util.codec.binary.Base64;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -24,16 +25,17 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class MultiFactorAuthSettingController extends DulnoRestController {
+public final class MultiFactorAuthSettingController extends SettingController {
   private final MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable;
   private final MultiFactorAuthFactory multiFactorAuthFactory;
 
   private MultiFactorAuthSettingController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    UserDatabaseTable userDatabaseTable,
     MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable,
     MultiFactorAuthFactory multiFactorAuthFactory
   ) {
-    super(secretKey, userDatabaseTable);
+    super(productKey, homeKey, userDatabaseTable);
     this.multiFactorAuthDatabaseTable = multiFactorAuthDatabaseTable;
     this.multiFactorAuthFactory = multiFactorAuthFactory;
   }

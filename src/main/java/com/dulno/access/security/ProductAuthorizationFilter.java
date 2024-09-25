@@ -64,6 +64,7 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/verification/login/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/refresh/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/isValid/");
+    controllers.add("/" + CURRENT_API_VERSION + "/verification/home/isValid/");
     controllers.add("/" + CURRENT_API_VERSION + "/email/exists/");
     controllers.add("/" + CURRENT_API_VERSION + "/question/create/");
     controllers.add("/" + CURRENT_API_VERSION + "/sale/create/");
@@ -76,7 +77,9 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/distribution/add/");
     var url = request.getRequestURI();
     return controllers.contains(url) || url.contains("/team/") ||
-      url.contains("/webhook/trigger/") || url.contains("unauthorized");
+      url.contains("/webhook/trigger/") || url.contains("unauthorized") ||
+      url.contains("/settings/") || url.contains("/ticket/") ||
+      url.contains("/tickets/");
   }
 
   private int validateApiKey(String apiKey) {

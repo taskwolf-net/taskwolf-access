@@ -82,10 +82,11 @@ public final class Verification {
       .compact();
   }
 
-  public String generateHomeApiKey(UUID userId) {
+  public String generateHomeApiKey(UUID userId, UUID sessionId) {
     var expirationDate = new Date(System.currentTimeMillis() + 1000L * 60 * 60);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", userId.toString())
+      .claim("session", sessionId.toString())
       .signWith(homeSecret)
       .compact();
   }

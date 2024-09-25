@@ -9,6 +9,7 @@ import com.dulno.core.session.Session;
 import com.dulno.core.session.SessionDatabaseTable;
 import com.dulno.core.session.SessionStatus;
 import com.dulno.core.user.UserDatabaseTable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -20,14 +21,15 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class SessionSettingController extends DulnoRestController {
+public final class SessionSettingController extends SettingController {
   private final SessionDatabaseTable sessionDatabaseTable;
 
   private SessionSettingController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    UserDatabaseTable userDatabaseTable,
     SessionDatabaseTable sessionDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable);
+    super(productKey, homeKey, userDatabaseTable);
     this.sessionDatabaseTable = sessionDatabaseTable;
   }
 

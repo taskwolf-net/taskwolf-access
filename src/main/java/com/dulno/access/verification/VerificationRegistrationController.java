@@ -1,5 +1,6 @@
 package com.dulno.access.verification;
 
+import com.dulno.core.session.SessionDatabaseTable;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.maxmind.geoip2.DatabaseReader;
@@ -52,6 +53,8 @@ public final class VerificationRegistrationController {
   private final TutorialDatabaseTable tutorialDatabaseTable;
   private final UserActivityDatabaseTable activityDatabaseTable;
   private final DatabaseReader geoDatabaseReader;
+  private final SessionDatabaseTable sessionDatabaseTable;
+  private final VerificationLoginController loginController;
 
   private VerificationRegistrationController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
@@ -64,7 +67,8 @@ public final class VerificationRegistrationController {
     NotificationDatabaseTable notificationDatabaseTable,
     WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable,
-    DatabaseReader geoDatabaseReader
+    DatabaseReader geoDatabaseReader, SessionDatabaseTable sessionDatabaseTable,
+    VerificationLoginController loginController
   ) {
     this.homeKey = homeKey;
     this.productKey = productKey;
@@ -80,6 +84,8 @@ public final class VerificationRegistrationController {
     this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.activityDatabaseTable = activityDatabaseTable;
     this.geoDatabaseReader = geoDatabaseReader;
+    this.sessionDatabaseTable = sessionDatabaseTable;
+    this.loginController = loginController;
   }
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
@@ -205,35 +211,47 @@ public final class VerificationRegistrationController {
 
   @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> complete(
-    @RequestBody String payload, HttpServletResponse response
+    HttpServletRequest request, @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var userId = body.getUUID("user");
     return userVerificationDatabaseTable.verificationExists(userId)
-      .thenCompose(exists -> complete(userId, body.getString("token"), exists));
+      .thenCompose(exists -> complete(request, userId, body.getString("token"),
+        exists));
   }
 
   private CompletableFuture<Map<String, Object>> complete(
-    UUID userId, String submittedToken, boolean tokenExists
+    HttpServletRequest request, UUID userId, String submittedToken,
+    boolean tokenExists
   ) {
     if (!tokenExists) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
     return userVerificationDatabaseTable.findVerification(userId)
-      .thenCompose(originalToken -> complete(userId, submittedToken, originalToken));
+      .thenCompose(originalToken -> complete(request, userId, submittedToken,
+        originalToken));
   }
 
   private CompletableFuture<Map<String, Object>> complete(
-    UUID userId, String submittedToken, String originalToken
+    HttpServletRequest request, UUID userId, String submittedToken,
+    String originalToken
   ) {
     if (!submittedToken.equals(originalToken)) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
+    return sessionDatabaseTable.generateAvailableSessionId()
+      .thenCompose(sessionId -> complete(request, userId, sessionId));
+  }
+
+  private CompletableFuture<Map<String, Object>> complete(
+    HttpServletRequest request, UUID userId, UUID sessionId
+  ) {
     userVerificationDatabaseTable.deleteVerification(userId);
     activityDatabaseTable.insertActivity(userId, "activity.setting.registration.title",
       "activity.setting.registration.description", ActivityType.SETTING);
     var apiKey = Verification.create(userDatabaseTable, homeKey, productKey,
-      refreshKey, "", "").generateHomeApiKey(userId);
+      refreshKey, "", "").generateHomeApiKey(userId, sessionId);
+    loginController.storeSession(request, userId, sessionId, "");
     return userDatabaseTable.findUser(userId).thenApply(user ->
       Map.of("success", true, "homeApiKey", apiKey));
   }

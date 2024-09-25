@@ -11,6 +11,7 @@ import com.dulno.core.ticket.TicketMessage;
 import com.dulno.core.ticket.TicketMessageDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -24,11 +25,11 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class TicketInformationController extends TicketController {
   private TicketInformationController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
-    TicketDatabaseTable ticketDatabaseTable,
+    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    UserDatabaseTable userDatabaseTable, TicketDatabaseTable ticketDatabaseTable,
     TicketMessageDatabaseTable ticketMessageDatabaseTable
   ) {
-    super(secretKey, userDatabaseTable, ticketDatabaseTable,
+    super(productKey, homeKey, userDatabaseTable, ticketDatabaseTable,
       ticketMessageDatabaseTable);
   }
 

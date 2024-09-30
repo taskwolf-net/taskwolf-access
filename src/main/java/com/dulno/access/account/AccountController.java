@@ -96,8 +96,10 @@ public final class AccountController extends DulnoRestController {
     findAccountTarget(userId)
       .thenAccept(target -> module.accountLink().findAccounts(target)
         .thenApply(accounts -> futureResponse.complete(new JSONObject(
-          Map.of("accounts", accounts.stream().map(JSONObject::new)
-            .collect(Collectors.toList()))).toString())));
+          Map.of("accounts", accounts.stream()
+            .map(account -> Map.of("identifier", account.identifier(),
+              "name", account.name()))
+            .toList())).toString())));
     return futureResponse;
   }
 
@@ -125,10 +127,10 @@ public final class AccountController extends DulnoRestController {
 
   private void deleteAccounts(UUID targetId, List<AccountLink> accountLinks) {
     AsyncIterator.execute(accountLinks, accountLink ->
-        accountLink.findAccounts(targetId).thenApply(identifier ->
-          new AbstractMap.SimpleEntry<>(accountLink, identifier))).thenAccept(
-      accounts -> accounts.forEach(account -> account.getValue().forEach(identifier ->
-        account.getKey().removeAccount(targetId, identifier))));
+        accountLink.findAccounts(targetId).thenApply(accounts ->
+          new AbstractMap.SimpleEntry<>(accountLink, accounts))).thenAccept(
+      entries -> entries.forEach(entry -> entry.getValue().forEach(account ->
+        entry.getKey().removeAccount(targetId, account.identifier()))));
   }
 
   @RequestMapping(path = "/account/information/", method = RequestMethod.POST)

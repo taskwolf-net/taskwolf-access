@@ -18,5 +18,9 @@
   "email.change.email.body": "Hey,\n\nwe have received a request to replace the email of one of our accounts with this email.\n\nIf you are not a Dulno customer or have not requested the replacement, please ignore this email.\n\nHowever, if this is a genuine request, please click on the link below to complete the change:\n\n%s",
 
   "bundle.extension.email.title": "Package extension",
-  "bundle.extension.email.body": "Hey %s, \n\nwe would like to inform you that your booked Dulno package will be automatically extended in 2 weeks. \n\nIf you do not wish to continue using your package, we would like to inform you that you must cancel your package manually to avoid having to make any further payments. \n\nWe will not refund any money if you miss the cancellation deadline.\n\nOf course, we hope that you will remain a Dulno customer if the product continues to help you in the future.\n\nThank you for your attention!"
+  "bundle.extension.email.body": "Hey %s, \n\nwe would like to inform you that your booked Dulno package will be automatically extended in 2 weeks. \n\nIf you do not wish to continue using your package, we would like to inform you that you must cancel your package manually to avoid having to make any further payments. \n\nWe will not refund any money if you miss the cancellation deadline.\n\nOf course, we hope that you will remain a Dulno customer if the product continues to help you in the future.\n\nThank you for your attention!",
+
+  "access.trigger.formatted.time": "Formatted time",
+  "access.trigger.formatted.date": "Formatted date",
+  "access.trigger.unix.time": "Unix time"
 }

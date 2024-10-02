@@ -18,5 +18,9 @@
   "email.change.email.body": "Hallo,\n\nwir haben eine Anfrage erhalten, die E-Mail eines unserer Konten durch diese E-Mail zu ersetzen.\n\nWenn Sie kein Dulno-Kunde sind oder die Ersetzung nicht beantragt haben, ignorieren Sie bitte diese E-Mail.\n\nWenn es sich jedoch um eine echte Anfrage handelt, klicken Sie bitte auf den untenstehenden Link, um die Änderung durchzuführen:\n\n%s",
 
   "bundle.extension.email.title": "Paketverlängerung",
-  "bundle.extension.email.body": "Hallo %s, \n\nwir möchten Sie darüber informieren, dass Ihr gebuchtes Dulno-Paket in 2 Wochen automatisch verlängert wird. \n\nWenn Sie Ihr Paket nicht weiter nutzen möchten, möchten wir Sie darauf hinweisen, dass Sie Ihr Paket manuell stornieren müssen, um keine weiteren Zahlungen leisten zu müssen. \n\nWenn Sie die Kündigungsfrist versäumen, werden wir Ihnen kein Geld zurückerstatten.\n\nWir hoffen natürlich, dass Sie Dulno-Kunde bleiben, wenn Ihnen das Produkt auch in Zukunft weiterhilft.\n\nVielen Dank für Ihre Aufmerksamkeit!"
+  "bundle.extension.email.body": "Hallo %s, \n\nwir möchten Sie darüber informieren, dass Ihr gebuchtes Dulno-Paket in 2 Wochen automatisch verlängert wird. \n\nWenn Sie Ihr Paket nicht weiter nutzen möchten, möchten wir Sie darauf hinweisen, dass Sie Ihr Paket manuell stornieren müssen, um keine weiteren Zahlungen leisten zu müssen. \n\nWenn Sie die Kündigungsfrist versäumen, werden wir Ihnen kein Geld zurückerstatten.\n\nWir hoffen natürlich, dass Sie Dulno-Kunde bleiben, wenn Ihnen das Produkt auch in Zukunft weiterhilft.\n\nVielen Dank für Ihre Aufmerksamkeit!",
+
+  "access.trigger.formatted.time": "Formatierte Zeit",
+  "access.trigger.formatted.date": "Formatiertes Datum",
+  "access.trigger.unix.time": "Unix Zeit"
 }

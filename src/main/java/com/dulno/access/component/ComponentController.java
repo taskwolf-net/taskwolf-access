@@ -1,5 +1,7 @@
 package com.dulno.access.component;
 
+import com.dulno.core.trigger.TriggerInformation;
+import com.dulno.core.workflow.component.output.OutputComponentVariable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
@@ -139,8 +141,17 @@ public final class ComponentController extends DulnoRestController {
     var information = superficialComponentInformation(language, identifier, component);
     information.put("inputVariables",
       componentVariablesInformation(language, component.inputVariables()));
+    var outputVariables = Lists.newArrayList(component.outputVariables());
+    if (component instanceof TriggerInformation) {
+      outputVariables.add(OutputComponentVariable.create(
+        "access.trigger.formatted.time", "formattedTime"));
+      outputVariables.add(OutputComponentVariable.create(
+        "access.trigger.formatted.date", "formattedDate"));
+      outputVariables.add(OutputComponentVariable.create(
+        "access.trigger.unix.time", "unixTime"));
+    }
     information.put("outputVariables",
-      componentVariablesInformation(language, component.outputVariables()));
+      componentVariablesInformation(language, outputVariables));
     return information;
   }
 

@@ -73,6 +73,7 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/google/login/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/gitlab/authorize/");
+    controllers.add("/" + CURRENT_API_VERSION + "/gitlab/event/");
     controllers.add("/" + CURRENT_API_VERSION + "/password/reset/request/");
     controllers.add("/" + CURRENT_API_VERSION + "/password/reset/complete/");
     controllers.add("/" + CURRENT_API_VERSION + "/distribution/add/");

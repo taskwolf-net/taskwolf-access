@@ -143,11 +143,11 @@ public final class WorkflowModificationController extends WorkflowController {
     if (!authorized) {
       return CompletableFuture.completedFuture(null);
     }
-    deleteWorkflow(entry);
-    return userDatabaseTable().findUser(entry.creatorId()).thenCompose(creator ->
-      workflowDatabaseTable().generateAvailableWorkflowId().thenCompose(workflowId ->
-        updateWorkflow(workflowId, user, creator, entry, triggerData, actionData,
-          conditionData, name, description, timelineEntries, state)));
+    return deleteWorkflow(entry).thenCompose(value ->
+      userDatabaseTable().findUser(entry.creatorId()).thenCompose(creator ->
+        workflowDatabaseTable().generateAvailableWorkflowId().thenCompose(workflowId ->
+          updateWorkflow(workflowId, user, creator, entry, triggerData, actionData,
+            conditionData, name, description, timelineEntries, state))));
   }
 
   private CompletableFuture<Void> updateWorkflow(
@@ -261,25 +261,27 @@ public final class WorkflowModificationController extends WorkflowController {
   }
 
   @RequestMapping(path = "/workflow/remove/", method = RequestMethod.POST)
-  public void removeWorkflow(
+  public CompletableFuture<Void> removeWorkflow(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
+    var futureResponse = new CompletableFuture<Void>();
     performWorkflowOperation(findUserId(request), body.getUUID("workflow"),
-      this::deleteWorkflow, () -> {});
+      workflow -> deleteWorkflow(workflow).thenAccept(futureResponse::complete),
+      () -> futureResponse.complete(null));
+    return futureResponse;
   }
 
-  public void deleteWorkflow(WorkflowEntry workflow) {
-    AsyncIterator.execute(workflow.actionIds(), actionDatabaseTable::findAction)
-      .thenAccept(actions -> triggerDatabaseTable.findTrigger(workflow.triggerId())
-        .thenAccept(trigger -> deleteWorkflow(workflow, trigger, actions)));
+  public CompletableFuture<Void> deleteWorkflow(WorkflowEntry workflow) {
+    return AsyncIterator.execute(workflow.actionIds(), actionDatabaseTable::findAction)
+      .thenCompose(actions -> triggerDatabaseTable.findTrigger(workflow.triggerId())
+        .thenCompose(trigger -> deleteWorkflow(workflow, trigger, actions)));
   }
 
-  private void deleteWorkflow(
+  private CompletableFuture<Void> deleteWorkflow(
     WorkflowEntry workflow, TriggerEntry trigger, List<ActionEntry> actions
   ) {
-    workflowDatabaseTable().deleteWorkflow(workflow.id());
     triggerDatabaseTable.deleteTrigger(workflow.triggerId());
     coreModule.findTrigger(trigger.module(), trigger.type()).ifPresent(value ->
       value.delete(trigger.id()));
@@ -294,5 +296,6 @@ public final class WorkflowModificationController extends WorkflowController {
     timelineDatabaseTable.findEntriesByWorkflow(workflow.id()).thenAccept(entries ->
       entries.forEach(timelineDatabaseEntry ->
         timelineDatabaseTable.deleteEntry(timelineDatabaseEntry.id())));
+    return workflowDatabaseTable().deleteWorkflow(workflow.id());
   }
 }

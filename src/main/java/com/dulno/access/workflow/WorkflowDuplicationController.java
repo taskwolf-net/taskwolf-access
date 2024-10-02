@@ -64,18 +64,19 @@ public final class WorkflowDuplicationController extends WorkflowController {
     var body = DulnoRequestBody.of(payload, response);
     return findUser(request).thenCompose(user ->
       userTargetDatabaseTable().findTargetSecured(user.id()).thenCompose(target ->
-        checkWorkflowNumberLimit(user, target).thenAccept(limitReached ->
+        checkWorkflowNumberLimit(user, target).thenCompose(limitReached ->
           duplicateWorkflow(user, body, limitReached, response))));
   }
 
-  private void duplicateWorkflow(
+  private CompletableFuture<Void> duplicateWorkflow(
     User user, DulnoRequestBody body, boolean limitReached,
     HttpServletResponse response
   ) {
     if (limitReached) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
+    var futureResponse = new CompletableFuture<Void>();
     performWorkflowOperation(user.id(),
       body.getUUID("workflow"), workflow ->
         workflowDatabaseTable().generateAvailableWorkflowId()
@@ -83,24 +84,27 @@ public final class WorkflowDuplicationController extends WorkflowController {
             .thenAccept(triggerId -> generateActionIds(workflow.actionIds().size())
               .thenAccept(actionIds -> generateConditionIds(workflow.conditionIds().size())
                 .thenAccept(conditionIds -> duplicateWorkflow(user, workflow,
-                  workflowId, triggerId, actionIds, conditionIds))))),
-      () -> {});
+                  workflowId, triggerId, actionIds, conditionIds)
+                  .thenAccept(futureResponse::complete))))),
+      () -> futureResponse.complete(null));
+    return futureResponse;
   }
 
-  private void duplicateWorkflow(
+  private CompletableFuture<Void> duplicateWorkflow(
     User user, WorkflowEntry workflow, UUID duplicateWorkflowId,
     UUID duplicateTriggerId, List<UUID> duplicateActionIds,
     List<UUID> duplicateConditionIds
   ) {
-    workflowDatabaseTable().insertWorkflow(WorkflowEntry.create(duplicateWorkflowId,
-      workflow.ownerId(), workflow.creatorId(), duplicateTriggerId,
-      duplicateActionIds, duplicateConditionIds, workflow.modules(),
-      System.currentTimeMillis(), workflow.name() +
-        " (" + coreModule.translate(user, "workflow.duplicated") + ")",
-      workflow.description(), workflow.state()));
     duplicateWorkflowTrigger(workflow, duplicateWorkflowId, duplicateTriggerId);
     duplicateWorkflowActions(workflow, duplicateWorkflowId, duplicateActionIds);
     duplicateWorkflowConditions(workflow, duplicateWorkflowId, duplicateConditionIds);
+    return workflowDatabaseTable().insertWorkflow(
+      WorkflowEntry.create(duplicateWorkflowId, workflow.ownerId(),
+        workflow.creatorId(), duplicateTriggerId, duplicateActionIds,
+        duplicateConditionIds, workflow.modules(),
+        System.currentTimeMillis(), workflow.name() +
+          " (" + coreModule.translate(user, "workflow.duplicated") + ")",
+        workflow.description(), workflow.state()));
   }
 
   private void duplicateWorkflowTrigger(

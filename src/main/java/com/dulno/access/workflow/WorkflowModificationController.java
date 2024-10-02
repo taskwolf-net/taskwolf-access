@@ -75,21 +75,21 @@ public final class WorkflowModificationController extends WorkflowController {
     var body = DulnoRequestBody.of(payload, response);
     return findUser(request).thenCompose(user ->
       userTargetDatabaseTable().findTargetSecured(user.id()).thenCompose(target ->
-        checkWorkflowNumberLimit(user, target).thenAccept(limitReached ->
+        checkWorkflowNumberLimit(user, target).thenCompose(limitReached ->
           addWorkflow(user, target, body, limitReached, response))));
   }
 
-  private void addWorkflow(
+  private CompletableFuture<Void> addWorkflow(
     User user, UUID target, DulnoRequestBody body, boolean limitReached,
     HttpServletResponse response
   ) {
     if (limitReached) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
     var created = System.currentTimeMillis();
-    findWorkflowOwner(user, target).thenAccept(owner ->
-      createWorkflowCreateTimelineEntry(user).thenAccept(workflowCreateEntry ->
+    return findWorkflowOwner(user, target).thenCompose(owner ->
+      createWorkflowCreateTimelineEntry(user).thenCompose(workflowCreateEntry ->
         createWorkflow(user, owner, body.getObject("trigger"),
           body.getObjectList("actions"), body.getObjectList("conditions"),
           created, body.getString("name"), body.getString("description"),
@@ -113,81 +113,84 @@ public final class WorkflowModificationController extends WorkflowController {
   }
 
   @RequestMapping(path = "/workflow/update/", method = RequestMethod.POST)
-  public void updateWorkflow(
+  public CompletableFuture<Void> updateWorkflow(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     if (payload.getBytes().length > MAX_WORKFLOW_BYTES) {
       response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
     var body = DulnoRequestBody.of(payload, response);
     var workflowId = body.getUUID("workflow");
-    findUser(request).thenAccept(user -> workflowDatabaseTable().findWorkflow(workflowId)
-      .thenAccept(workflow -> timelineDatabaseTable.findEntriesByWorkflow(workflowId)
-        .thenAccept(timelineEntries -> checkWorkflowAuthorization(user, workflow)
-          .thenAccept(authorized -> updateWorkflow(user, workflow, authorized,
-            body.getObject("trigger"), body.getObjectList("actions"),
-            body.getObjectList("conditions"), body.getString("name"),
-            body.getString("description"), timelineEntries,
-            workflow.state())))));
+    return findUser(request).thenCompose(user ->
+      workflowDatabaseTable().findWorkflow(workflowId).thenCompose(workflow ->
+        timelineDatabaseTable.findEntriesByWorkflow(workflowId)
+          .thenCompose(timelineEntries -> checkWorkflowAuthorization(user, workflow)
+            .thenCompose(authorized -> updateWorkflow(user, workflow, authorized,
+              body.getObject("trigger"), body.getObjectList("actions"),
+              body.getObjectList("conditions"), body.getString("name"),
+              body.getString("description"), timelineEntries,
+              workflow.state())))));
   }
 
-  private void updateWorkflow(
+  private CompletableFuture<Void> updateWorkflow(
     User user, WorkflowEntry entry, boolean authorized,
     DulnoRequestBody triggerData, List<DulnoRequestBody> actionData,
     List<DulnoRequestBody> conditionData, String name, String description,
     List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
     if (!authorized) {
-      return;
+      return CompletableFuture.completedFuture(null);
     }
     deleteWorkflow(entry);
-    userDatabaseTable().findUser(entry.creatorId()).thenAccept(creator ->
-      workflowDatabaseTable().generateAvailableWorkflowId().thenAccept(workflowId ->
+    return userDatabaseTable().findUser(entry.creatorId()).thenCompose(creator ->
+      workflowDatabaseTable().generateAvailableWorkflowId().thenCompose(workflowId ->
         updateWorkflow(workflowId, user, creator, entry, triggerData, actionData,
           conditionData, name, description, timelineEntries, state)));
   }
 
-  private void updateWorkflow(
+  private CompletableFuture<Void> updateWorkflow(
     UUID workflowId, User user, User creator, WorkflowEntry entry,
     DulnoRequestBody triggerData, List<DulnoRequestBody> actionData,
     List<DulnoRequestBody> conditionData, String name, String description,
     List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
-    createWorkflow(workflowId, creator, entry.ownerId(), triggerData, actionData,
-      conditionData, entry.created(), name, description, timelineEntries, state);
     WorkflowAlterationSupervisor.create(timelineDatabaseTable, workflowId,
       entry, name, description, actionData, conditionData).evaluate(user);
+    return createWorkflow(workflowId, creator, entry.ownerId(), triggerData,
+      actionData, conditionData, entry.created(), name, description,
+      timelineEntries, state);
   }
 
-  private void createWorkflow(
+  private CompletableFuture<Void> createWorkflow(
     User creator, UUID ownerId, DulnoRequestBody triggerData,
     List<DulnoRequestBody> actionData,  List<DulnoRequestBody> conditionData,
     long created, String name, String description,
     List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
-    workflowDatabaseTable().generateAvailableWorkflowId().thenAccept(workflowId ->
-      createWorkflow(workflowId, creator, ownerId, triggerData, actionData,
-        conditionData, created, name, description, timelineEntries, state));
+    return workflowDatabaseTable().generateAvailableWorkflowId()
+      .thenCompose(workflowId -> createWorkflow(workflowId, creator, ownerId,
+        triggerData, actionData, conditionData, created, name, description,
+        timelineEntries, state));
   }
 
-  private void createWorkflow(
+  private CompletableFuture<Void> createWorkflow(
     UUID workflowId, User creator, UUID ownerId,
     DulnoRequestBody triggerData, List<DulnoRequestBody> actionData,
     List<DulnoRequestBody> conditionData, long created, String name,
     String description, List<TimelineDatabaseEntry> timelineEntries,
     WorkflowState state
   ) {
-    triggerDatabaseTable.generateAvailableTriggerId().thenAccept(triggerId ->
-      generateActionIds(actionData.size()).thenAccept(actionIds ->
-        generateConditionIds(conditionData.size()).thenAccept(conditionIds ->
+    return triggerDatabaseTable.generateAvailableTriggerId().thenCompose(triggerId ->
+      generateActionIds(actionData.size()).thenCompose(actionIds ->
+        generateConditionIds(conditionData.size()).thenCompose(conditionIds ->
           createWorkflow(workflowId, creator.id(), ownerId, triggerId,
             triggerData, actionIds, actionData, conditionIds, conditionData,
             created, name, description, timelineEntries, state))));
   }
 
-  private void createWorkflow(
+  private CompletableFuture<Void> createWorkflow(
     UUID workflowId, UUID creatorId, UUID ownerId, UUID triggerId,
     DulnoRequestBody triggerData, List<UUID> actionIds,
     List<DulnoRequestBody> actionData, List<UUID> conditionIds,
@@ -205,13 +208,13 @@ public final class WorkflowModificationController extends WorkflowController {
     for (int i = 0; i < conditionData.size(); i++) {
       createCondition(conditionIds.get(i), ownerId, workflowId, conditionData.get(i));
     }
-    workflowDatabaseTable().insertWorkflow(workflowId, ownerId, creatorId,
-      triggerId, actionIds, conditionIds, modules, created, name, description,
-      state.toString());
     for (var entry : timelineEntries) {
       timelineDatabaseTable.insertEntry(entry.id(), workflowId, entry.time(),
         entry.type(), entry.content());
     }
+    return workflowDatabaseTable().insertWorkflow(workflowId, ownerId, creatorId,
+      triggerId, actionIds, conditionIds, modules, created, name, description,
+      state.toString());
   }
 
   private void createTrigger(

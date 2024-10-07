@@ -66,6 +66,9 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/verification/isValid/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/home/isValid/");
     controllers.add("/" + CURRENT_API_VERSION + "/email/exists/");
+    controllers.add("/" + CURRENT_API_VERSION + "/password/reset/request/");
+    controllers.add("/" + CURRENT_API_VERSION + "/password/reset/complete/");
+    controllers.add("/" + CURRENT_API_VERSION + "/distribution/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/question/create/");
     controllers.add("/" + CURRENT_API_VERSION + "/sale/create/");
     controllers.add("/" + CURRENT_API_VERSION + "/organization/join/");
@@ -74,9 +77,7 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/gitlab/authorize/");
     controllers.add("/" + CURRENT_API_VERSION + "/gitlab/event/");
-    controllers.add("/" + CURRENT_API_VERSION + "/password/reset/request/");
-    controllers.add("/" + CURRENT_API_VERSION + "/password/reset/complete/");
-    controllers.add("/" + CURRENT_API_VERSION + "/distribution/add/");
+    controllers.add("/" + CURRENT_API_VERSION + "/microsoft/teams/messages/");
     var url = request.getRequestURI();
     return controllers.contains(url) || url.contains("/team/") ||
       url.contains("/webhook/trigger/") || url.contains("unauthorized") ||

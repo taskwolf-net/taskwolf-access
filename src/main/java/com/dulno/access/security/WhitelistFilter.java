@@ -50,12 +50,13 @@ public class WhitelistFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/maintenance/running/");
     controllers.add("/" + CURRENT_API_VERSION + "/stripe/checkout/");
     controllers.add("/" + CURRENT_API_VERSION + "/stripe/payment/");
+    controllers.add("/" + CURRENT_API_VERSION + "/distribution/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/discord/guild/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/login/");
     controllers.add("/" + CURRENT_API_VERSION + "/google/account/add/");
     controllers.add("/" + CURRENT_API_VERSION + "/gitlab/authorize/");
     controllers.add("/" + CURRENT_API_VERSION + "/gitlab/event/");
-    controllers.add("/" + CURRENT_API_VERSION + "/distribution/add/");
+    controllers.add("/" + CURRENT_API_VERSION + "/microsoft/teams/messages/");
     return controllers.contains(request.getRequestURI());
   }
 }

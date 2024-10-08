@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class OrganizationJoinController extends DulnoHomeRestController {
-  private final Key homeKey;
+  private final Key productKey;
   private final Key refreshKey;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
@@ -42,7 +42,7 @@ public final class OrganizationJoinController extends DulnoHomeRestController {
     VerificationLoginController verificationLoginController
   ) {
     super(homeKey, userDatabaseTable);
-    this.homeKey = homeKey;
+    this.productKey = productKey;
     this.refreshKey = refreshKey;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
@@ -109,16 +109,14 @@ public final class OrganizationJoinController extends DulnoHomeRestController {
     userDatabaseTable().addUserOrganization(user.id(), organization.id());
     activityDatabaseTable.insertActivity(user.id(), "activity.organization.join.title",
       "activity.organization.join.description", ActivityType.ORGANIZATION);
-    var futureResponse = loginUser(request, user);
-    futureResponse.thenAccept(response -> response.put("success", true));
-    return futureResponse;
+    return loginUser(request, user);
   }
 
   private CompletableFuture<Map<String, Object>> loginUser(
     HttpServletRequest request, User user
   ) {
-    var verification = Verification.create(userDatabaseTable(), homeKey,
-      secretKey(), refreshKey, user.email(), "");
+    var verification = Verification.create(userDatabaseTable(), secretKey(),
+      productKey, refreshKey, user.email(), "");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verificationLoginController.processAuthorizedLogin(request, verification,
       futureResponse);

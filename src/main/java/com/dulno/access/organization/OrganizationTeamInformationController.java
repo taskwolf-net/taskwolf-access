@@ -94,8 +94,12 @@ public final class OrganizationTeamInformationController extends OrganizationTea
     information.put("name", team.name());
     var membersInformation = Lists.<Map<String, Object>>newArrayList();
     for (var member : team.members()) {
-      var memberUser = members.stream().filter(target -> target.id().equals(member))
-        .findFirst().get();
+      var memberUserOptional = members.stream()
+        .filter(target -> target.id().equals(member)).findFirst();
+      if (memberUserOptional.isEmpty()) {
+        continue;
+      }
+      var memberUser = memberUserOptional.get();
       var memberInformation = Maps.<String, Object>newHashMap();
       memberInformation.put("id", memberUser.id());
       memberInformation.put("name", memberUser.name());

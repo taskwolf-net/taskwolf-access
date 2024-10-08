@@ -1,6 +1,7 @@
 package com.dulno.access.organization;
 
 import com.dulno.access.stripe.StripeTerminationController;
+import com.dulno.core.organization.team.Team;
 import com.dulno.core.workflow.operation.OperationDatabaseTable;
 import com.dulno.core.workflow.throttle.WorkflowThrottleDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -133,8 +135,9 @@ public final class OrganizationModificationController extends OrganizationContro
     if (!organization.members().contains(targetId) || targetId.equals(userId)) {
       return;
     }
-    userDatabaseTable().removeUserOrganization(targetId, organization.id());
     organizationDatabaseTable().removeOrganizationMember(organization.id(), targetId);
+    userDatabaseTable().removeUserOrganization(targetId, organization.id());
+    removeFromOrganizationTeams(targetId, organization.id());
     activityDatabaseTable.insertActivity(targetId, "activity.organization.kick.title",
       "activity.organization.kick.description", ActivityType.ORGANIZATION);
   }
@@ -152,8 +155,23 @@ public final class OrganizationModificationController extends OrganizationContro
     }
     organizationDatabaseTable().removeOrganizationMember(organization.id(), userId);
     userDatabaseTable().removeUserOrganization(userId, organization.id());
+    removeFromOrganizationTeams(userId, organization.id());
     activityDatabaseTable.insertActivity(userId, "activity.organization.leave.title",
       "activity.organization.leave.description", ActivityType.ORGANIZATION);
+  }
+
+  private void removeFromOrganizationTeams(UUID userId, UUID organizationId) {
+    teamDatabaseTable.findTeamsByOrganization(organizationId)
+      .thenAccept(teams -> removeFromOrganizationTeams(userId, teams));
+  }
+
+  private void removeFromOrganizationTeams(UUID userId, List<Team> teams) {
+    for (var team : teams) {
+      if (!team.members().contains(userId)) {
+        continue;
+      }
+      teamDatabaseTable.removeTeamMember(team, userId);
+    }
   }
 
   public void deleteOrganization(Organization organization) {

@@ -105,8 +105,8 @@ public final class VerificationRegistrationController {
       .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
         .thenAccept(recaptchaVerified -> completeRegistration(futureResponse,
           exists, recaptchaVerified, email, body.getString("name"),
-          body.getString("password"), ipAddress, legalAccepted,
-          body.getBoolean("newsletter"))));
+          body.getString("password"), body.getString("redirect"), ipAddress,
+          legalAccepted, body.getBoolean("newsletter"))));
     return futureResponse;
   }
 
@@ -126,7 +126,7 @@ public final class VerificationRegistrationController {
   private void completeRegistration(
     CompletableFuture<Map<String, Object>> futureResponse, boolean alreadyExists,
     boolean recaptchaVerified, String email, String name, String password,
-    String ipAddress, boolean legalAccepted, boolean newsletter
+    String redirect, String ipAddress, boolean legalAccepted, boolean newsletter
   ) {
     if (alreadyExists) {
       futureResponse.complete(Map.of("success", false, "error", 1000));
@@ -137,7 +137,7 @@ public final class VerificationRegistrationController {
       return;
     }
     userDatabaseTable.generateAvailableUserId().thenAccept(id ->
-      insertNewUser(id, name, email, hashPassword(password), ipAddress,
+      insertNewUser(id, name, email, hashPassword(password), redirect, ipAddress,
         legalAccepted, newsletter));
     futureResponse.complete(Map.of("success", true));
   }
@@ -145,8 +145,8 @@ public final class VerificationRegistrationController {
   private static final String VERIFICATION_URL = "https://dulno.com/register/confirm/%s/%s/";
 
   private void insertNewUser(
-    UUID userId, String name, String email, String passwordHash, String ipAddress,
-    boolean legalAccepted, boolean newsletter
+    UUID userId, String name, String email, String passwordHash, String redirect,
+    String ipAddress, boolean legalAccepted, boolean newsletter
   ) {
     var language = findUserLanguage(ipAddress);
     userDatabaseTable.insertUser(userId, name, email, passwordHash, language,
@@ -156,9 +156,13 @@ public final class VerificationRegistrationController {
     notificationDatabaseTable.insertNotificationSettings(userId, true, true);
     userVerificationDatabaseTable.insertVerification(userId, token);
     var title = translation.translate(language, "registration.email.title");
+    var verificationUrl = String.format(VERIFICATION_URL, userId.toString(), token);
+    if (!redirect.isEmpty()) {
+      verificationUrl += "?redirect=" + redirect;
+    }
     var body = String.format(
       translation.translate(language, "registration.email.body"), name,
-      String.format(VERIFICATION_URL, userId.toString(), token));
+      verificationUrl);
     verificationMail.send(email, title, body);
     distribution.addUser(userId);
     tutorialDatabaseTable.insertTutorial(userId, 0, 0);
@@ -253,7 +257,7 @@ public final class VerificationRegistrationController {
       refreshKey, "", "").generateHomeApiKey(userId, sessionId);
     loginController.storeSession(request, userId, sessionId, "");
     return userDatabaseTable.findUser(userId).thenApply(user ->
-      Map.of("success", true, "homeApiKey", apiKey));
+      Map.of("success", true, "homeApiKey", apiKey, "userName", user.name()));
   }
 
   private String hashPassword(String password) {

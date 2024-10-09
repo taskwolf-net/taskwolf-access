@@ -1,5 +1,7 @@
 package com.dulno.access.trial;
 
+import com.dulno.access.verification.Verification;
+import com.dulno.access.verification.VerificationLoginController;
 import jakarta.servlet.http.HttpServletRequest;
 import com.dulno.core.access.DulnoHomeRestController;
 import com.dulno.core.bundle.*;
@@ -19,25 +21,33 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class TrialController extends DulnoHomeRestController {
+  private final Key productKey;
+  private final Key refreshKey;
   private final TrialDatabaseTable trialDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final BundlePresetRepository bundlePresetRepository;
   private final OperationDatabaseTable operationDatabaseTable;
   private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
+  private final VerificationLoginController verificationLoginController;
 
   private TrialController(
-    @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
+    @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
+    @Qualifier("refreshKey") Key refreshKey, UserDatabaseTable userDatabaseTable,
     TrialDatabaseTable trialDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     BundlePresetRepository bundlePresetRepository,
     OperationDatabaseTable operationDatabaseTable,
-    WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable
+    WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
+    VerificationLoginController verificationLoginController
   ) {
-    super(secretKey, userDatabaseTable);
+    super(homeKey, userDatabaseTable);
+    this.productKey = productKey;
+    this.refreshKey = refreshKey;
     this.trialDatabaseTable = trialDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.bundlePresetRepository = bundlePresetRepository;
     this.operationDatabaseTable = operationDatabaseTable;
     this.workflowThrottleDatabaseTable = workflowThrottleDatabaseTable;
+    this.verificationLoginController = verificationLoginController;
   }
 
   @RequestMapping(path = "/trial/use/", method = RequestMethod.GET)
@@ -47,22 +57,29 @@ public final class TrialController extends DulnoHomeRestController {
     return findUser(request)
       .thenCompose(user -> trialDatabaseTable.trialExists(user.email())
         .thenCompose(trialExists -> bundleDatabaseTable.bundleExists(user.id())
-          .thenApply(bundleExists -> useTrial(user, trialExists, trialExists))));
+          .thenCompose(bundleExists -> useTrial(request, user, trialExists,
+            trialExists))));
   }
 
-  private Map<String, Object> useTrial(
-    User user, boolean trialExists, boolean bundleExists
+  private CompletableFuture<Map<String, Object>> useTrial(
+    HttpServletRequest request, User user, boolean trialExists,
+    boolean bundleExists
   ) {
     if (trialExists) {
-      return Map.of("success", false, "error", 1000);
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
     }
     if (bundleExists) {
-      return Map.of("success", false, "error", 1001);
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
     }
+    return useTrial(request, user);
+  }
+
+  private CompletableFuture<Map<String, Object>> useTrial(
+    HttpServletRequest request, User user
+  ) {
     trialDatabaseTable.insertTrial(user.email());
-    bundleDatabaseTable.insertBundle(Bundle.of(user.id(),
-      bundlePresetRepository.findPreset(BundleType.TRIAL).get(),
-      BundleRuntime.WEEKLY));
     operationDatabaseTable.operationsExists(user.id())
       .thenCompose(exists -> !exists ?
         operationDatabaseTable.insertOperations(user.id()) :
@@ -71,6 +88,20 @@ public final class TrialController extends DulnoHomeRestController {
       .thenCompose(exists -> !exists ?
         workflowThrottleDatabaseTable.insertThrottle(user.id()) :
         workflowThrottleDatabaseTable.setThrottle(user.id(), 0, 0));
-    return Map.of("success", true);
+    return bundleDatabaseTable.insertBundle(Bundle.of(user.id(),
+        bundlePresetRepository.findPreset(BundleType.TRIAL).get(),
+        BundleRuntime.WEEKLY))
+      .thenCompose(value -> loginUser(request, user));
+  }
+
+  private CompletableFuture<Map<String, Object>> loginUser(
+    HttpServletRequest request, User user
+  ) {
+    var verification = Verification.create(userDatabaseTable(), secretKey(),
+      productKey, refreshKey, user.email(), "");
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    verificationLoginController.processAuthorizedLogin(request, verification,
+      futureResponse);
+    return futureResponse;
   }
 }

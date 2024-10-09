@@ -1,6 +1,7 @@
 package com.dulno.access.stripe;
 
 import com.dulno.core.bundle.*;
+import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import com.stripe.StripeClient;
 import com.stripe.param.checkout.SessionCreateParams;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class StripeCheckoutRequestController extends DulnoHomeRestController {
   private final StripeDatabaseTable stripeDatabaseTable;
+  private final StripeCompletionDatabaseTable stripeCompletionDatabaseTable;
   private final StripeConfiguration stripeConfiguration;
   private final StripeClient stripeClient;
   private final BundleDatabaseTable bundleDatabaseTable;
@@ -35,12 +37,14 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
   private StripeCheckoutRequestController(
     @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeDatabaseTable stripeDatabaseTable,
+    StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
     StripeConfiguration stripeConfiguration, StripeClient stripeClient,
     BundleDatabaseTable bundleDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.stripeDatabaseTable = stripeDatabaseTable;
+    this.stripeCompletionDatabaseTable = stripeCompletionDatabaseTable;
     this.stripeConfiguration = stripeConfiguration;
     this.stripeClient = stripeClient;
     this.bundleDatabaseTable = bundleDatabaseTable;
@@ -104,18 +108,23 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
         CompletableFuture.completedFuture(""));
   }
 
+  private static final String SUCCESS_URL_FORMAT =
+    "https://dulno.com/payment/complete/%s/";
+
   private Map<String, Object> checkout(
     User user, BundleType bundleType, BundleClass bundleClass,
     BundleRuntime bundleRuntime, String accountId
   ) {
     try {
+      var token = UUID.randomUUID().toString();
+      stripeCompletionDatabaseTable.insertStripeCompletion(user.id(), token);
       var sessionBuilder = SessionCreateParams.builder()
         .addLineItem(SessionCreateParams.LineItem.builder()
           .setPrice(stripeConfiguration.findPriceId(bundleType,
             bundleClass, bundleRuntime))
           .setQuantity(1L)
           .build())
-        .setSuccessUrl("https://dulno.com/payment/complete/")
+        .setSuccessUrl(String.format(SUCCESS_URL_FORMAT, token))
         .setCancelUrl("https://dulno.com/pricing/")
         .setMode(SessionCreateParams.Mode.SUBSCRIPTION);
       if (!accountId.isEmpty()) {

@@ -54,6 +54,7 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/checkout/");
     controllers.add("/" + CURRENT_API_VERSION + "/stripe/checkout/");
     controllers.add("/" + CURRENT_API_VERSION + "/stripe/payment/");
+    controllers.add("/" + CURRENT_API_VERSION + "/stripe/complete/");
     controllers.add("/" + CURRENT_API_VERSION + "/offer/find/");
     controllers.add("/" + CURRENT_API_VERSION + "/offer/accept/");
     controllers.add("/" + CURRENT_API_VERSION + "/offer/decline/");

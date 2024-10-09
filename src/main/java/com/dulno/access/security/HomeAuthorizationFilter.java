@@ -45,6 +45,7 @@ public class HomeAuthorizationFilter extends OncePerRequestFilter {
   protected boolean shouldNotFilter(HttpServletRequest request) {
     var shouldFilter = Lists.<String>newArrayList();
     shouldFilter.add("/" + CURRENT_API_VERSION + "/checkout/");
+    shouldFilter.add("/" + CURRENT_API_VERSION + "/stripe/complete/");
     shouldFilter.add("/" + CURRENT_API_VERSION + "/offer/find/");
     shouldFilter.add("/" + CURRENT_API_VERSION + "/offer/accept/");
     shouldFilter.add("/" + CURRENT_API_VERSION + "/offer/decline/");

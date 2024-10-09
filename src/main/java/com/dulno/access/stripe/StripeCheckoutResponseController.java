@@ -1,5 +1,6 @@
 package com.dulno.access.stripe;
 
+import com.dulno.core.stripe.*;
 import com.google.common.collect.Lists;
 import com.stripe.StripeClient;
 import com.stripe.model.PaymentIntent;
@@ -18,10 +19,6 @@ import com.dulno.core.offer.OfferDatabaseTable;
 import com.dulno.core.offer.OfferStatus;
 import com.dulno.core.organization.Organization;
 import com.dulno.core.organization.OrganizationDatabaseTable;
-import com.dulno.core.stripe.StripeAccount;
-import com.dulno.core.stripe.StripeConfiguration;
-import com.dulno.core.stripe.StripeDatabaseTable;
-import com.dulno.core.stripe.TerminationDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
@@ -46,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class StripeCheckoutResponseController extends StripeController {
   private final StripeClient stripeClient;
+  private final StripeCompletionDatabaseTable stripeCompletionDatabaseTable;
   private final TerminationDatabaseTable terminationDatabaseTable;
   private final Mail orderMail;
   private final BundleDatabaseTable bundleDatabaseTable;
@@ -61,6 +59,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
     UserTargetDatabaseTable targetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
+    StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
     TerminationDatabaseTable terminationDatabaseTable,
     @Qualifier("orderMail") Mail orderMail,
     BundleDatabaseTable bundleDatabaseTable,
@@ -72,6 +71,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
       targetDatabaseTable, organizationDatabaseTable);
     this.stripeClient = stripeClient;
+    this.stripeCompletionDatabaseTable = stripeCompletionDatabaseTable;
     this.terminationDatabaseTable = terminationDatabaseTable;
     this.orderMail = orderMail;
     this.bundleDatabaseTable = bundleDatabaseTable;
@@ -83,7 +83,7 @@ public final class StripeCheckoutResponseController extends StripeController {
   }
 
   @RequestMapping(path = "/stripe/checkout/", method = RequestMethod.POST)
-  public void processStripeRequest(
+  public CompletableFuture<Void> processStripeRequest(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
@@ -91,33 +91,37 @@ public final class StripeCheckoutResponseController extends StripeController {
       stripeConfiguration().checkoutWebhookSecret());
     if (event.isEmpty()) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
     var object = findStripeObject(event.get());
     if (object.isEmpty()) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
     if (event.get().getType().equals("checkout.session.completed")) {
-      new Thread(() -> processCheckoutSessionCompletion(
-        (Session) object.get())).start();
+      var futureResponse = new CompletableFuture<Void>();
+      new Thread(() -> processCheckoutSessionCompletion((Session) object.get())
+        .thenAccept(futureResponse::complete)).start();
+      return futureResponse;
     }
+    return CompletableFuture.completedFuture(null);
   }
 
-  private void processCheckoutSessionCompletion(Session session) {
+  private CompletableFuture<Void> processCheckoutSessionCompletion(Session session) {
     try {
       var customerEmail = stripeClient.customers()
         .retrieve(session.getCustomer()).getEmail();
       var subscription = stripeClient.subscriptions()
         .retrieve(session.getSubscription());
-      userDatabaseTable().findUser(customerEmail).thenCompose(user ->
+      return userDatabaseTable().findUser(customerEmail).thenCompose(user ->
         findBundle(user, subscription).thenCompose(bundle ->
-          processPreviousSubscriptions(session, user).thenAcceptAsync(value ->
+          processPreviousSubscriptions(session, user).thenComposeAsync(value ->
             findStripeAccount(session, subscription, user, bundle.ownerId())
-              .thenAccept(account -> applySubscription(subscription, user,
-                bundle.ownerId(), bundle)))));
+              .thenCompose(account -> applySubscription(session, subscription,
+                user, bundle.ownerId(), bundle)))));
     } catch (Exception exception) {
       exception.printStackTrace();
+      return CompletableFuture.completedFuture(null);
     }
   }
 
@@ -223,8 +227,9 @@ public final class StripeCheckoutResponseController extends StripeController {
       user.id(), subscription.getId());
   }
 
-  private void applySubscription(
-    Subscription subscription, User user, UUID targetId, Bundle bundle
+  private CompletableFuture<Void> applySubscription(
+    Session session, Subscription subscription, User user, UUID targetId,
+    Bundle bundle
   ) {
     bundleDatabaseTable.bundleExists(targetId).thenAccept(exists ->
       applyBundle(targetId, bundle, exists));
@@ -235,6 +240,9 @@ public final class StripeCheckoutResponseController extends StripeController {
     } catch (Exception exception) {
       exception.printStackTrace();
     }
+    return stripeCompletionDatabaseTable.confirmStripeCompletion(user.id(),
+      session.getSuccessUrl().replace("https://dulno.com/payment/complete/", "")
+        .replace("/", ""));
   }
 
   private void applyBundle(UUID target, Bundle bundle, boolean bundleExists) {

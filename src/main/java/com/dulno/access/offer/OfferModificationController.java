@@ -1,5 +1,6 @@
 package com.dulno.access.offer;
 
+import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import com.stripe.StripeClient;
 import com.stripe.param.PriceUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
@@ -29,17 +30,20 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class OfferModificationController extends OfferController {
   private final StripeDatabaseTable stripeDatabaseTable;
+  private final StripeCompletionDatabaseTable stripeCompletionDatabaseTable;
   private final StripeClient stripeClient;
 
   private OfferModificationController(
     @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     OfferDatabaseTable offerDatabaseTable, StripeDatabaseTable stripeDatabaseTable,
+    StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
     StripeClient stripeClient
   ) {
     super(secretKey, userDatabaseTable, organizationDatabaseTable,
       offerDatabaseTable);
     this.stripeDatabaseTable = stripeDatabaseTable;
+    this.stripeCompletionDatabaseTable = stripeCompletionDatabaseTable;
     this.stripeClient = stripeClient;
   }
 
@@ -58,15 +62,22 @@ public final class OfferModificationController extends OfferController {
     return futureResponse;
   }
 
+  private static final String SUCCESS_URL_FORMAT =
+    "https://dulno.com/payment/complete/%s/";
+  private static final String CANCEL_URL_FORMAT =
+    "https://dulno.com/offer/%s/";
+
   public Map<String, Object> acceptOffer(Offer offer, User user, String accountId) {
     try {
+      var token = UUID.randomUUID().toString();
+      stripeCompletionDatabaseTable.insertStripeCompletion(user.id(), token);
       var sessionBuilder = SessionCreateParams.builder()
         .addLineItem(SessionCreateParams.LineItem.builder()
           .setPrice(offer.priceId())
           .setQuantity(1L)
           .build())
-        .setSuccessUrl("https://dulno.com/payment/complete/")
-        .setCancelUrl("https://dulno.com/offer/" + offer.id() + "/")
+        .setSuccessUrl(String.format(SUCCESS_URL_FORMAT, token))
+        .setCancelUrl(String.format(CANCEL_URL_FORMAT, offer.id().toString()))
         .setMode(SessionCreateParams.Mode.SUBSCRIPTION);
       if (!accountId.isEmpty()) {
         sessionBuilder.setCustomer(accountId);

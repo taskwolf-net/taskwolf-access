@@ -297,28 +297,50 @@ public final class VerificationLoginController extends DulnoRestController {
   public CompletableFuture<Map<String, Object>> isValid(
     @RequestBody String payload, HttpServletResponse response
   ) {
-    return isValid(productKey, payload, response);
+    return isValid(productKey, payload, response)
+      .thenCompose(result -> isValidCheckBundle(result.getKey(), result.getValue()))
+      .thenApply(this::finishValidation);
+  }
+
+  private CompletableFuture<Boolean> isValidCheckBundle(
+    boolean isValid, Claims claims
+  ) {
+    if (!isValid) {
+      return CompletableFuture.completedFuture(false);
+    }
+    return userDatabaseTable().findUser(UUID.fromString((String) claims.get("id")))
+      .thenCompose(user -> bundleDatabaseTable.bundleExists(user.id())
+        .thenCompose(hasPersonalBundle ->
+          findLatestBundleExpiration(user, hasPersonalBundle)
+            .thenApply(latestExpiration -> latestExpiration != -10 &&
+              latestExpiration > System.currentTimeMillis())));
   }
 
   @RequestMapping(path = "/verification/home/isValid/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> isHomeValid(
     @RequestBody String payload, HttpServletResponse response
   ) {
-    return isValid(homeKey, payload, response);
+    return isValid(homeKey, payload, response)
+      .thenApply(result -> finishValidation(result.getKey()));
   }
 
-  private CompletableFuture<Map<String, Object>> isValid(
+  private Map<String, Object> finishValidation(boolean isValid) {
+    return Map.of("isValid", isValid ? "true" : "false");
+  }
+
+  private CompletableFuture<Map.Entry<Boolean, Claims> > isValid(
     Key key, String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var result = verifyToken(key, body.getString("token"));
     if (result.getKey() != HttpServletResponse.SC_ACCEPTED) {
       response.setStatus(result.getKey());
-      return CompletableFuture.completedFuture(Map.of("isValid", "false"));
+      return CompletableFuture.completedFuture(
+        new AbstractMap.SimpleEntry<>(false, result.getValue()));
     }
     var userId = UUID.fromString(result.getValue().get("id", String.class));
     return userDatabaseTable().userExists(userId)
-      .thenApply(exists -> Map.of("isValid", exists ? "true" : "false"));
+      .thenApply(exists -> new AbstractMap.SimpleEntry<>(exists, result.getValue()));
   }
 
   private Map.Entry<Integer, Claims> verifyToken(Key key, String token) {

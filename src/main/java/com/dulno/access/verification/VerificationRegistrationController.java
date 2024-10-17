@@ -161,6 +161,8 @@ public final class VerificationRegistrationController {
     var language = findUserLanguage(ipAddress);
     var token = UUID.randomUUID().toString();
     notificationDatabaseTable.insertNotificationSettings(userId, true, true);
+    activityDatabaseTable.insertActivity(userId, "activity.setting.registration.title",
+      "activity.setting.registration.description", ActivityType.SETTING);
     if (verificationRequired) {
       userVerificationDatabaseTable.insertVerification(userId, token);
     }
@@ -265,8 +267,6 @@ public final class VerificationRegistrationController {
     HttpServletRequest request, UUID userId, UUID sessionId
   ) {
     userVerificationDatabaseTable.deleteVerification(userId);
-    activityDatabaseTable.insertActivity(userId, "activity.setting.registration.title",
-      "activity.setting.registration.description", ActivityType.SETTING);
     var apiKey = Verification.create(userDatabaseTable, homeKey, productKey,
       refreshKey, "", "").generateHomeApiKey(userId, sessionId);
     loginController.storeSession(request, userId, sessionId, "");

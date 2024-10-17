@@ -54,11 +54,16 @@ public final class TrialController extends DulnoHomeRestController {
   public CompletableFuture<Map<String, Object>> useTrial(
     HttpServletRequest request
   ) {
-    return findUser(request)
-      .thenCompose(user -> trialDatabaseTable.trialExists(user.email())
-        .thenCompose(trialExists -> bundleDatabaseTable.bundleExists(user.id())
-          .thenCompose(bundleExists -> useTrial(request, user, trialExists,
-            trialExists))));
+    return findUser(request).thenCompose(user -> useTrial(request, user));
+  }
+
+  public CompletableFuture<Map<String, Object>> useTrial(
+    HttpServletRequest request, User user
+  ) {
+    return trialDatabaseTable.trialExists(user.email())
+      .thenCompose(trialExists -> bundleDatabaseTable.bundleExists(user.id())
+        .thenCompose(bundleExists -> useTrial(request, user, trialExists,
+          trialExists)));
   }
 
   private CompletableFuture<Map<String, Object>> useTrial(
@@ -73,10 +78,10 @@ public final class TrialController extends DulnoHomeRestController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1001));
     }
-    return useTrial(request, user);
+    return finishTrialUsage(request, user);
   }
 
-  private CompletableFuture<Map<String, Object>> useTrial(
+  private CompletableFuture<Map<String, Object>> finishTrialUsage(
     HttpServletRequest request, User user
   ) {
     trialDatabaseTable.insertTrial(user.email());

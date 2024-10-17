@@ -136,25 +136,34 @@ public final class VerificationRegistrationController {
       futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
-    userDatabaseTable.generateAvailableUserId().thenAccept(id ->
-      insertNewUser(id, name, email, hashPassword(password), redirect, ipAddress,
-        legalAccepted, newsletter));
+    createUser(name, email, hashPassword(password), redirect, ipAddress,
+      legalAccepted, newsletter, true);
     futureResponse.complete(Map.of("success", true));
+  }
+
+  public CompletableFuture<User> createUser(
+    String name, String email, String passwordHash, String redirect,
+    String ipAddress, boolean legalAccepted, boolean newsletter,
+    boolean verificationRequired
+  ) {
+    return userDatabaseTable.generateAvailableUserId().thenCompose(id ->
+      insertNewUser(id, name, email, passwordHash, redirect, ipAddress,
+        legalAccepted, newsletter, verificationRequired));
   }
 
   private static final String VERIFICATION_URL = "https://dulno.com/register/confirm/%s/%s/";
 
-  private void insertNewUser(
+  private CompletableFuture<User> insertNewUser(
     UUID userId, String name, String email, String passwordHash, String redirect,
-    String ipAddress, boolean legalAccepted, boolean newsletter
+    String ipAddress, boolean legalAccepted, boolean newsletter,
+    boolean verificationRequired
   ) {
     var language = findUserLanguage(ipAddress);
-    userDatabaseTable.insertUser(userId, name, email, passwordHash, language,
-      Lists.newArrayList(), legalAccepted, newsletter);
-    userTargetDatabaseTable.insertTarget(userId, userId);
     var token = UUID.randomUUID().toString();
     notificationDatabaseTable.insertNotificationSettings(userId, true, true);
-    userVerificationDatabaseTable.insertVerification(userId, token);
+    if (verificationRequired) {
+      userVerificationDatabaseTable.insertVerification(userId, token);
+    }
     var title = translation.translate(language, "registration.email.title");
     var verificationUrl = String.format(VERIFICATION_URL, userId.toString(), token);
     if (!redirect.isEmpty()) {
@@ -166,6 +175,11 @@ public final class VerificationRegistrationController {
     verificationMail.send(email, title, body);
     distribution.addUser(userId);
     tutorialDatabaseTable.insertTutorial(userId, 0, 0);
+    var user = User.create(userId, name, email, passwordHash, language,
+      Lists.newArrayList(), legalAccepted, newsletter);
+    return  userTargetDatabaseTable.insertTarget(userId, userId)
+      .thenCompose(targetValue -> userDatabaseTable.insertUser(user)
+        .thenApply(userValue -> user));
   }
 
   private String findUserLanguage(String ipAddress) {

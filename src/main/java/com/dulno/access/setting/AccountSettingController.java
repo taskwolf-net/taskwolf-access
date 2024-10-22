@@ -1,6 +1,7 @@
 package com.dulno.access.setting;
 
 import com.dulno.access.organization.OrganizationModificationController;
+import com.dulno.access.password.PasswordController;
 import com.dulno.access.stripe.StripeTerminationController;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.session.SessionDatabaseTable;
@@ -15,7 +16,6 @@ import com.dulno.access.account.AccountController;
 import com.dulno.access.ticket.TicketModificationController;
 import com.dulno.access.workflow.WorkflowModificationController;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.mail.Mail;
@@ -53,6 +53,7 @@ public final class AccountSettingController extends SettingController {
   private final Translation translation;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final TeamTargetDatabaseTable teamTargetDatabaseTable;
+  private final PasswordController passwordController;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
   private final NotificationDatabaseTable notificationDatabaseTable;
@@ -85,6 +86,7 @@ public final class AccountSettingController extends SettingController {
     UserDatabaseTable userDatabaseTable, @Qualifier("changeMail") Mail changeMail,
     Translation translation, UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
+    PasswordController passwordController,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
     UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
     NotificationDatabaseTable notificationDatabaseTable,
@@ -117,6 +119,7 @@ public final class AccountSettingController extends SettingController {
     this.translation = translation;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.teamTargetDatabaseTable = teamTargetDatabaseTable;
+    this.passwordController = passwordController;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
     this.userEmailChangeDatabaseTable = userEmailChangeDatabaseTable;
     this.notificationDatabaseTable = notificationDatabaseTable;
@@ -159,24 +162,9 @@ public final class AccountSettingController extends SettingController {
   public void unlockAccountSettings(
     HttpServletRequest request
   ) {
-    findUser(request).thenAccept(user -> userPasswordResetDatabaseTable
-      .resetTokenExists(user.id()).thenAccept(requestExists ->
-        unlockAccountSettings(user, requestExists)));
-  }
-
-  private static final String PASSWORD_RESET_URL = "https://dulno.com/password/reset/complete/%s/%s/";
-
-  private void unlockAccountSettings(User user, boolean requestExists) {
-    if (!user.passwordHash().equals("") || requestExists) {
-      return;
-    }
-    var token = UUID.randomUUID().toString();
-    userPasswordResetDatabaseTable.insertResetToken(user.id(), token);
-    var title = translation.translate(user, "password.set.email.title");
-    var body = String.format(
-      translation.translate(user, "password.set.email.body"), user.name(),
-      String.format(PASSWORD_RESET_URL, user.id().toString(), token));
-    changeMail.send(user.email(), title, body);
+    findUser(request).thenAccept(user ->
+      passwordController.requestPasswordReset(user, "password.set.email.title",
+        "password.set.email.body"));
   }
 
   @RequestMapping(path = "/settings/account/password/change/", method = RequestMethod.POST)

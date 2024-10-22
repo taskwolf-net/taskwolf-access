@@ -55,26 +55,43 @@ public final class PasswordController extends DulnoRestController {
     String email, boolean exists
   ) {
     if (!exists) {
-      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1000));
     }
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userDatabaseTable().findUser(email).thenAccept(user ->
-      userPasswordResetDatabaseTable.resetTokenExists(user.id()).thenAccept(requestExists ->
-        futureResponse.complete(requestPasswordReset(user, requestExists))));
-    return futureResponse;
+    return userDatabaseTable().findUser(email)
+      .thenCompose(user -> requestPasswordReset(user,
+        "password.reset.email.title", "password.reset.email.body"));
+  }
+
+  public CompletableFuture<Map<String, Object>> requestPasswordReset(
+    User user, String emailTitle, String emailBody
+  ) {
+    return userPasswordResetDatabaseTable.resetTokenExists(user.id())
+      .thenCompose(requestExists -> requestPasswordReset(user, emailTitle,
+        emailBody, requestExists));
+  }
+
+  private CompletableFuture<Map<String, Object>> requestPasswordReset(
+    User user, String emailTitle, String emailBody, boolean requestExists
+  ) {
+    if (requestExists) {
+      return userPasswordResetDatabaseTable.findResetToken(user.id())
+        .thenApply(token -> sendPasswordResetMail(user, token, emailTitle,
+          emailBody));
+    }
+    var token = UUID.randomUUID().toString();
+    userPasswordResetDatabaseTable.insertResetToken(user.id(), token);
+    return CompletableFuture.completedFuture(sendPasswordResetMail(user, token,
+      emailTitle, emailBody));
   }
 
   private static final String PASSWORD_RESET_URL = "https://dulno.com/password/reset/complete/%s/%s/";
 
-  private Map<String, Object> requestPasswordReset(User user, boolean requestExists) {
-    if (requestExists) {
-      return Map.of("success", false, "errorCode", 1001);
-    }
-    var token = UUID.randomUUID().toString();
-    userPasswordResetDatabaseTable.insertResetToken(user.id(), token);
-    var title = translation.translate(user, "password.reset.email.title");
-    var body = String.format(
-      translation.translate(user, "password.reset.email.body"), user.name(),
+  private Map<String, Object> sendPasswordResetMail(
+    User user, String token, String emailTitle, String emailBody
+  ) {
+    var title = translation.translate(user, emailTitle);
+    var body = String.format(translation.translate(user, emailBody), user.name(),
       String.format(PASSWORD_RESET_URL, user.id().toString(), token));
     changeMail.send(user.email(), title, body);
     return Map.of("success", true);

@@ -198,51 +198,56 @@ public final class WorkflowModificationController extends WorkflowController {
     String description, List<TimelineDatabaseEntry> timelineEntries,
     WorkflowState state
   ) {
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var modules = Lists.<String>newArrayList();
-    createTrigger(triggerId, ownerId, workflowId, triggerData);
+    processes.add(createTrigger(triggerId, ownerId, workflowId, triggerData));
     modules.add(triggerData.getString("module"));
     for (int i = 0; i < actionData.size(); i++) {
-      createAction(actionIds.get(i), ownerId, workflowId, actionData.get(i));
+      processes.add(createAction(actionIds.get(i), ownerId, workflowId,
+        actionData.get(i)));
       modules.add(actionData.get(i).getString("module"));
     }
     for (int i = 0; i < conditionData.size(); i++) {
-      createCondition(conditionIds.get(i), ownerId, workflowId, conditionData.get(i));
+      processes.add(createCondition(conditionIds.get(i), ownerId, workflowId,
+        conditionData.get(i)));
     }
     for (var entry : timelineEntries) {
-      timelineDatabaseTable.insertEntry(entry.id(), workflowId, entry.time(),
-        entry.type(), entry.content());
+      processes.add(timelineDatabaseTable.insertEntry(entry.id(), workflowId,
+        entry.time(), entry.type(), entry.content()));
     }
-    return workflowDatabaseTable().insertWorkflow(workflowId, ownerId, creatorId,
-      triggerId, actionIds, conditionIds, modules, created, name, description,
-      state.toString());
+    processes.add(workflowDatabaseTable().insertWorkflow(workflowId, ownerId,
+      creatorId, triggerId, actionIds, conditionIds, modules, created, name,
+      description, state.toString()));
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> null);
   }
 
-  private void createTrigger(
+  private CompletableFuture<Void> createTrigger(
     UUID triggerId, UUID ownerId, UUID workflowId, DulnoRequestBody triggerData
   ) {
     var module = triggerData.getString("module");
     var type = triggerData.getString("type");
-    triggerDatabaseTable.insertTrigger(triggerId, ownerId, workflowId, module,
-      type, TriggerState.ARMED.toString());
-    coreModule.findTrigger(module, type).ifPresent(trigger -> trigger.insert(
-      triggerId, new JSONObject(triggerData.getString("content")).toMap()));
+    return triggerDatabaseTable.insertTrigger(triggerId, ownerId, workflowId,
+      module, type, TriggerState.ARMED.toString())
+      .thenCompose(value -> coreModule.findTrigger(module, type).get().insert(
+        triggerId, new JSONObject(triggerData.getString("content")).toMap()));
   }
 
-  private void createAction(
+  private CompletableFuture<Void> createAction(
     UUID actionId, UUID ownerId, UUID workflowId, DulnoRequestBody actionData
   ) {
     var module = actionData.getString("module");
     var type = actionData.getString("type");
-    actionDatabaseTable.insertAction(actionId, ownerId, workflowId,
-      actionData.getInt("index"), module, type);
-    coreModule.findAction(module, type).ifPresent(action -> action.insert(
-      actionId, new JSONObject(actionData.getString("content")).toMap()));
+    return actionDatabaseTable.insertAction(actionId, ownerId, workflowId,
+      actionData.getInt("index"), module, type)
+      .thenCompose(value -> coreModule.findAction(module, type).get().insert(
+        actionId, new JSONObject(actionData.getString("content")).toMap()));
   }
 
-  private void createCondition(
+  private CompletableFuture<Void> createCondition(
     UUID conditionId, UUID ownerId, UUID workflowId, DulnoRequestBody conditionData
   ) {
-    conditionDatabaseTable.insertCondition(conditionId, ownerId, workflowId,
+    return conditionDatabaseTable.insertCondition(conditionId, ownerId, workflowId,
       conditionData.getInt("actionIndex"), conditionData.getInt("conditionIndex"),
       conditionData.getString("type"), conditionData.getString("content"));
   }
@@ -282,20 +287,23 @@ public final class WorkflowModificationController extends WorkflowController {
   private CompletableFuture<Void> deleteWorkflow(
     WorkflowEntry workflow, TriggerEntry trigger, List<ActionEntry> actions
   ) {
-    triggerDatabaseTable.deleteTrigger(workflow.triggerId());
-    coreModule.findTrigger(trigger.module(), trigger.type()).ifPresent(value ->
-      value.delete(trigger.id()));
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
+    processes.add(triggerDatabaseTable.deleteTrigger(workflow.triggerId()));
+    coreModule.findTrigger(trigger.module(), trigger.type())
+      .ifPresent(value -> processes.add(value.delete(trigger.id())));
     for (var action : actions) {
-      actionDatabaseTable.deleteAction(action.id());
-      coreModule.findAction(action.module(), action.type()).ifPresent(value ->
-        value.delete(action.id()));
+      processes.add(actionDatabaseTable.deleteAction(action.id()));
+      coreModule.findAction(action.module(), action.type())
+        .ifPresent(value -> processes.add(value.delete(action.id())));
     }
     for (var condition : workflow.conditionIds()) {
-      conditionDatabaseTable.deleteCondition(condition);
+      processes.add(conditionDatabaseTable.deleteCondition(condition));
     }
-    timelineDatabaseTable.findEntriesByWorkflow(workflow.id()).thenAccept(entries ->
-      entries.forEach(timelineDatabaseEntry ->
-        timelineDatabaseTable.deleteEntry(timelineDatabaseEntry.id())));
-    return workflowDatabaseTable().deleteWorkflow(workflow.id());
+    processes.add(timelineDatabaseTable.findEntriesByWorkflow(workflow.id())
+      .thenCompose(entries -> AsyncIterator.execute(entries, entry ->
+        timelineDatabaseTable.deleteEntry(entry.id())).thenApply(value -> null)));
+    processes.add(workflowDatabaseTable().deleteWorkflow(workflow.id()));
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> null);
   }
 }

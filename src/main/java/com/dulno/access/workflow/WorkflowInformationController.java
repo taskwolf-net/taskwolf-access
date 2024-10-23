@@ -161,48 +161,32 @@ public final class WorkflowInformationController extends WorkflowController {
   private CompletableFuture<Map<String, Object>> gatherWorkflowInformation(
     User user, WorkflowEntry workflow
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userDatabaseTable().findUserIfExists(workflow.creatorId())
-      .thenAccept(creator -> triggerDatabaseTable.findTrigger(workflow.triggerId())
-        .thenAccept(trigger -> coreModule.findTrigger(trigger.module(), trigger.type())
-          .get().findContent(trigger.id())
-          .thenAccept(triggerContent -> actionDatabaseTable.findActionsByWorkflow(workflow.id())
-            .thenAccept(actions -> findActionsContent(actions)
-              .thenAccept(actionsContent -> conditionDatabaseTable.findConditionsByWorkflow(workflow.id())
-                .thenAccept(conditions -> futureResponse.complete(
-                  assemblyWorkflowInformation(user, workflow, creator, trigger,
-                    triggerContent, actionsContent, conditions))))))));
-    return futureResponse;
+    return userDatabaseTable().findUserIfExists(workflow.creatorId())
+      .thenCompose(creator -> gatherTriggerInformation(user, workflow)
+        .thenCompose(trigger -> gatherActionsInformation(user, workflow)
+          .thenCompose(actions -> gatherConditionsInformation(user, workflow)
+            .thenApply(conditions -> assemblyWorkflowInformation(workflow,
+              creator, trigger, actions, conditions)))));
   }
 
-  private CompletableFuture<Map<ActionEntry, Map<String, Object>>> findActionsContent(
-    List<ActionEntry> actions
+  private CompletableFuture<Map<String, Object>> gatherTriggerInformation(
+    User user, WorkflowEntry workflow
   ) {
-    var futureResponse = new CompletableFuture<Map<ActionEntry, Map<String, Object>>>();
-    AsyncIterator.execute(actions, action -> coreModule.findAction(action.module(),
-      action.type()).get().findContent(action.id()).thenApply(content ->
-      new AbstractMap.SimpleEntry(action, content))).thenAccept(result ->
-      futureResponse.complete(result.stream().collect(Collectors.toMap(entry ->
-        (ActionEntry) entry.getKey(), entry -> (Map<String, Object>) entry.getValue()))));
-    return futureResponse;
+    return triggerDatabaseTable.triggerExists(workflow.triggerId())
+      .thenCompose(exists -> gatherTriggerInformation(user, workflow, exists));
   }
 
-  private Map<String, Object> assemblyWorkflowInformation(
-    User user, WorkflowEntry workflow, User creator, TriggerEntry trigger,
-    Map<String, Object> triggerContent, Map<ActionEntry, Map<String, Object>> actions,
-    List<ConditionEntry> conditions
+  private CompletableFuture<Map<String, Object>> gatherTriggerInformation(
+    User user, WorkflowEntry workflow, boolean exists
   ) {
-    var information = Maps.<String, Object>newHashMap();
-    information.put("id", workflow.id());
-    information.put("name", workflow.name());
-    information.put("description", workflow.description());
-    information.put("created", timeMillisecondsToDate(workflow.created()));
-    information.put("creator", creator.name());
-    information.put("armed", trigger.state() == TriggerState.ARMED);
-    information.putAll(assemblyTriggerInformation(user, trigger, triggerContent));
-    information.putAll(assemblyActionsInformation(user, actions));
-    information.putAll(assemblyConditionsInformation(user, conditions));
-    return information;
+    if (!exists) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return triggerDatabaseTable.findTrigger(workflow.triggerId())
+      .thenCompose(entry -> coreModule.findTrigger(entry.module(), entry.type())
+        .get().findContent(entry.id())
+        .thenApply(content -> assemblyTriggerInformation(user, entry, content))
+        .exceptionally(value -> Maps.newHashMap()));
   }
 
   private Map<String, Object> assemblyTriggerInformation(
@@ -217,50 +201,79 @@ public final class WorkflowInformationController extends WorkflowController {
       coreModule.findTriggerInformation(trigger.module(),
         trigger.type()).get().description()));
     information.put("triggerContent", new JSONObject(content).toString());
+    information.put("armed", trigger.state() == TriggerState.ARMED);
     return information;
   }
 
-  private Map<String, Object> assemblyActionsInformation(
-    User user, Map<ActionEntry, Map<String, Object>> actions
+  private CompletableFuture<Map<String, Object>> gatherActionsInformation(
+    User user, WorkflowEntry workflow
+  ) {
+    return actionDatabaseTable.findActionsByWorkflow(workflow.id())
+      .thenCompose(actions -> AsyncIterator.execute(actions,
+          action -> gatherActionInformation(user, action))
+        .thenApply(information -> Map.of("actions", information)));
+  }
+
+  private CompletableFuture<Map<String, Object>> gatherActionInformation(
+    User user, ActionEntry entry
+  ) {
+    return coreModule.findAction(entry.module(), entry.type())
+      .get().findContent(entry.id())
+      .thenApply(content -> assemblyActionInformation(user, entry, content))
+      .exceptionally(value -> Maps.newHashMap());
+  }
+
+  private Map<String, Object> assemblyActionInformation(
+    User user, ActionEntry action, Map<String, Object> content
   ) {
     var information = Maps.<String, Object>newHashMap();
-    var actionsInformation = Lists.<Map<String, Object>>newArrayList();
-    for (var entry : actions.entrySet()) {
-      var action = entry.getKey();
-      var content = entry.getValue();
-      var actionInformation = Maps.<String, Object>newHashMap();
-      actionInformation.put("actionIndex", action.actionIndex());
-      actionInformation.put("actionModule", action.module());
-      actionInformation.put("actionModuleLogo",
-        coreModule.findModuleInformation(action.module()).get().logo());
-      actionInformation.put("actionType", action.type());
-      actionInformation.put("actionTypeDescription", translation.translate(user,
-        coreModule.findActionInformation(action.module(),
-          action.type()).get().description()));
-      actionInformation.put("actionContent", new JSONObject(content).toString());
-      actionsInformation.add(actionInformation);
-    }
-    information.put("actions", actionsInformation);
+    information.put("actionIndex", action.actionIndex());
+    information.put("actionModule", action.module());
+    information.put("actionModuleLogo",
+      coreModule.findModuleInformation(action.module()).get().logo());
+    information.put("actionType", action.type());
+    information.put("actionTypeDescription", translation.translate(user,
+      coreModule.findActionInformation(action.module(),
+        action.type()).get().description()));
+    information.put("actionContent", new JSONObject(content).toString());
     return information;
   }
 
-  private Map<String, Object> assemblyConditionsInformation(
-    User user, List<ConditionEntry> conditions
+  private CompletableFuture<Map<String, Object>> gatherConditionsInformation(
+    User user, WorkflowEntry workflow
+  ) {
+    return conditionDatabaseTable.findConditionsByWorkflow(workflow.id())
+      .thenApply(conditions -> Map.of("conditions", conditions.stream()
+        .map(condition -> assemblyConditionInformation(user, condition)).toList()));
+  }
+
+  private Map<String, Object> assemblyConditionInformation(
+    User user, ConditionEntry condition
   ) {
     var information = Maps.<String, Object>newHashMap();
-    var conditionsInformation = Lists.<Map<String, Object>>newArrayList();
-    for (var condition : conditions) {
-      var conditionInformation = Maps.<String, Object>newHashMap();
-      conditionInformation.put("conditionActionIndex", condition.actionIndex());
-      conditionInformation.put("conditionConditionIndex",
-        condition.conditionIndex());
-      conditionInformation.put("conditionType", condition.type());
-      conditionInformation.put("conditionTypeName", translation.translate(user,
-        conditionRepository.findByIdentifier(condition.type()).get().name()));
-      conditionInformation.put("conditionContent", condition.content());
-      conditionsInformation.add(conditionInformation);
-    }
-    information.put("conditions", conditionsInformation);
+    information.put("conditionActionIndex", condition.actionIndex());
+    information.put("conditionConditionIndex",
+      condition.conditionIndex());
+    information.put("conditionType", condition.type());
+    information.put("conditionTypeName", translation.translate(user,
+      conditionRepository.findByIdentifier(condition.type()).get().name()));
+    information.put("conditionContent", condition.content());
+    return information;
+  }
+
+  private Map<String, Object> assemblyWorkflowInformation(
+    WorkflowEntry workflow, User creator, Map<String, Object> triggerInformation,
+    Map<String, Object> actionInformation, Map<String, Object> conditionInformation
+  ) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("id", workflow.id());
+    information.put("name", workflow.name());
+    information.put("description", workflow.description());
+    information.put("created", timeMillisecondsToDate(workflow.created()));
+    information.put("creator", creator.name());
+    information.putAll(triggerInformation);
+    information.putAll(actionInformation);
+    information.putAll(conditionInformation);
     return information;
   }
 

@@ -1,5 +1,6 @@
 package com.dulno.access.workflow;
 
+import com.google.api.client.util.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -95,85 +96,108 @@ public final class WorkflowDuplicationController extends WorkflowController {
     UUID duplicateTriggerId, List<UUID> duplicateActionIds,
     List<UUID> duplicateConditionIds
   ) {
-    duplicateWorkflowTrigger(workflow, duplicateWorkflowId, duplicateTriggerId);
-    duplicateWorkflowActions(workflow, duplicateWorkflowId, duplicateActionIds);
-    duplicateWorkflowConditions(workflow, duplicateWorkflowId, duplicateConditionIds);
-    return workflowDatabaseTable().insertWorkflow(
-      WorkflowEntry.create(duplicateWorkflowId, workflow.ownerId(),
-        workflow.creatorId(), duplicateTriggerId, duplicateActionIds,
-        duplicateConditionIds, workflow.modules(),
-        System.currentTimeMillis(), workflow.name() +
-          " (" + coreModule.translate(user, "workflow.duplicated") + ")",
-        workflow.description(), workflow.state()));
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
+    processes.add(duplicateWorkflowTrigger(workflow, duplicateWorkflowId,
+      duplicateTriggerId));
+    processes.add(duplicateWorkflowActions(workflow, duplicateWorkflowId,
+      duplicateActionIds));
+    processes.add(duplicateWorkflowConditions(workflow, duplicateWorkflowId,
+      duplicateConditionIds));
+    processes.add(workflowDatabaseTable().insertWorkflow(WorkflowEntry.create(
+      duplicateWorkflowId, workflow.ownerId(), workflow.creatorId(),
+      duplicateTriggerId, duplicateActionIds, duplicateConditionIds,
+      workflow.modules(), System.currentTimeMillis(), workflow.name() +
+        " (" + coreModule.translate(user, "workflow.duplicated") + ")",
+      workflow.description(), workflow.state())));
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> null);
   }
 
-  private void duplicateWorkflowTrigger(
+  private CompletableFuture<Void> duplicateWorkflowTrigger(
     WorkflowEntry workflow, UUID duplicateWorkflowId, UUID duplicateTriggerId
   ) {
-    triggerDatabaseTable.findTrigger(workflow.triggerId()).thenAccept(trigger ->
-      coreModule.findTrigger(trigger.module(), trigger.type()).get()
-        .findContent(trigger.id()).thenAccept(content -> duplicateWorkflowTrigger(
-          duplicateWorkflowId, duplicateTriggerId, trigger, content)));
+    return triggerDatabaseTable.findTrigger(workflow.triggerId())
+      .thenCompose(trigger -> coreModule.findTrigger(trigger.module(),
+          trigger.type()).get().findContent(trigger.id())
+        .thenCompose(content -> duplicateWorkflowTrigger(duplicateWorkflowId,
+          duplicateTriggerId, trigger, content)));
   }
 
-  private void duplicateWorkflowTrigger(
+  private CompletableFuture<Void> duplicateWorkflowTrigger(
     UUID duplicateWorkflowId, UUID duplicateTriggerId, TriggerEntry trigger,
     Map<String, Object> content
   ) {
-    coreModule.findTrigger(trigger.module(), trigger.type()).get()
-      .insert(duplicateTriggerId, content);
-    triggerDatabaseTable.insertTrigger(duplicateTriggerId, trigger.ownerId(),
-      duplicateWorkflowId, trigger.module(), trigger.type(),
-      trigger.state().toString());
+    return coreModule.findTrigger(trigger.module(), trigger.type()).get()
+      .insert(duplicateTriggerId, content).thenCompose(value ->
+        triggerDatabaseTable.insertTrigger(duplicateTriggerId, trigger.ownerId(),
+          duplicateWorkflowId, trigger.module(), trigger.type(),
+          trigger.state().toString()));
   }
 
-  private void duplicateWorkflowActions(
+  private CompletableFuture<Void> duplicateWorkflowActions(
     WorkflowEntry workflow, UUID duplicateWorkflowId, List<UUID> actionIds
   ) {
     var actions = Maps.<ActionEntry, Map<String, Object>>newHashMap();
-    AsyncIterator.execute(workflow.actionIds(), actionId ->
-        actionDatabaseTable.findAction(actionId).thenCompose(action ->
-          coreModule.findAction(action.module(), action.type())
-            .get().findContent(actionId).thenAccept(content ->
-              actions.put(action, content))).thenAccept(
-      value -> duplicateWorkflowActions(duplicateWorkflowId, actions, actionIds)));
+    return AsyncIterator.execute(workflow.actionIds(), actionId ->
+        actionDatabaseTable.findAction(actionId)
+          .thenCompose(action -> coreModule.findAction(action.module(),
+              action.type()).get().findContent(actionId)
+            .thenAccept(content -> actions.put(action, content)))
+          .thenCompose(value -> duplicateWorkflowActions(duplicateWorkflowId,
+            actions, actionIds)))
+      .thenApply(value -> null);
   }
 
-  private void duplicateWorkflowActions(
+  private CompletableFuture<Void> duplicateWorkflowActions(
     UUID duplicateWorkflowId, Map<ActionEntry, Map<String, Object>> actions,
     List<UUID> actionIds
   ) {
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var currentIdIndex = 0;
     for (var entry : actions.entrySet()) {
       var action = entry.getKey();
       var content = entry.getValue();
       var duplicateActionId = actionIds.get(currentIdIndex);
-      coreModule.findAction(action.module(), action.type()).get()
-        .insert(duplicateActionId, content);
-      actionDatabaseTable.insertAction(duplicateActionId, action.ownerId(),
-        duplicateWorkflowId, action.actionIndex(), action.module(), action.type());
+      processes.add(duplicateWorkflowAction(duplicateWorkflowId,
+        duplicateActionId, action, content));
       currentIdIndex++;
     }
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> null);
   }
 
-  private void duplicateWorkflowConditions(
+  private CompletableFuture<Void> duplicateWorkflowAction(
+    UUID duplicateWorkflowId, UUID duplicateActionId, ActionEntry action,
+    Map<String, Object> content
+  ) {
+    return coreModule.findAction(action.module(), action.type()).get()
+      .insert(duplicateActionId, content).thenCompose(value ->
+        actionDatabaseTable.insertAction(duplicateActionId, action.ownerId(),
+          duplicateWorkflowId, action.actionIndex(), action.module(),
+          action.type()));
+  }
+
+  private CompletableFuture<Void> duplicateWorkflowConditions(
     WorkflowEntry workflow, UUID duplicateWorkflowId, List<UUID> conditionIds
   ) {
-    AsyncIterator.execute(workflow.conditionIds(),
-      conditionDatabaseTable::findCondition).thenAccept(conditions ->
+    return AsyncIterator.execute(workflow.conditionIds(),
+      conditionDatabaseTable::findCondition).thenCompose(conditions ->
         duplicateWorkflowConditions(duplicateWorkflowId, conditions, conditionIds));
   }
 
-  private void duplicateWorkflowConditions(
+  private CompletableFuture<Void> duplicateWorkflowConditions(
     UUID duplicateWorkflowId, List<ConditionEntry> conditions,
     List<UUID> conditionIds
   ) {
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
     for (var i = 0; i < conditions.size(); i++) {
       var condition = conditions.get(i);
       var duplicateConditionId = conditionIds.get(i);
-      conditionDatabaseTable.insertCondition(duplicateConditionId, condition.ownerId(),
-        duplicateWorkflowId, condition.actionIndex(), condition.conditionIndex(),
-        condition.type(), condition.content());
+      processes.add(conditionDatabaseTable.insertCondition(duplicateConditionId,
+        condition.ownerId(), duplicateWorkflowId, condition.actionIndex(),
+        condition.conditionIndex(), condition.type(), condition.content()));
     }
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> null);
   }
 }

@@ -1,13 +1,11 @@
 package com.dulno.access.workflow;
 
 import com.google.api.client.util.Lists;
-import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.action.ActionDatabaseTable;
-import com.dulno.core.action.ActionEntry;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.condition.ConditionDatabaseTable;
 import com.dulno.core.condition.ConditionEntry;
@@ -15,7 +13,6 @@ import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.trigger.TriggerDatabaseTable;
-import com.dulno.core.trigger.TriggerEntry;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
@@ -28,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -116,50 +112,38 @@ public final class WorkflowDuplicationController extends WorkflowController {
   private CompletableFuture<Void> duplicateWorkflowTrigger(
     WorkflowEntry workflow, UUID duplicateWorkflowId, UUID duplicateTriggerId
   ) {
-    return triggerDatabaseTable.findTrigger(workflow.triggerId())
-      .thenCompose(trigger -> coreModule.findTrigger(trigger.module(),
-          trigger.type()).get().findContent(trigger.id())
-        .thenCompose(content -> duplicateWorkflowTrigger(duplicateWorkflowId,
-          duplicateTriggerId, trigger, content)));
+    return triggerDatabaseTable.triggerExists(workflow.triggerId())
+      .thenCompose(exists -> duplicateWorkflowTrigger(workflow,
+        duplicateWorkflowId, duplicateTriggerId, exists));
   }
 
   private CompletableFuture<Void> duplicateWorkflowTrigger(
-    UUID duplicateWorkflowId, UUID duplicateTriggerId, TriggerEntry trigger,
-    Map<String, Object> content
+    WorkflowEntry workflow, UUID duplicateWorkflowId, UUID duplicateTriggerId,
+    boolean exists
   ) {
-    return coreModule.findTrigger(trigger.module(), trigger.type()).get()
-      .insert(duplicateTriggerId, content).thenCompose(value ->
-        triggerDatabaseTable.insertTrigger(duplicateTriggerId, trigger.ownerId(),
-          duplicateWorkflowId, trigger.module(), trigger.type(),
-          trigger.state().toString()));
+    if (!exists) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return triggerDatabaseTable.findTrigger(workflow.triggerId())
+      .thenCompose(entry -> triggerDatabaseTable.insertTrigger(duplicateTriggerId,
+          entry.ownerId(), duplicateWorkflowId, entry.module(), entry.type(),
+          entry.state().toString())
+        .thenCompose(value -> coreModule.findTrigger(entry.module(), entry.type())
+          .map(trigger -> trigger.findContent(entry.id())
+            .thenCompose(content -> trigger.insert(duplicateTriggerId, content))
+            .exceptionally(throwable -> null))
+          .orElse(CompletableFuture.completedFuture(null))));
   }
 
   private CompletableFuture<Void> duplicateWorkflowActions(
-    WorkflowEntry workflow, UUID duplicateWorkflowId, List<UUID> actionIds
-  ) {
-    var actions = Maps.<ActionEntry, Map<String, Object>>newHashMap();
-    return AsyncIterator.execute(workflow.actionIds(), actionId ->
-        actionDatabaseTable.findAction(actionId)
-          .thenCompose(action -> coreModule.findAction(action.module(),
-              action.type()).get().findContent(actionId)
-            .thenAccept(content -> actions.put(action, content)))
-          .thenCompose(value -> duplicateWorkflowActions(duplicateWorkflowId,
-            actions, actionIds)))
-      .thenApply(value -> null);
-  }
-
-  private CompletableFuture<Void> duplicateWorkflowActions(
-    UUID duplicateWorkflowId, Map<ActionEntry, Map<String, Object>> actions,
-    List<UUID> actionIds
+    WorkflowEntry workflow, UUID duplicateWorkflowId, List<UUID> newActionIds
   ) {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var currentIdIndex = 0;
-    for (var entry : actions.entrySet()) {
-      var action = entry.getKey();
-      var content = entry.getValue();
-      var duplicateActionId = actionIds.get(currentIdIndex);
-      processes.add(duplicateWorkflowAction(duplicateWorkflowId,
-        duplicateActionId, action, content));
+    for (var action : workflow.actionIds()) {
+      var duplicateActionId = newActionIds.get(currentIdIndex);
+      processes.add(duplicateWorkflowAction(action, duplicateWorkflowId,
+        duplicateActionId));
       currentIdIndex++;
     }
     return AsyncIterator.execute(processes, process -> process)
@@ -167,14 +151,29 @@ public final class WorkflowDuplicationController extends WorkflowController {
   }
 
   private CompletableFuture<Void> duplicateWorkflowAction(
-    UUID duplicateWorkflowId, UUID duplicateActionId, ActionEntry action,
-    Map<String, Object> content
+    UUID actionId, UUID duplicateWorkflowId, UUID duplicateActionId
   ) {
-    return coreModule.findAction(action.module(), action.type()).get()
-      .insert(duplicateActionId, content).thenCompose(value ->
-        actionDatabaseTable.insertAction(duplicateActionId, action.ownerId(),
-          duplicateWorkflowId, action.actionIndex(), action.module(),
-          action.type()));
+    return actionDatabaseTable.actionExists(actionId)
+      .thenCompose(exists -> duplicateWorkflowAction(actionId,
+        duplicateWorkflowId, duplicateActionId, exists));
+  }
+
+  private CompletableFuture<Void> duplicateWorkflowAction(
+    UUID actionId, UUID duplicateWorkflowId, UUID duplicateActionId,
+    boolean exists
+  ) {
+    if (!exists) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return actionDatabaseTable.findAction(actionId)
+      .thenCompose(entry -> actionDatabaseTable.insertAction(duplicateActionId,
+          entry.ownerId(), duplicateWorkflowId, entry.actionIndex(),
+          entry.module(), entry.type())
+        .thenCompose(value -> coreModule.findAction(entry.module(), entry.type())
+          .map(action -> action.findContent(entry.id())
+            .thenCompose(content -> action.insert(duplicateActionId, content))
+            .exceptionally(throwable -> null))
+          .orElse(CompletableFuture.completedFuture(null))));
   }
 
   private CompletableFuture<Void> duplicateWorkflowConditions(

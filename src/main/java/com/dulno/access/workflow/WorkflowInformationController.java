@@ -34,7 +34,6 @@ import java.security.Key;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 @RestController
 public final class WorkflowInformationController extends WorkflowController {
@@ -180,13 +179,14 @@ public final class WorkflowInformationController extends WorkflowController {
     User user, WorkflowEntry workflow, boolean exists
   ) {
     if (!exists) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
+      return CompletableFuture.completedFuture(createEmptyTriggerInformation());
     }
     return triggerDatabaseTable.findTrigger(workflow.triggerId())
       .thenCompose(entry -> coreModule.findTrigger(entry.module(), entry.type())
         .get().findContent(entry.id())
         .thenApply(content -> assemblyTriggerInformation(user, entry, content))
-        .exceptionally(value -> Maps.newHashMap()));
+        .exceptionally(throwable -> assemblyTriggerInformation(user, entry,
+          Maps.newHashMap())));
   }
 
   private Map<String, Object> assemblyTriggerInformation(
@@ -205,6 +205,17 @@ public final class WorkflowInformationController extends WorkflowController {
     return information;
   }
 
+  private Map<String, Object> createEmptyTriggerInformation() {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("triggerModule", "");
+    information.put("triggerModuleLogo", "");
+    information.put("triggerType", "");
+    information.put("triggerTypeDescription", "");
+    information.put("triggerContent", "");
+    information.put("armed", false);
+    return information;
+  }
+
   private CompletableFuture<Map<String, Object>> gatherActionsInformation(
     User user, WorkflowEntry workflow
   ) {
@@ -220,7 +231,8 @@ public final class WorkflowInformationController extends WorkflowController {
     return coreModule.findAction(entry.module(), entry.type())
       .get().findContent(entry.id())
       .thenApply(content -> assemblyActionInformation(user, entry, content))
-      .exceptionally(value -> Maps.newHashMap());
+      .exceptionally(throwable -> assemblyActionInformation(user, entry,
+        Maps.newHashMap()));
   }
 
   private Map<String, Object> assemblyActionInformation(

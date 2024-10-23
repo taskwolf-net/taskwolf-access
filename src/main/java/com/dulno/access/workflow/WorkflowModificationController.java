@@ -6,14 +6,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.action.ActionDatabaseTable;
-import com.dulno.core.action.ActionEntry;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.condition.ConditionDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.trigger.TriggerDatabaseTable;
-import com.dulno.core.trigger.TriggerEntry;
 import com.dulno.core.trigger.TriggerState;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
@@ -279,22 +277,10 @@ public final class WorkflowModificationController extends WorkflowController {
   }
 
   public CompletableFuture<Void> deleteWorkflow(WorkflowEntry workflow) {
-    return AsyncIterator.execute(workflow.actionIds(), actionDatabaseTable::findAction)
-      .thenCompose(actions -> triggerDatabaseTable.findTrigger(workflow.triggerId())
-        .thenCompose(trigger -> deleteWorkflow(workflow, trigger, actions)));
-  }
-
-  private CompletableFuture<Void> deleteWorkflow(
-    WorkflowEntry workflow, TriggerEntry trigger, List<ActionEntry> actions
-  ) {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
-    processes.add(triggerDatabaseTable.deleteTrigger(workflow.triggerId()));
-    coreModule.findTrigger(trigger.module(), trigger.type())
-      .ifPresent(value -> processes.add(value.delete(trigger.id())));
-    for (var action : actions) {
-      processes.add(actionDatabaseTable.deleteAction(action.id()));
-      coreModule.findAction(action.module(), action.type())
-        .ifPresent(value -> processes.add(value.delete(action.id())));
+    processes.add(deleteWorkflowTrigger(workflow.triggerId()));
+    for (var action : workflow.actionIds()) {
+      processes.add(deleteWorkflowAction(action));
     }
     for (var condition : workflow.conditionIds()) {
       processes.add(conditionDatabaseTable.deleteCondition(condition));
@@ -305,5 +291,39 @@ public final class WorkflowModificationController extends WorkflowController {
     processes.add(workflowDatabaseTable().deleteWorkflow(workflow.id()));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> null);
+  }
+
+  private CompletableFuture<Void> deleteWorkflowTrigger(UUID triggerId) {
+    return triggerDatabaseTable.triggerExists(triggerId)
+      .thenCompose(exists -> deleteWorkflowTrigger(triggerId, exists));
+  }
+
+  private CompletableFuture<Void> deleteWorkflowTrigger(
+    UUID triggerId, boolean triggerExists
+  ) {
+    if (!triggerExists) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return triggerDatabaseTable.findTrigger(triggerId)
+      .thenCompose(entry -> triggerDatabaseTable.deleteTrigger(triggerId)
+        .thenCompose(value -> coreModule.findTrigger(entry.module(), entry.type())
+          .get().delete(entry.id())));
+  }
+
+  private CompletableFuture<Void> deleteWorkflowAction(UUID actionId) {
+    return actionDatabaseTable.actionExists(actionId)
+      .thenCompose(exists -> deleteWorkflowAction(actionId, exists));
+  }
+
+  private CompletableFuture<Void> deleteWorkflowAction(
+    UUID actionId, boolean actionExists
+  ) {
+    if (!actionExists) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return actionDatabaseTable.findAction(actionId)
+      .thenCompose(entry -> actionDatabaseTable.deleteAction(actionId)
+        .thenCompose(value -> coreModule.findAction(entry.module(), entry.type())
+          .get().delete(entry.id())));
   }
 }

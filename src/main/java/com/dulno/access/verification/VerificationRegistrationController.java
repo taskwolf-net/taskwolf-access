@@ -178,7 +178,7 @@ public final class VerificationRegistrationController {
     distribution.addUser(userId);
     tutorialDatabaseTable.insertTutorial(userId, 0, 0);
     var user = User.create(userId, name, email, passwordHash, language,
-      Lists.newArrayList(), legalAccepted, newsletter);
+      Lists.newArrayList(), legalAccepted, newsletter, System.currentTimeMillis());
     return  userTargetDatabaseTable.insertTarget(userId, userId)
       .thenCompose(targetValue -> userDatabaseTable.insertUser(user)
         .thenApply(userValue -> user));

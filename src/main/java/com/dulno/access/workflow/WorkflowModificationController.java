@@ -90,7 +90,7 @@ public final class WorkflowModificationController extends WorkflowController {
       createWorkflowCreateTimelineEntry(user).thenCompose(workflowCreateEntry ->
         createWorkflow(user, owner, body.getObject("trigger"),
           body.getObjectList("actions"), body.getObjectList("conditions"),
-          created, body.getString("name"), body.getString("description"),
+          created, body.getString("name", 64), body.getString("description", 128),
           Lists.newArrayList(workflowCreateEntry), WorkflowState.OPERATIONAL)));
   }
 
@@ -127,8 +127,8 @@ public final class WorkflowModificationController extends WorkflowController {
           .thenCompose(timelineEntries -> checkWorkflowAuthorization(user, workflow)
             .thenCompose(authorized -> updateWorkflow(user, workflow, authorized,
               body.getObject("trigger"), body.getObjectList("actions"),
-              body.getObjectList("conditions"), body.getString("name"),
-              body.getString("description"), timelineEntries,
+              body.getObjectList("conditions"), body.getString("name", 64),
+              body.getString("description", 128), timelineEntries,
               workflow.state())))));
   }
 
@@ -196,8 +196,6 @@ public final class WorkflowModificationController extends WorkflowController {
     String description, List<TimelineDatabaseEntry> timelineEntries,
     WorkflowState state
   ) {
-    name = name.substring(0, Math.min(64, name.length()));
-    description = description.substring(0, Math.min(128, description.length()));
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var modules = Lists.<String>newArrayList();
     processes.add(createTrigger(triggerId, ownerId, workflowId, triggerData));

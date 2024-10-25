@@ -99,11 +99,13 @@ public final class WorkflowDuplicationController extends WorkflowController {
       duplicateActionIds));
     processes.add(duplicateWorkflowConditions(workflow, duplicateWorkflowId,
       duplicateConditionIds));
+    var name = workflow.name() + " (" +
+      coreModule.translate(user, "workflow.duplicated") + ")";
+    name = name.substring(0, Math.min(64, name.length()));
     processes.add(workflowDatabaseTable().insertWorkflow(WorkflowEntry.create(
       duplicateWorkflowId, workflow.ownerId(), workflow.creatorId(),
       duplicateTriggerId, duplicateActionIds, duplicateConditionIds,
-      workflow.modules(), System.currentTimeMillis(), workflow.name() +
-        " (" + coreModule.translate(user, "workflow.duplicated") + ")",
+      workflow.modules(), System.currentTimeMillis(), name,
       workflow.description(), workflow.state())));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> null);

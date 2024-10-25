@@ -196,6 +196,8 @@ public final class WorkflowModificationController extends WorkflowController {
     String description, List<TimelineDatabaseEntry> timelineEntries,
     WorkflowState state
   ) {
+    name = name.substring(0, Math.min(64, name.length()));
+    description = description.substring(0, Math.min(128, description.length()));
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var modules = Lists.<String>newArrayList();
     processes.add(createTrigger(triggerId, ownerId, workflowId, triggerData));

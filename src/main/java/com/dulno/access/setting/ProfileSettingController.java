@@ -44,7 +44,7 @@ public final class ProfileSettingController extends SettingController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var userId = findUserId(request);
-    userDatabaseTable().changeUserName(userId, body.getString("username"));
+    userDatabaseTable().changeUserName(userId, body.getString("username", 32));
     activityDatabaseTable.insertActivity(userId, "activity.setting.username.title",
       "activity.setting.username.description", ActivityType.SETTING);
   }

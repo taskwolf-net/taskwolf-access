@@ -33,17 +33,18 @@ public final class SaleController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return saleMessageDatabaseTable.generateAvailableMessageId()
-      .thenApply(messageId -> createSale(messageId, body.getString("email"),
-        body.getString("firstName"), body.getString("lastName"),
-        body.getString("phoneNumber"), body.getString("country"),
-        body.getString("companyName"), body.getString("companySize"),
-        body.getString("companyRole"), body.getString("title"),
-        body.getString("message")));
+    return saleDatabaseTable.generateAvailableSaleId()
+      .thenCompose(saleId -> saleMessageDatabaseTable.generateAvailableMessageId()
+        .thenApply(messageId -> createSale(saleId, messageId,
+          body.getString("email"), body.getString("firstName"),
+          body.getString("lastName"), body.getString("phoneNumber"),
+          body.getString("country"), body.getString("companyName"),
+          body.getString("companySize"), body.getString("companyRole"),
+          body.getString("title"), body.getString("message"))));
 }
 
   private Map<String, Object> createSale(
-    UUID messageId, String email, String firstName, String lastName,
+    UUID saleId, UUID messageId, String email, String firstName, String lastName,
     String phoneNumber, String country, String companyName, String companySize,
     String companyRole, String title, String message
   ) {
@@ -55,10 +56,9 @@ public final class SaleController {
     if (!email.contains("@")) {
       return Map.of("success", false);
     }
-    saleDatabaseTable.insertSale(messageId, email, firstName, lastName,
-      phoneNumber, country, companyName, companySize, companyRole, title, -1,
-      Lists.newArrayList());
-    saleMessageDatabaseTable.insertSaleMessage(messageId, email,
+    saleDatabaseTable.insertSale(saleId, email, firstName, lastName,
+      phoneNumber, country, companyName, companySize, companyRole, title, -1);
+    saleMessageDatabaseTable.insertSaleMessage(messageId, "", saleId, email,
       SaleMessageSenderType.USER, message, System.currentTimeMillis());
     return Map.of("success", true);
   }

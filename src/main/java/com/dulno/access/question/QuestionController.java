@@ -33,13 +33,15 @@ public final class QuestionController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return questionMessageDatabaseTable.generateAvailableMessageId()
-      .thenApply(messageId -> createQuestion(messageId, body.getString("email"),
-        body.getString("title"), body.getString("question")));
+    return questionDatabaseTable.generateAvailableQuestionId().thenCompose(
+      questionId -> questionMessageDatabaseTable.generateAvailableMessageId()
+        .thenApply(messageId -> createQuestion(questionId, messageId,
+          body.getString("email"), body.getString("title"),
+          body.getString("question"))));
   }
 
   private Map<String, Object> createQuestion(
-    UUID messageId, String email, String title, String question
+    UUID questionId, UUID messageId, String email, String title, String question
   ) {
     if (email.isEmpty() || title.isEmpty() || question.isEmpty()) {
       return Map.of("success", false);
@@ -47,10 +49,9 @@ public final class QuestionController {
     if (!email.contains("@")) {
       return Map.of("success", false);
     }
-    questionDatabaseTable.insertQuestion(messageId, email, title, -1,
-      Lists.newArrayList());
-    questionMessageDatabaseTable.insertQuestionMessage(messageId, email,
-      QuestionMessageSenderType.USER, question, System.currentTimeMillis());
+    questionDatabaseTable.insertQuestion(questionId, email, title, -1);
+    questionMessageDatabaseTable.insertQuestionMessage(messageId, "", questionId,
+      email, QuestionMessageSenderType.USER, question, System.currentTimeMillis());
     return Map.of("success", true);
   }
 }

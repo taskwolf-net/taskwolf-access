@@ -1,10 +1,9 @@
 package com.dulno.access.sale;
 
+import com.dulno.core.sale.SaleMessageSenderType;
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.question.QuestionDatabaseTable;
-import com.dulno.core.question.QuestionMessageDatabaseTable;
 import com.dulno.core.sale.SaleDatabaseTable;
 import com.dulno.core.sale.SaleMessageDatabaseTable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -59,8 +58,8 @@ public final class SaleController {
     saleDatabaseTable.insertSale(messageId, email, firstName, lastName,
       phoneNumber, country, companyName, companySize, companyRole, title, -1,
       Lists.newArrayList());
-    saleMessageDatabaseTable.insertSaleMessage(messageId, email, message,
-      System.currentTimeMillis());
+    saleMessageDatabaseTable.insertSaleMessage(messageId, email,
+      SaleMessageSenderType.USER, message, System.currentTimeMillis());
     return Map.of("success", true);
   }
 }

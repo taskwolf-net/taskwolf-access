@@ -1,5 +1,6 @@
 package com.dulno.access.question;
 
+import com.dulno.core.question.QuestionMessageSenderType;
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
@@ -48,8 +49,8 @@ public final class QuestionController {
     }
     questionDatabaseTable.insertQuestion(messageId, email, title, -1,
       Lists.newArrayList());
-    questionMessageDatabaseTable.insertQuestionMessage(messageId, email, question,
-      System.currentTimeMillis());
+    questionMessageDatabaseTable.insertQuestionMessage(messageId, email,
+      QuestionMessageSenderType.USER, question, System.currentTimeMillis());
     return Map.of("success", true);
   }
 }

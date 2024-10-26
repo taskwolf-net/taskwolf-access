@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class TicketModificationController extends TicketController {
@@ -33,17 +35,32 @@ public final class TicketModificationController extends TicketController {
   }
 
   @RequestMapping(path = "/ticket/create/", method = RequestMethod.POST)
-  public void createTicket(
+  public CompletableFuture<Map<String, Object>> createTicket(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var userId = findUserId(request);
-    ticketDatabaseTable().generateAvailableTicketId().thenAccept(ticketId ->
-      ticketMessageDatabaseTable().generateAvailableTicketMessageId().thenAccept(
-        messageId -> createTicket(userId, ticketId, messageId,
-          body.getString("title"), body.getString("type"),
-          body.getString("message"))));
+    return ticketDatabaseTable().findTicketCount(userId)
+      .thenApply(ticketCount -> createTicket(userId, body.getString("title"),
+        body.getString("type"), body.getString("message"), ticketCount));
+  }
+
+  private static final long TICKET_LIMIT = 5;
+
+  private Map<String, Object> createTicket(
+    UUID userId, String title, String type,
+    String message, long ticketCount
+  ) {
+    if (ticketCount + 1 > TICKET_LIMIT) {
+      return Map.of("success", false);
+    }
+    ticketDatabaseTable().generateAvailableTicketId()
+      .thenAccept(ticketId -> ticketMessageDatabaseTable()
+        .generateAvailableTicketMessageId()
+        .thenAccept(messageId -> createTicket(userId, ticketId, messageId,
+          title, type, message)));
+    return Map.of("success", true);
   }
 
   private void createTicket(

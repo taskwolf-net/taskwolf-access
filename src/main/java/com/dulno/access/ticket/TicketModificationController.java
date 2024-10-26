@@ -1,12 +1,9 @@
 package com.dulno.access.ticket;
 
+import com.dulno.core.ticket.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.ticket.Ticket;
-import com.dulno.core.ticket.TicketDatabaseTable;
-import com.dulno.core.ticket.TicketMessage;
-import com.dulno.core.ticket.TicketMessageDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.activity.ActivityType;
 import com.dulno.core.user.activity.UserActivityDatabaseTable;
@@ -56,7 +53,8 @@ public final class TicketModificationController extends TicketController {
     ticketDatabaseTable().insertTicket(Ticket.create(ticketId, userId, title,
       Ticket.Type.valueOf(type), Ticket.Status.OPEN, -1, List.of(messageId)));
     ticketMessageDatabaseTable().insertTicketMessage(TicketMessage.create(messageId,
-      ticketId, userId, message, System.currentTimeMillis()));
+      ticketId, userId, TicketMessageAuthorType.USER, message,
+      System.currentTimeMillis()));
     activityDatabaseTable.insertActivity(userId, "activity.ticket.new.title",
       "activity.ticket.new.description", ActivityType.TICKET);
   }
@@ -116,7 +114,8 @@ public final class TicketModificationController extends TicketController {
     ticket.disableExpirationTime();
     ticketDatabaseTable().updateTicket(ticket);
     ticketMessageDatabaseTable().insertTicketMessage(TicketMessage.create(
-      messageId, ticket.id(), userId, message, System.currentTimeMillis()));
+      messageId, ticket.id(), userId, TicketMessageAuthorType.USER,
+      message, System.currentTimeMillis()));
   }
 
   @RequestMapping(path = "/ticket/message/delete/", method = RequestMethod.POST)

@@ -53,11 +53,11 @@ public final class TicketInformationController extends TicketController {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var ticketId = body.getUUID("ticket");
-    var userId = findUserId(request);
-    performTicketOperation(userId, ticketId, ticket -> AsyncIterator.execute(
-      ticket.messages(), ticketMessageDatabaseTable()::findTicketMessage)
-        .thenAccept(messages -> detailedTicketInformation(userId,
-          ticket, messages).thenAccept(futureResponse::complete)),
+    performTicketOperation(findUserId(request), ticketId, ticket ->
+        AsyncIterator.execute(ticket.messages(),
+            ticketMessageDatabaseTable()::findTicketMessage)
+          .thenAccept(messages -> detailedTicketInformation(ticket, messages)
+            .thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
   }
@@ -72,10 +72,10 @@ public final class TicketInformationController extends TicketController {
   }
 
   private CompletableFuture<Map<String, Object>> detailedTicketInformation(
-    UUID userId, Ticket ticket, List<TicketMessage> messages
+    Ticket ticket, List<TicketMessage> messages
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(messages, message -> messageInformation(userId, message))
+    AsyncIterator.execute(messages, this::messageInformation)
       .thenAccept(information -> futureResponse.complete(
         assemblyDetailedTicketInformation(ticket, information)));
     return futureResponse;
@@ -92,19 +92,23 @@ public final class TicketInformationController extends TicketController {
   }
 
   private CompletableFuture<Map<String, Object>> messageInformation(
-    UUID userId, TicketMessage message
+    TicketMessage message
   ) {
-    return userDatabaseTable().findUser(message.author()).thenApply(author ->
-      assemblyMessageInformation(userId, message, author));
+    var selfWritten = message.authorType().isUser();
+    var futureAuthorName = selfWritten ?
+      userDatabaseTable().findUser(message.author()).thenApply(User::name) :
+      CompletableFuture.completedFuture("Dulno");
+    return futureAuthorName.thenApply(author ->
+      assemblyMessageInformation(message, author, selfWritten));
   }
 
   private Map<String, Object> assemblyMessageInformation(
-    UUID userId, TicketMessage message, User author
+    TicketMessage message, String authorName, boolean selfWritten
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", message.id());
-    information.put("author", author.name());
-    information.put("selfWritten", message.author().equals(userId));
+    information.put("author", authorName);
+    information.put("selfWritten", selfWritten);
     information.put("message", message.message());
     information.put("rawTime", message.time());
     information.put("time", formatTime(message.time()));

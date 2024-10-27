@@ -89,25 +89,27 @@ public final class TicketModificationController extends TicketController {
       () -> {});
   }
 
-  @RequestMapping(path = "/ticket/delete/", method = RequestMethod.POST)
-  public void deleteTicket(
+  @RequestMapping(path = "/ticket/close/", method = RequestMethod.POST)
+  public void closeTicket(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var userId = findUserId(request);
-    performTicketOperation(userId, body.getUUID("ticket"),
-      ticket -> deleteTicket(ticket, true), () -> {});
+    performTicketOperation(userId, body.getUUID("ticket"), this::closeTicket,
+      () -> {});
   }
 
-  public void deleteTicket(Ticket ticket, boolean activity) {
+  private void closeTicket(Ticket ticket) {
+    ticketDatabaseTable().updateTicketStatus(ticket.id(), Ticket.Status.CLOSED);
+    activityDatabaseTable.insertActivity(ticket.creator(), "activity.ticket.close.title",
+      "activity.ticket.close.description", ActivityType.TICKET);
+  }
+
+  public void deleteTicket(Ticket ticket) {
     ticketDatabaseTable().deleteTicket(ticket.id());
     for (var message : ticket.messages()) {
       ticketMessageDatabaseTable().deleteTicketMessage(message);
-    }
-    if (activity) {
-      activityDatabaseTable.insertActivity(ticket.creator(), "activity.ticket.delete.title",
-        "activity.ticket.delete.description", ActivityType.TICKET);
     }
   }
 

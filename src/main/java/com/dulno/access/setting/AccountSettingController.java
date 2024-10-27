@@ -318,9 +318,8 @@ public final class AccountSettingController extends SettingController {
     multiFactorAuthDatabaseTable.deleteAuth(user.id());
     deviceDatabaseTable.findDevicesOfOwner(user.id()).thenAccept(devices ->
       devices.forEach(deviceModificationController::deleteDevice));
-    ticketDatabaseTable.findTicketsByCreator(user.id())
-      .thenAccept(tickets -> tickets.forEach(ticket ->
-        ticketModificationController.deleteTicket(ticket, false)));
+    ticketDatabaseTable.findTicketsByCreator(user.id()).thenAccept(tickets ->
+      tickets.forEach(ticketModificationController::deleteTicket));
     for (var organizationId : user.organizations()) {
       organizationDatabaseTable.findOrganization(organizationId).thenAccept(
         organization -> accountDeletionHandleOrganization(user, organization));

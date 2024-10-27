@@ -1,7 +1,7 @@
 package com.dulno.access.sale;
 
+import com.dulno.core.sale.Sale;
 import com.dulno.core.sale.SaleMessageSenderType;
-import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.sale.SaleDatabaseTable;
@@ -57,7 +57,8 @@ public final class SaleController {
       return Map.of("success", false);
     }
     saleDatabaseTable.insertSale(saleId, email, firstName, lastName,
-      phoneNumber, country, companyName, companySize, companyRole, title, -1);
+      phoneNumber, country, companyName, companySize, companyRole, title,
+      Sale.Status.OPEN.toString(), -1);
     saleMessageDatabaseTable.insertSaleMessage(messageId, "", saleId, email,
       SaleMessageSenderType.USER, message, System.currentTimeMillis());
     return Map.of("success", true);

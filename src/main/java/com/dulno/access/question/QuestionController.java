@@ -1,7 +1,7 @@
 package com.dulno.access.question;
 
+import com.dulno.core.question.Question;
 import com.dulno.core.question.QuestionMessageSenderType;
-import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.question.QuestionDatabaseTable;
@@ -49,7 +49,8 @@ public final class QuestionController {
     if (!email.contains("@")) {
       return Map.of("success", false);
     }
-    questionDatabaseTable.insertQuestion(questionId, email, title, -1);
+    questionDatabaseTable.insertQuestion(questionId, email, title,
+      Question.Status.OPEN.toString(), -1);
     questionMessageDatabaseTable.insertQuestionMessage(messageId, "", questionId,
       email, QuestionMessageSenderType.USER, question, System.currentTimeMillis());
     return Map.of("success", true);

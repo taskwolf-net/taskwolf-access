@@ -1,5 +1,7 @@
 package com.dulno.access.ticket;
 
+import com.dulno.core.database.paging.DatabaseDirection;
+import com.dulno.core.database.paging.DatabaseOrder;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,16 +35,46 @@ public final class TicketInformationController extends TicketController {
       ticketMessageDatabaseTable);
   }
 
-  @RequestMapping(path = "/tickets/personal/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findPersonalTickets(
-    HttpServletRequest request
+  @RequestMapping(path = "/tickets/page/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findTicketsPage(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> ticketDatabaseTable()
-      .findTicketsByCreator(user.id()).thenAccept(tickets ->
-        futureResponse.complete(Map.of("tickets", tickets.stream()
-          .map(this::superficialTicketInformation).toList()))));
-    return futureResponse;
+    var body = DulnoRequestBody.of(payload, response);
+    var targetPage = body.getInt("targetPage");
+    var sortingColumn = body.getString("sorting");
+    var sortingOrder = DatabaseOrder.valueOf(body.getString("order"));
+    var search = body.getString("search");
+    var type = body.has("type") ? body.getString("type") : null;
+    var status = body.has("status") ? body.getString("status") : null;
+    return findUser(request)
+      .thenCompose(user -> ticketDatabaseTable().findTicketsOfCreator(user.id(),
+          targetPage, sortingColumn, sortingOrder, search, type, status)
+        .thenApply(page -> Map.of("tickets",
+          page.content().stream().map(this::superficialTicketInformation).toList(),
+          "page", page.pageState(), "pageNumber", 0)));
+  }
+
+  @RequestMapping(path = "/tickets/page/shift/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> shiftTicketsPage(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var pageState = body.getString("pageState");
+    var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
+    var direction = DatabaseDirection.valueOf(body.getString("direction"));
+    var sortingColumn = body.getString("sorting");
+    var sortingOrder = DatabaseOrder.valueOf(body.getString("order"));
+    var type = body.has("type") ? body.getString("type") : null;
+    var status = body.has("status") ? body.getString("status") : null;
+    return findUser(request)
+      .thenCompose(user -> ticketDatabaseTable().findTicketsOfCreator(user.id(),
+          pageState, startingPoint, direction, sortingColumn, sortingOrder,
+          type, status)
+        .thenApply(page -> Map.of("tickets",
+          page.content().stream().map(this::superficialTicketInformation).toList(),
+          "page", page.pageState(), "pageNumber", 0)));
   }
 
   @RequestMapping(path = "/ticket/find/", method = RequestMethod.POST)

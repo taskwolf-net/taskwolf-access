@@ -100,6 +100,7 @@ public final class TicketInformationController extends TicketController {
     information.put("title", ticket.title());
     information.put("type", ticket.type());
     information.put("status", ticket.status());
+    information.put("lastMessageSeen", ticket.lastMessageSeen());
     return information;
   }
 
@@ -109,8 +110,15 @@ public final class TicketInformationController extends TicketController {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     AsyncIterator.execute(messages, this::messageInformation)
       .thenAccept(information -> futureResponse.complete(
-        assemblyDetailedTicketInformation(ticket, information)));
+        assemblyDetailedTicketInformation(ticket, information)))
+      .thenAccept(value -> checkTicketLastMessageSeen(ticket));
     return futureResponse;
+  }
+
+  private void checkTicketLastMessageSeen(Ticket ticket) {
+    if (!ticket.lastMessageSeen()) {
+      ticketDatabaseTable().updateTicketLastMessageSeen(ticket.id(), true);
+    }
   }
 
   private Map<String, Object> assemblyDetailedTicketInformation(
@@ -151,6 +159,14 @@ public final class TicketInformationController extends TicketController {
     var calendar = Calendar.getInstance();
     calendar.setTimeInMillis(time);
     return new SimpleDateFormat("dd.MM.yyyy HH:mm").format(calendar.getTime());
+  }
+
+  @RequestMapping(path = "/tickets/unseen/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> hasUnseenTickets(
+    HttpServletRequest request
+  ) {
+    return ticketDatabaseTable().hasUnseenTickets(findUserId(request))
+      .thenApply(unseenTickets -> Map.of("unseenTickets", unseenTickets));
   }
 }
 

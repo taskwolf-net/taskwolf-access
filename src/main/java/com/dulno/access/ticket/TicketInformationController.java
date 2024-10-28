@@ -52,7 +52,7 @@ public final class TicketInformationController extends TicketController {
           targetPage, sortingColumn, sortingOrder, search, type, status)
         .thenApply(page -> Map.of("tickets",
           page.content().stream().map(this::superficialTicketInformation).toList(),
-          "page", page.pageState(), "pageNumber", 0)));
+          "page", page.pageState(), "pageNumber", page.pageNumber())));
   }
 
   @RequestMapping(path = "/tickets/page/shift/", method = RequestMethod.POST)
@@ -74,7 +74,7 @@ public final class TicketInformationController extends TicketController {
           type, status)
         .thenApply(page -> Map.of("tickets",
           page.content().stream().map(this::superficialTicketInformation).toList(),
-          "page", page.pageState(), "pageNumber", 0)));
+          "page", page.pageState(), "pageNumber", page.pageNumber())));
   }
 
   @RequestMapping(path = "/ticket/find/", method = RequestMethod.POST)

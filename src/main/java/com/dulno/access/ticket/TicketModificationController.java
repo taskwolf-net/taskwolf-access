@@ -67,7 +67,7 @@ public final class TicketModificationController extends TicketController {
     UUID userId, UUID ticketId, UUID messageId, String title, String type,
     String message
   ) {
-    ticketDatabaseTable().insertTicket(Ticket.create(ticketId, userId, title,
+    ticketDatabaseTable().insertTicket(Ticket.create(userId, ticketId, title,
       Ticket.Type.valueOf(type), Ticket.Status.OPEN, -1, List.of(messageId)));
     ticketMessageDatabaseTable().insertTicketMessage(TicketMessage.create(messageId,
       ticketId, userId, TicketMessageAuthorType.USER, message,

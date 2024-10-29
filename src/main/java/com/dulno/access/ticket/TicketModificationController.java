@@ -42,7 +42,7 @@ public final class TicketModificationController extends TicketController {
     var body = DulnoRequestBody.of(payload, response);
     var userId = findUserId(request);
     return ticketDatabaseTable().findTicketCount(userId)
-      .thenApply(ticketCount -> createTicket(userId, body.getString("title"),
+      .thenApply(ticketCount -> createTicket(userId, body.getString("title", 64),
         body.getString("type"), body.getString("message"), ticketCount));
   }
 
@@ -85,7 +85,7 @@ public final class TicketModificationController extends TicketController {
     var ticketId = body.getUUID("ticket");
     var userId = findUserId(request);
     performTicketOperation(userId, ticketId, ticket ->
-      ticketDatabaseTable().renameTicket(ticketId, body.getString("title")),
+      ticketDatabaseTable().renameTicket(ticketId, body.getString("title", 64)),
       () -> {});
   }
 

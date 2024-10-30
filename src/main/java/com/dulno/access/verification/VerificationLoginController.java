@@ -226,7 +226,8 @@ public final class VerificationLoginController extends DulnoRestController {
         .findPlatform();
       sessionDatabaseTable.insertSession(sessionId, userId, SessionStatus.ACTIVE,
         platform, ipAddress, location.getCountry().getName(),
-        location.getCity().getName(), System.currentTimeMillis(), refreshToken);
+        location.getCity().getName(), System.currentTimeMillis(), refreshToken,
+        System.currentTimeMillis());
     } catch (Exception exception) {
       exception.printStackTrace();
     }

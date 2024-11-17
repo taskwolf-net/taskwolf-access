@@ -1,5 +1,6 @@
 package com.dulno.access.stripe;
 
+import com.dulno.core.error.ErrorRepository;
 import com.stripe.StripeClient;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
@@ -34,6 +35,7 @@ public final class StripePaymentResponseController extends StripeController {
   private final StripeTerminationController stripeTerminationController;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final OfferDatabaseTable offerDatabaseTable;
+  private final ErrorRepository errorRepository;
 
   private StripePaymentResponseController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -43,7 +45,8 @@ public final class StripePaymentResponseController extends StripeController {
     OrganizationDatabaseTable organizationDatabaseTable,
     TerminationDatabaseTable terminationDatabaseTable,
     StripeTerminationController stripeTerminationController,
-    BundleDatabaseTable bundleDatabaseTable, OfferDatabaseTable offerDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable, OfferDatabaseTable offerDatabaseTable,
+    ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
       targetDatabaseTable, organizationDatabaseTable);
@@ -52,6 +55,7 @@ public final class StripePaymentResponseController extends StripeController {
     this.stripeTerminationController = stripeTerminationController;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.offerDatabaseTable = offerDatabaseTable;
+    this.errorRepository = errorRepository;
   }
 
   @RequestMapping(path = "/stripe/payment/", method = RequestMethod.POST)
@@ -86,7 +90,7 @@ public final class StripePaymentResponseController extends StripeController {
         .thenAccept(user -> findBundleTarget(user, subscription)
           .thenAccept(target -> processPaymentCreation(paymentIntent, target)));
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
     }
   }
 

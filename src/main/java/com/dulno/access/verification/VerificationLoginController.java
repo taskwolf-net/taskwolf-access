@@ -219,17 +219,22 @@ public final class VerificationLoginController extends DulnoRestController {
   public void storeSession(
     HttpServletRequest request, UUID userId, UUID sessionId, String refreshToken
   ) {
+    var country = "";
+    var city = "";
+    var ipAddress = request.getHeader("X-Real-IP");
     try {
-      var ipAddress = request.getHeader("X-Real-IP");
       var location = geoDatabaseReader.city(InetAddress.getByName(ipAddress));
+      country = location.getCountry().getName();
+      city = location.getCity().getName();
+    } catch (Exception ignored) {
+    }
+    try {
       var platform = UserAgent.create(request.getHeader("User-Agent"))
         .findPlatform();
       sessionDatabaseTable.insertSession(sessionId, userId, SessionStatus.ACTIVE,
-        platform, ipAddress, location.getCountry().getName(),
-        location.getCity().getName(), System.currentTimeMillis(), refreshToken,
-        System.currentTimeMillis());
-    } catch (Exception exception) {
-      exception.printStackTrace();
+        platform, ipAddress, country, city, System.currentTimeMillis(),
+        refreshToken, System.currentTimeMillis());
+    } catch (Exception ignored) {
     }
   }
 

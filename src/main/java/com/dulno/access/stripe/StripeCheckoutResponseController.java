@@ -1,5 +1,6 @@
 package com.dulno.access.stripe;
 
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.stripe.*;
 import com.google.common.collect.Lists;
 import com.stripe.StripeClient;
@@ -52,6 +53,7 @@ public final class StripeCheckoutResponseController extends StripeController {
   private final OfferDatabaseTable offerDatabaseTable;
   private final WorkerDistribution distribution;
   private final Translation translation;
+  private final ErrorRepository errorRepository;
 
   private StripeCheckoutResponseController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -66,7 +68,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     OperationDatabaseTable operationDatabaseTable,
     WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
     OfferDatabaseTable offerDatabaseTable, WorkerDistribution distribution,
-    Translation translation
+    Translation translation, ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
       targetDatabaseTable, organizationDatabaseTable);
@@ -80,6 +82,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     this.offerDatabaseTable = offerDatabaseTable;
     this.distribution = distribution;
     this.translation = translation;
+    this.errorRepository = errorRepository;
   }
 
   @RequestMapping(path = "/stripe/checkout/", method = RequestMethod.POST)
@@ -120,7 +123,7 @@ public final class StripeCheckoutResponseController extends StripeController {
               .thenCompose(account -> applySubscription(session, subscription,
                 user, bundle.ownerId(), bundle)))));
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
       return CompletableFuture.completedFuture(null);
     }
   }
@@ -139,7 +142,7 @@ public final class StripeCheckoutResponseController extends StripeController {
       return findBundleTarget(user, bundlePreset.get().bundleType())
         .thenApply(target -> Bundle.of(target, bundlePreset.get(), bundleRuntime));
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
       return CompletableFuture.completedFuture(null);
     }
   }
@@ -175,7 +178,7 @@ public final class StripeCheckoutResponseController extends StripeController {
       refundLastPayment(user, customer.getId());
       subscription.cancel();
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
     }
   }
 
@@ -238,7 +241,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     try {
       sendPaymentEmail(user, subscription);
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
     }
     return stripeCompletionDatabaseTable.confirmStripeCompletion(user.id(),
       session.getSuccessUrl().replace("https://dulno.com/payment/complete/", "")

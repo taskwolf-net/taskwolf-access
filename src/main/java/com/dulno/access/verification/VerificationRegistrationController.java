@@ -192,7 +192,6 @@ public final class VerificationRegistrationController {
       }
       return "en";
     } catch (Exception exception) {
-      exception.printStackTrace();
       return "en";
     }
   }

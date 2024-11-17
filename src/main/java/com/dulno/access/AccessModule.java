@@ -1,5 +1,6 @@
 package com.dulno.access;
 
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.worker.WorkerConfiguration;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -63,6 +64,7 @@ public final class AccessModule extends Module {
       injector().getInstance(WorkerConfiguration.class),
       injector().getInstance(CoreModule.class),
       injector().getInstance(Translation.class),
+      injector().getInstance(ErrorRepository.class),
       injector().getInstance(MailFactory.class)));
     application.addInitializers(injector().getInstance(WhitelistContextInitializer.class));
     application.addInitializers(injector().getInstance(MaintenanceContextInitializer.class));

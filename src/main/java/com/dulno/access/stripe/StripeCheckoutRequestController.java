@@ -1,6 +1,7 @@
 package com.dulno.access.stripe;
 
 import com.dulno.core.bundle.*;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import com.stripe.StripeClient;
 import com.stripe.param.checkout.SessionCreateParams;
@@ -33,6 +34,7 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
   private final StripeClient stripeClient;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
+  private final ErrorRepository errorRepository;
 
   private StripeCheckoutRequestController(
     @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -40,7 +42,8 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
     StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
     StripeConfiguration stripeConfiguration, StripeClient stripeClient,
     BundleDatabaseTable bundleDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable
+    OrganizationDatabaseTable organizationDatabaseTable,
+    ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable);
     this.stripeDatabaseTable = stripeDatabaseTable;
@@ -49,6 +52,7 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
     this.stripeClient = stripeClient;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
+    this.errorRepository = errorRepository;
   }
 
   @RequestMapping(path = "/checkout/", method = RequestMethod.POST)
@@ -136,7 +140,7 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
         .create(sessionBuilder.build());
       return Map.of("success", true, "link", checkout.getUrl());
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
       return Map.of("success", false);
     }
   }

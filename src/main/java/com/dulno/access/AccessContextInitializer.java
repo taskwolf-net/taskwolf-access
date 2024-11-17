@@ -1,5 +1,6 @@
 package com.dulno.access;
 
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.worker.WorkerConfiguration;
 import lombok.RequiredArgsConstructor;
 import com.dulno.core.CoreModule;
@@ -34,6 +35,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final WorkerConfiguration workerConfiguration;
   private final CoreModule coreModule;
   private final Translation translation;
+  private final ErrorRepository errorRepository;
   private final MailFactory mailFactory;
 
   @Override
@@ -48,6 +50,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("workerConfiguration", workerConfiguration);
     beanFactory.registerSingleton("coreModule", coreModule);
     beanFactory.registerSingleton("translation", translation);
+    beanFactory.registerSingleton("errorRepository", errorRepository);
     beanFactory.registerSingleton("mailFactory", mailFactory);
     applicationContext.addBeanFactoryPostProcessor(
       new KeyPostProcessor(homeKey, productKey, refreshKey));

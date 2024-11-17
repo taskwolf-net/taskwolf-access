@@ -1,5 +1,6 @@
 package com.dulno.access.stripe;
 
+import com.dulno.core.error.ErrorRepository;
 import com.google.common.collect.Maps;
 import com.stripe.StripeClient;
 import com.stripe.param.SubscriptionListParams;
@@ -27,6 +28,7 @@ public final class StripeTerminationController extends StripeController {
   private final StripeClient stripeClient;
   private final TerminationDatabaseTable terminationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final ErrorRepository errorRepository;
 
   private StripeTerminationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -35,13 +37,14 @@ public final class StripeTerminationController extends StripeController {
     UserTargetDatabaseTable targetDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     TerminationDatabaseTable terminationDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable, ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
       targetDatabaseTable, organizationDatabaseTable);
     this.stripeClient = stripeClient;
     this.terminationDatabaseTable = terminationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.errorRepository = errorRepository;
   }
 
   @RequestMapping(path = "/termination/status/", method = RequestMethod.GET)
@@ -76,7 +79,7 @@ public final class StripeTerminationController extends StripeController {
       return terminationDatabaseTable.terminationExists(targetId)
         .thenApply(exists -> findTerminationStatus(bundle, exists));
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
   }
@@ -146,7 +149,7 @@ public final class StripeTerminationController extends StripeController {
       return stripeDatabaseTable().updateStripeAccount(account.accountId(),
         account.targetId(), account.userId(), "");
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
       return CompletableFuture.completedFuture(null);
     }
   }

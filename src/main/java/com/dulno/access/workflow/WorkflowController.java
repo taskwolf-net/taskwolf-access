@@ -141,8 +141,7 @@ public class WorkflowController extends DulnoRestController {
         generator.call().thenAccept(ids::add)
           .thenApply(value -> ids.size() == number &&
             futureResponse.complete(ids));
-      } catch (Exception exception) {
-        exception.printStackTrace();
+      } catch (Exception ignored) {
       }
     }
     return futureResponse;

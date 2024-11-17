@@ -1,5 +1,6 @@
 package com.dulno.access.stripe;
 
+import com.dulno.core.error.ErrorRepository;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.stripe.StripeClient;
@@ -25,17 +26,20 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class StripePaymentRequestController extends StripeController {
   private final StripeClient stripeClient;
+  private final ErrorRepository errorRepository;
 
   private StripePaymentRequestController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
     UserTargetDatabaseTable targetDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable
+    OrganizationDatabaseTable organizationDatabaseTable,
+    ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
       targetDatabaseTable, organizationDatabaseTable);
     this.stripeClient = stripeClient;
+    this.errorRepository = errorRepository;
   }
 
   @RequestMapping(path = "/payments/", method = RequestMethod.GET)
@@ -61,7 +65,7 @@ public final class StripePaymentRequestController extends StripeController {
       }
       return Map.of("payments", information);
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
       return Maps.newHashMap();
     }
   }

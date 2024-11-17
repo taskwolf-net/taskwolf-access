@@ -1,5 +1,6 @@
 package com.dulno.access.offer;
 
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import com.stripe.StripeClient;
 import com.stripe.param.PriceUpdateParams;
@@ -32,19 +33,21 @@ public final class OfferModificationController extends OfferController {
   private final StripeDatabaseTable stripeDatabaseTable;
   private final StripeCompletionDatabaseTable stripeCompletionDatabaseTable;
   private final StripeClient stripeClient;
+  private final ErrorRepository errorRepository;
 
   private OfferModificationController(
     @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     OfferDatabaseTable offerDatabaseTable, StripeDatabaseTable stripeDatabaseTable,
     StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
-    StripeClient stripeClient
+    StripeClient stripeClient, ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, organizationDatabaseTable,
       offerDatabaseTable);
     this.stripeDatabaseTable = stripeDatabaseTable;
     this.stripeCompletionDatabaseTable = stripeCompletionDatabaseTable;
     this.stripeClient = stripeClient;
+    this.errorRepository = errorRepository;
   }
 
   @RequestMapping(path = "/offer/accept/", method = RequestMethod.POST)
@@ -88,7 +91,7 @@ public final class OfferModificationController extends OfferController {
         .create(sessionBuilder.build());
       return Map.of("success", true, "link", checkout.getUrl());
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
       return Map.of("success", false);
     }
   }
@@ -130,7 +133,7 @@ public final class OfferModificationController extends OfferController {
       stripeClient.prices().update(offer.priceId(),
         PriceUpdateParams.builder().setActive(false).build());
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
     }
   }
 }

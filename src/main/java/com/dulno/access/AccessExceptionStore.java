@@ -1,18 +1,20 @@
 package com.dulno.access;
 
-import org.springframework.http.HttpStatus;
+import com.dulno.core.error.ErrorRepository;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ControllerAdvice
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class AccessExceptionStore {
+  private final ErrorRepository errorRepository;
+
   @ExceptionHandler(Exception.class)
-  @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-  public String handleException(Exception exception, Model model) {
-    System.out.println("SPRING EXCEPTION");
-    exception.printStackTrace();
+  public String processError(Exception exception, Model model) {
+    errorRepository.processError(exception);
     return "error";
   }
 }

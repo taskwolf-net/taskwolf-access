@@ -251,14 +251,16 @@ public final class VerificationLoginController extends DulnoRestController {
     var userId = UUID.fromString(result.getValue().get("id", String.class));
     var sessionId = UUID.fromString(result.getValue().get("session", String.class));
     return userDatabaseTable().userExists(userId)
-      .thenCompose(exists -> refreshVerification(refreshToken, userId,
-        sessionId, exists));
+      .thenCompose(userExists -> sessionDatabaseTable.sessionExists(sessionId)
+        .thenCompose(sessionExists -> refreshVerification(refreshToken, userId,
+          sessionId, userExists, sessionExists)));
   }
 
   private CompletableFuture<Map<String, Object>> refreshVerification(
-    String refreshToken, UUID userId, UUID sessionId, boolean userExists
+    String refreshToken, UUID userId, UUID sessionId, boolean userExists,
+    boolean sessionExists
   ) {
-    if (!userExists) {
+    if (!userExists || !sessionExists) {
       return CompletableFuture.completedFuture(Map.of("success", "false"));
     }
     return userDatabaseTable().findUser(userId)

@@ -244,7 +244,7 @@ public final class VerificationLoginController extends DulnoRestController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var refreshToken = body.getString("refreshToken");
-    var result = verifyToken(productKey, refreshToken);
+    var result = verifyToken(refreshKey, refreshToken);
     if (result.getKey() != HttpServletResponse.SC_ACCEPTED) {
       return CompletableFuture.completedFuture(Map.of("success", "false"));
     }

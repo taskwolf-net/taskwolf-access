@@ -1,5 +1,6 @@
 package com.dulno.access.component;
 
+import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.trigger.TriggerInformation;
 import com.dulno.core.workflow.component.output.OutputComponentVariable;
 import com.google.common.collect.Lists;
@@ -24,12 +25,14 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Key;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @RestController
 public final class ComponentController extends DulnoRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final TeamTargetDatabaseTable teamTargetDatabaseTable;
   private final ModuleLoader moduleLoader;
   private final CoreModule coreModule;
   private final Translation translation;
@@ -37,11 +40,12 @@ public final class ComponentController extends DulnoRestController {
   private ComponentController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
-    ModuleLoader moduleLoader, CoreModule coreModule,
-    Translation translation
+    TeamTargetDatabaseTable teamTargetDatabaseTable, ModuleLoader moduleLoader,
+    CoreModule coreModule, Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.teamTargetDatabaseTable = teamTargetDatabaseTable;
     this.moduleLoader = moduleLoader;
     this.coreModule = coreModule;
     this.translation = translation;
@@ -202,12 +206,22 @@ public final class ComponentController extends DulnoRestController {
       .entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
         entry -> (String) entry.getValue()));;
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user ->
-      userTargetDatabaseTable.findTargetSecured(user.id()).thenAccept(target ->
-        select.get().select().compile(user, target, previousInputs)
-          .thenApply(items -> items.stream().map(item -> new JSONObject(Map.of(
-            "identifier", item.identifier(), "name", item.name())).toString()))
-          .thenAccept(items -> futureResponse.complete(Map.of("items", items)))));
+    findUser(request).thenAccept(user -> findSelectItemsTarget(user.id())
+      .thenAccept(target -> select.get().select().compile(user, target, previousInputs)
+        .thenApply(items -> items.stream().map(item -> new JSONObject(Map.of(
+          "identifier", item.identifier(), "name", item.name())).toString()))
+        .thenAccept(items -> futureResponse.complete(Map.of("items", items)))));
     return futureResponse;
+  }
+
+  private CompletableFuture<UUID> findSelectItemsTarget(UUID userId) {
+    return userTargetDatabaseTable.findTargetSecured(userId)
+      .thenCompose(target -> findSelectItemsTarget(userId, target));
+  }
+
+  private CompletableFuture<UUID> findSelectItemsTarget(UUID userId, UUID target) {
+    return userId.equals(target) ? CompletableFuture.completedFuture(target) :
+      teamTargetDatabaseTable.findTargetSecured(userId)
+        .thenApply(team -> team.orElse(target));
   }
 }

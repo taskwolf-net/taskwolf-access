@@ -114,7 +114,7 @@ dependencies {
 
   compileOnly("org.springframework.boot:spring-boot-starter-web:3.2.5")
 
-  compileOnly("io.jsonwebtoken:jjwt:0.12.5")
+  compileOnly("io.jsonwebtoken:jjwt:0.12.6")
 
   compileOnly("com.sun.mail:javax.mail:1.6.2")
 

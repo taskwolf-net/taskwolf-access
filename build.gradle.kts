@@ -120,7 +120,7 @@ dependencies {
 
   compileOnly("com.stripe:stripe-java:26.1.0")
 
-  compileOnly("com.maxmind.geoip2:geoip2:2.15.0")
+  compileOnly("com.maxmind.geoip2:geoip2:2.17.0")
 }
 
 tasks.test {

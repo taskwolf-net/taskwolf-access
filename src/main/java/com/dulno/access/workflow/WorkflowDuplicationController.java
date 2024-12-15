@@ -1,5 +1,6 @@
 package com.dulno.access.workflow;
 
+import com.dulno.core.loop.LoopDatabaseTable;
 import com.google.api.client.util.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -34,12 +35,13 @@ public final class WorkflowDuplicationController extends WorkflowController {
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
+  private final LoopDatabaseTable loopDatabaseTable;
 
   private WorkflowDuplicationController(
     Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
     WorkflowDatabaseTable workflowDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
-    ConditionDatabaseTable conditionDatabaseTable,
+    ConditionDatabaseTable conditionDatabaseTable, LoopDatabaseTable loopDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable
@@ -51,6 +53,7 @@ public final class WorkflowDuplicationController extends WorkflowController {
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
+    this.loopDatabaseTable = loopDatabaseTable;
   }
 
   @RequestMapping(path = "/workflow/duplicate/", method = RequestMethod.POST)
@@ -80,17 +83,25 @@ public final class WorkflowDuplicationController extends WorkflowController {
           .thenAccept(workflowId -> triggerDatabaseTable.generateAvailableTriggerId()
             .thenAccept(triggerId -> generateActionIds(workflow.actionIds().size())
               .thenAccept(actionIds -> generateConditionIds(workflow.conditionIds().size())
-                .thenAccept(conditionIds -> duplicateWorkflow(user, workflow,
-                  workflowId, triggerId, actionIds, conditionIds)
-                  .thenAccept(futureResponse::complete))))),
+                .thenAccept(conditionIds -> generateLoopId(workflow)
+                  .thenAccept(loopId -> duplicateWorkflow(user, workflow,
+                    workflowId, triggerId, actionIds, conditionIds, loopId)
+                    .thenAccept(futureResponse::complete)))))),
       () -> futureResponse.complete(null));
     return futureResponse;
+  }
+
+  private CompletableFuture<UUID> generateLoopId(WorkflowEntry workflowEntry) {
+    if (workflowEntry.loopId() == null) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return loopDatabaseTable.generateAvailableLoopId();
   }
 
   private CompletableFuture<Void> duplicateWorkflow(
     User user, WorkflowEntry workflow, UUID duplicateWorkflowId,
     UUID duplicateTriggerId, List<UUID> duplicateActionIds,
-    List<UUID> duplicateConditionIds
+    List<UUID> duplicateConditionIds, UUID duplicateLoopId
   ) {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     processes.add(duplicateWorkflowTrigger(workflow, duplicateWorkflowId,
@@ -99,13 +110,15 @@ public final class WorkflowDuplicationController extends WorkflowController {
       duplicateActionIds));
     processes.add(duplicateWorkflowConditions(workflow, duplicateWorkflowId,
       duplicateConditionIds));
+    processes.add(duplicateWorkflowLoop(workflow, duplicateWorkflowId,
+      duplicateLoopId));
     var name = workflow.name() + " (" +
       coreModule.translate(user, "workflow.duplicated") + ")";
     name = name.substring(0, Math.min(64, name.length()));
     processes.add(workflowDatabaseTable().insertWorkflow(WorkflowEntry.create(
       duplicateWorkflowId, workflow.ownerId(), workflow.creatorId(),
       duplicateTriggerId, duplicateActionIds, duplicateConditionIds,
-      workflow.modules(), System.currentTimeMillis(), name,
+      duplicateLoopId, workflow.modules(), System.currentTimeMillis(), name,
       workflow.description(), workflow.state())));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> null);
@@ -200,5 +213,14 @@ public final class WorkflowDuplicationController extends WorkflowController {
     }
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> null);
+  }
+
+  private CompletableFuture<Void> duplicateWorkflowLoop(
+    WorkflowEntry workflow, UUID duplicateWorkflowId, UUID loopId
+  ) {
+    /*return loopDatabaseTable.findLoop(workflow.loopId()).thenCompose(loop ->
+      loopDatabaseTable.insertLoop(loopId, loop.ownerId(),
+        duplicateWorkflowId, loop.type(), loop.content(), ));*/
+    return null;
   }
 }

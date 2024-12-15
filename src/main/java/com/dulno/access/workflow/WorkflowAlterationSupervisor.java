@@ -21,6 +21,7 @@ public final class WorkflowAlterationSupervisor {
   private final String description;
   private final List<DulnoRequestBody> actions;
   private final List<DulnoRequestBody> conditions;
+  private final DulnoRequestBody loop;
 
   public void evaluate(User actor) {
     var time = System.currentTimeMillis();
@@ -39,6 +40,12 @@ public final class WorkflowAlterationSupervisor {
     }
     if (conditions.size() < currentEntry.conditionIds().size()) {
       createWorkflowTimelineEntry(time, "timeline-workflow-condition-remove", actorContent);
+    }
+    if (loop.getBoolean("enabled") && currentEntry.loopId() == null) {
+      createWorkflowTimelineEntry(time, "timeline-workflow-loop-add", actorContent);
+    }
+    if (!loop.getBoolean("enabled") && currentEntry.loopId() != null) {
+      createWorkflowTimelineEntry(time, "timeline-workflow-loop-remove", actorContent);
     }
   }
 

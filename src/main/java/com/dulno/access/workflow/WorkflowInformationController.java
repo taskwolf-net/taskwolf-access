@@ -1,5 +1,7 @@
 package com.dulno.access.workflow;
 
+import com.dulno.core.loop.LoopDatabaseTable;
+import com.dulno.core.loop.LoopInformationRepository;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,6 +45,8 @@ public final class WorkflowInformationController extends WorkflowController {
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
   private final ConditionInformationRepository conditionRepository;
+  private final LoopDatabaseTable loopDatabaseTable;
+  private final LoopInformationRepository loopRepository;
   private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private WorkflowInformationController(
@@ -54,7 +58,8 @@ public final class WorkflowInformationController extends WorkflowController {
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable,
-    ConditionInformationRepository conditionRepository
+    ConditionInformationRepository conditionRepository,
+    LoopDatabaseTable loopDatabaseTable, LoopInformationRepository loopRepository
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
@@ -65,6 +70,8 @@ public final class WorkflowInformationController extends WorkflowController {
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
     this.conditionRepository = conditionRepository;
+    this.loopDatabaseTable = loopDatabaseTable;
+    this.loopRepository = loopRepository;
   }
 
   @RequestMapping(path = "/workflow/find/", method = RequestMethod.POST)

@@ -1,5 +1,7 @@
 package com.dulno.access.workflow;
 
+import com.dulno.core.loop.LoopDatabaseTable;
+import com.dulno.core.loop.LoopInformationRepository;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;
@@ -25,8 +27,10 @@ public class WorkflowContextInitializer implements ApplicationContextInitializer
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
-  private final TimelineDatabaseTable timelineDatabaseTable;
   private final ConditionInformationRepository conditionRepository;
+  private final LoopDatabaseTable loopDatabaseTable;
+  private final LoopInformationRepository loopRepository;
+  private final TimelineDatabaseTable timelineDatabaseTable;
   private final TimelineFactory timelineFactory;
 
   @Override
@@ -39,8 +43,10 @@ public class WorkflowContextInitializer implements ApplicationContextInitializer
     beanFactory.registerSingleton("triggerDatabaseTable", triggerDatabaseTable);
     beanFactory.registerSingleton("actionDatabaseTable", actionDatabaseTable);
     beanFactory.registerSingleton("conditionDatabaseTable", conditionDatabaseTable);
-    beanFactory.registerSingleton("timelineDatabaseTable", timelineDatabaseTable);
     beanFactory.registerSingleton("conditionRepository", conditionRepository);
+    beanFactory.registerSingleton("loopDatabaseTable", loopDatabaseTable);
+    beanFactory.registerSingleton("loopRepository", loopRepository);
+    beanFactory.registerSingleton("timelineDatabaseTable", timelineDatabaseTable);
     beanFactory.registerSingleton("timelineFactory", timelineFactory);
   }
 }

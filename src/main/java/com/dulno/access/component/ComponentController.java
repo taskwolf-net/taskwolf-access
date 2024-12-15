@@ -159,7 +159,7 @@ public final class ComponentController extends DulnoRestController {
     return information;
   }
 
-  private <T extends ComponentVariable> List<Map<String, Object>> componentVariablesInformation(
+  public <T extends ComponentVariable> List<Map<String, Object>> componentVariablesInformation(
     String language, List<T> variables
   ) {
     var variablesInformation = Lists.<Map<String, Object>>newArrayList();

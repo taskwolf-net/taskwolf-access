@@ -1,6 +1,7 @@
 package com.dulno.access.workflow;
 
 import com.dulno.core.loop.LoopDatabaseTable;
+import com.dulno.core.loop.LoopEntry;
 import com.dulno.core.loop.LoopInformationRepository;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -171,8 +172,9 @@ public final class WorkflowInformationController extends WorkflowController {
       .thenCompose(creator -> gatherTriggerInformation(user, workflow)
         .thenCompose(trigger -> gatherActionsInformation(user, workflow)
           .thenCompose(actions -> gatherConditionsInformation(user, workflow)
-            .thenApply(conditions -> assemblyWorkflowInformation(workflow,
-              creator, trigger, actions, conditions)))));
+            .thenCompose(conditions -> gatherLoopInformation(user, workflow)
+              .thenApply(loop -> assemblyWorkflowInformation(workflow, creator,
+                trigger, actions, conditions, loop))))));
   }
 
   private CompletableFuture<Map<String, Object>> gatherTriggerInformation(
@@ -246,7 +248,7 @@ public final class WorkflowInformationController extends WorkflowController {
     User user, ActionEntry action, Map<String, Object> content
   ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("actionIndex", action.actionIndex());
+    information.put("actionIndex", action.index());
     information.put("actionModule", action.module());
     information.put("actionModuleLogo",
       coreModule.findModuleInformation(action.module()).get().logo());
@@ -270,9 +272,7 @@ public final class WorkflowInformationController extends WorkflowController {
     User user, ConditionEntry condition
   ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("conditionActionIndex", condition.actionIndex());
-    information.put("conditionConditionIndex",
-      condition.conditionIndex());
+    information.put("conditionIndex", condition.index());
     information.put("conditionType", condition.type());
     information.put("conditionTypeName", translation.translate(user,
       conditionRepository.findByIdentifier(condition.type()).get().name()));
@@ -280,9 +280,34 @@ public final class WorkflowInformationController extends WorkflowController {
     return information;
   }
 
+  private CompletableFuture<Map<String, Object>> gatherLoopInformation(
+    User user, WorkflowEntry workflow
+  ) {
+    return loopDatabaseTable.findLoopIfExists(workflow.id())
+      .thenApply(loop -> Map.of("loop", assemblyLoopInformation(user, loop)));
+  }
+
+  private Map<String, Object> assemblyLoopInformation(
+    User user, Optional<LoopEntry> loopOptional
+  ) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("loopEnabled", loopOptional.isPresent());
+    if (loopOptional.isEmpty()) {
+      return information;
+    }
+    var loop = loopOptional.get();
+    information.put("loopIndex", loop.index());
+    information.put("loopType", loop.type());
+    information.put("loopTypeName", translation.translate(user,
+      loopRepository.findByIdentifier(loop.type()).get().name()));
+    information.put("loopContent", loop.content());
+    return information;
+  }
+
   private Map<String, Object> assemblyWorkflowInformation(
     WorkflowEntry workflow, User creator, Map<String, Object> triggerInformation,
-    Map<String, Object> actionInformation, Map<String, Object> conditionInformation
+    Map<String, Object> actionInformation, Map<String, Object> conditionInformation,
+    Map<String, Object> loopInformation
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", workflow.id());
@@ -293,6 +318,7 @@ public final class WorkflowInformationController extends WorkflowController {
     information.putAll(triggerInformation);
     information.putAll(actionInformation);
     information.putAll(conditionInformation);
+    information.putAll(loopInformation);
     return information;
   }
 

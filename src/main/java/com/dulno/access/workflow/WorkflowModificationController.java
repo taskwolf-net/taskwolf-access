@@ -254,7 +254,7 @@ public final class WorkflowModificationController extends WorkflowController {
     var module = actionData.getString("module");
     var type = actionData.getString("type");
     return actionDatabaseTable.insertAction(actionId, ownerId, workflowId,
-      actionData.getInt("index"), module, type)
+        module, type, actionData.getInt("index"))
       .thenCompose(value -> coreModule.findAction(module, type).get().insert(
         actionId, new JSONObject(actionData.getString("content")).toMap()));
   }
@@ -263,16 +263,16 @@ public final class WorkflowModificationController extends WorkflowController {
     UUID conditionId, UUID ownerId, UUID workflowId, DulnoRequestBody conditionData
   ) {
     return conditionDatabaseTable.insertCondition(conditionId, ownerId, workflowId,
-      conditionData.getInt("actionIndex"), conditionData.getInt("conditionIndex"),
-      conditionData.getString("type"), conditionData.getString("content"));
+      conditionData.getString("type"), conditionData.getString("content"),
+      conditionData.getInt("index"));
   }
 
   private CompletableFuture<Void> createLoop(
     UUID loopId, UUID ownerId, UUID workflowId, DulnoRequestBody loopData
   ) {
-    /*return loopDatabaseTable.insertLoop(loopId, ownerId, workflowId,
-      loopData.getString("type"), loopData.getString("content"));*/
-    return null;
+    return loopDatabaseTable.insertLoop(loopId, ownerId, workflowId,
+      loopData.getString("type"), loopData.getString("content"),
+      loopData.getInt("index"));
   }
 
   @RequestMapping(path = "/workflow/state/change/", method = RequestMethod.POST)

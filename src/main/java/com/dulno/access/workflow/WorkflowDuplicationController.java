@@ -182,8 +182,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
     }
     return actionDatabaseTable.findAction(actionId)
       .thenCompose(entry -> actionDatabaseTable.insertAction(duplicateActionId,
-          entry.ownerId(), duplicateWorkflowId, entry.actionIndex(),
-          entry.module(), entry.type())
+          entry.ownerId(), duplicateWorkflowId, entry.module(), entry.type(),
+          entry.index())
         .thenCompose(value -> coreModule.findAction(entry.module(), entry.type())
           .map(action -> action.findContent(entry.id())
             .thenCompose(content -> action.insert(duplicateActionId, content))
@@ -208,8 +208,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
       var condition = conditions.get(i);
       var duplicateConditionId = conditionIds.get(i);
       processes.add(conditionDatabaseTable.insertCondition(duplicateConditionId,
-        condition.ownerId(), duplicateWorkflowId, condition.actionIndex(),
-        condition.conditionIndex(), condition.type(), condition.content()));
+        condition.ownerId(), duplicateWorkflowId, condition.type(),
+        condition.content(), condition.index()));
     }
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> null);
@@ -218,9 +218,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
   private CompletableFuture<Void> duplicateWorkflowLoop(
     WorkflowEntry workflow, UUID duplicateWorkflowId, UUID loopId
   ) {
-    /*return loopDatabaseTable.findLoop(workflow.loopId()).thenCompose(loop ->
-      loopDatabaseTable.insertLoop(loopId, loop.ownerId(),
-        duplicateWorkflowId, loop.type(), loop.content(), ));*/
-    return null;
+    return loopDatabaseTable.findLoop(workflow.loopId())
+      .thenCompose(loop -> loopDatabaseTable.insertLoop(loopId, loop.ownerId(),
+        duplicateWorkflowId, loop.type(), loop.content(), loop.index()));
   }
 }

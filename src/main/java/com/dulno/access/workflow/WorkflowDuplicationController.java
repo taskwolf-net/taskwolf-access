@@ -110,8 +110,10 @@ public final class WorkflowDuplicationController extends WorkflowController {
       duplicateActionIds));
     processes.add(duplicateWorkflowConditions(workflow, duplicateWorkflowId,
       duplicateConditionIds));
-    processes.add(duplicateWorkflowLoop(workflow, duplicateWorkflowId,
-      duplicateLoopId));
+    if (duplicateLoopId != null) {
+      processes.add(duplicateWorkflowLoop(workflow, duplicateWorkflowId,
+        duplicateLoopId));
+    }
     var name = workflow.name() + " (" +
       coreModule.translate(user, "workflow.duplicated") + ")";
     name = name.substring(0, Math.min(64, name.length()));

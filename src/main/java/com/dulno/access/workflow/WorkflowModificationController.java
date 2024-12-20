@@ -93,7 +93,8 @@ public final class WorkflowModificationController extends WorkflowController {
       createWorkflowCreateTimelineEntry(user).thenCompose(workflowCreateEntry ->
         createWorkflow(user, owner, body.getObject("trigger"),
           body.getObjectList("actions"), body.getObjectList("conditions"),
-          body.getObject("loop"), created, body.getString("name", 64),
+          body.getObject("loop"), body.getString("timeZone"),
+          body.getString("timeLocale"), created, body.getString("name", 64),
           body.getString("description", 128),
           Lists.newArrayList(workflowCreateEntry), WorkflowState.OPERATIONAL)));
   }
@@ -132,6 +133,7 @@ public final class WorkflowModificationController extends WorkflowController {
             .thenCompose(authorized -> updateWorkflow(user, workflow, authorized,
               body.getObject("trigger"), body.getObjectList("actions"),
               body.getObjectList("conditions"), body.getObject("loop"),
+              body.getString("timeZone"), body.getString("timeLocale"),
               body.getString("name", 64), body.getString("description", 128),
               timelineEntries, workflow.state())))));
   }
@@ -139,9 +141,9 @@ public final class WorkflowModificationController extends WorkflowController {
   private CompletableFuture<Void> updateWorkflow(
     User user, WorkflowEntry entry, boolean authorized,
     DulnoRequestBody triggerData, List<DulnoRequestBody> actionData,
-    List<DulnoRequestBody> conditionData, DulnoRequestBody loopData, String name,
-    String description, List<TimelineDatabaseEntry> timelineEntries,
-    WorkflowState state
+    List<DulnoRequestBody> conditionData, DulnoRequestBody loopData,
+    String timeZone, String timeLocale, String name, String description,
+    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
     if (!authorized) {
       return CompletableFuture.completedFuture(null);
@@ -150,41 +152,44 @@ public final class WorkflowModificationController extends WorkflowController {
       userDatabaseTable().findUser(entry.creatorId()).thenCompose(creator ->
         workflowDatabaseTable().generateAvailableWorkflowId().thenCompose(workflowId ->
           updateWorkflow(workflowId, user, creator, entry, triggerData, actionData,
-            conditionData, loopData, name, description, timelineEntries, state))));
+            conditionData, loopData, timeZone, timeLocale, name, description,
+            timelineEntries, state))));
   }
 
   private CompletableFuture<Void> updateWorkflow(
     UUID workflowId, User user, User creator, WorkflowEntry entry,
     DulnoRequestBody triggerData, List<DulnoRequestBody> actionData,
-    List<DulnoRequestBody> conditionData, DulnoRequestBody loopData, String name,
-    String description, List<TimelineDatabaseEntry> timelineEntries,
-    WorkflowState state
+    List<DulnoRequestBody> conditionData, DulnoRequestBody loopData,
+    String timeZone, String timeLocale, String name, String description,
+    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
   ) {
     WorkflowAlterationSupervisor.create(timelineDatabaseTable, workflowId,
       entry, name, description, actionData, conditionData, loopData).evaluate(user);
     return createWorkflow(workflowId, creator, entry.ownerId(), triggerData,
-      actionData, conditionData, loopData, entry.created(), name, description,
-      timelineEntries, state);
+      actionData, conditionData, loopData, timeZone, timeLocale,
+      entry.created(), name, description, timelineEntries, state);
   }
 
   private CompletableFuture<Void> createWorkflow(
     User creator, UUID ownerId, DulnoRequestBody triggerData,
     List<DulnoRequestBody> actionData,  List<DulnoRequestBody> conditionData,
-    DulnoRequestBody loopData, long created, String name, String description,
-    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
+    DulnoRequestBody loopData,   String timeZone, String timeLocale, long created,
+    String name, String description, List<TimelineDatabaseEntry> timelineEntries,
+    WorkflowState state
   ) {
     return workflowDatabaseTable().generateAvailableWorkflowId()
       .thenCompose(workflowId -> createWorkflow(workflowId, creator, ownerId,
-        triggerData, actionData, conditionData, loopData, created, name,
-        description, timelineEntries, state));
+        triggerData, actionData, conditionData, loopData, timeZone, timeLocale,
+        created, name, description, timelineEntries, state));
   }
 
   private CompletableFuture<Void> createWorkflow(
     UUID workflowId, User creator, UUID ownerId,
     DulnoRequestBody triggerData, List<DulnoRequestBody> actionData,
     List<DulnoRequestBody> conditionData, DulnoRequestBody loopData,
-    long created, String name, String description,
-    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
+    String timeZone, String timeLocale, long created, String name,
+    String description, List<TimelineDatabaseEntry> timelineEntries,
+    WorkflowState state
   ) {
     return triggerDatabaseTable.generateAvailableTriggerId().thenCompose(triggerId ->
       generateActionIds(actionData.size()).thenCompose(actionIds ->
@@ -192,7 +197,8 @@ public final class WorkflowModificationController extends WorkflowController {
           generateLoopId(loopData).thenCompose(loopId ->
             createWorkflow(workflowId, creator.id(), ownerId, triggerId,
               triggerData, actionIds, actionData, conditionIds, conditionData,
-              loopId, loopData, created, name, description, timelineEntries, state)))));
+              loopId, loopData, timeZone, timeLocale, created, name, description,
+              timelineEntries, state)))));
   }
 
   private CompletableFuture<UUID> generateLoopId(DulnoRequestBody loopData) {
@@ -207,8 +213,9 @@ public final class WorkflowModificationController extends WorkflowController {
     DulnoRequestBody triggerData, List<UUID> actionIds,
     List<DulnoRequestBody> actionData, List<UUID> conditionIds,
     List<DulnoRequestBody> conditionData, UUID loopId, DulnoRequestBody loopData,
-    long created, String name, String description,
-    List<TimelineDatabaseEntry> timelineEntries, WorkflowState state
+    String timeZone, String timeLocale, long created, String name,
+    String description, List<TimelineDatabaseEntry> timelineEntries,
+    WorkflowState state
   ) {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var modules = Lists.<String>newArrayList();
@@ -231,8 +238,8 @@ public final class WorkflowModificationController extends WorkflowController {
         entry.time(), entry.type(), entry.content()));
     }
     processes.add(workflowDatabaseTable().insertWorkflow(workflowId, ownerId,
-      creatorId, triggerId, actionIds, conditionIds, loopId, modules, created, name,
-      description, state.toString()));
+      creatorId, triggerId, actionIds, conditionIds, loopId, modules, timeZone,
+      timeLocale, created, name, description, state.toString()));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> null);
   }

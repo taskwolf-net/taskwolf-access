@@ -120,7 +120,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
     processes.add(workflowDatabaseTable().insertWorkflow(WorkflowEntry.create(
       duplicateWorkflowId, workflow.ownerId(), workflow.creatorId(),
       duplicateTriggerId, duplicateActionIds, duplicateConditionIds,
-      duplicateLoopId, workflow.modules(), System.currentTimeMillis(), name,
+      duplicateLoopId, workflow.modules(), workflow.timeZone(),
+      workflow.timeLocale(), System.currentTimeMillis(), name,
       workflow.description(), workflow.state())));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> null);

@@ -89,8 +89,8 @@ repositories {
 }
 
 dependencies {
-  testCompileOnly(platform("org.junit:junit-bom:5.11.3"))
-  testCompileOnly("org.junit.jupiter:junit-jupiter:5.11.3")
+  testCompileOnly(platform("org.junit:junit-bom:5.11.4"))
+  testCompileOnly("org.junit.jupiter:junit-jupiter:5.11.4")
 
   compileOnly("com.dulno:core:1.0.0-SNAPSHOT")
   compileOnly("com.dulno:table:1.0.0-SNAPSHOT")
@@ -100,7 +100,7 @@ dependencies {
 
   compileOnly("com.google.inject:guice:7.0.0")
 
-  compileOnly("com.google.guava:guava:33.3.1-jre")
+  compileOnly("com.google.guava:guava:33.4.0-jre")
 
   compileOnly("org.projectlombok:lombok:1.18.36")
   annotationProcessor("org.projectlombok:lombok:1.18.36")
@@ -112,7 +112,7 @@ dependencies {
   compileOnly("org.json:json:20240303")
   compileOnly("commons-io:commons-io:2.18.0")
 
-  compileOnly("org.springframework.boot:spring-boot-starter-web:3.4.0")
+  compileOnly("org.springframework.boot:spring-boot-starter-web:3.4.1")
 
   compileOnly("io.jsonwebtoken:jjwt:0.12.6")
 

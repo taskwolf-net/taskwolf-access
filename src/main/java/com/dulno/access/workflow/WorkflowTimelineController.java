@@ -1,5 +1,6 @@
 package com.dulno.access.workflow;
 
+import com.dulno.core.workflow.timeline.entry.TimelineWorkflowFailureEntry;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
@@ -88,6 +89,16 @@ public final class WorkflowTimelineController extends WorkflowController {
       entryInformation.put("description", entry.description(coreModule, user));
       entryInformation.put("level", entry.level());
       entryInformation.put("time", entry.formattedTime());
+      if (entry instanceof TimelineWorkflowFailureEntry failureEntry) {
+        entryInformation.put("isFailure", true);
+        entryInformation.put("failureModuleName",
+          coreModule.translate(user, failureEntry.moduleName()));
+        entryInformation.put("failureStepName",
+          coreModule.translate(user, failureEntry.stepName()));
+        entryInformation.put("failureStepIndex", failureEntry.stepIndex());
+      } else {
+        entryInformation.put("isFailure", false);
+      }
       information.add(entryInformation);
     }
     return Map.of("timeline", information);

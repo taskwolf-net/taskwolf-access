@@ -2,6 +2,8 @@ package com.dulno.access.component;
 
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.trigger.TriggerInformation;
+import com.dulno.core.workflow.component.input.DynamicInputComponentVariable;
+import com.dulno.core.workflow.component.input.SelectableInputComponentVariable;
 import com.dulno.core.workflow.component.output.OutputComponentVariable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Key;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -147,38 +150,66 @@ public final class ComponentController extends DulnoRestController {
       componentVariablesInformation(language, component.inputVariables()));
     var outputVariables = Lists.newArrayList(component.outputVariables());
     if (component instanceof TriggerInformation) {
-      outputVariables.add(OutputComponentVariable.create(
-        "access.trigger.formatted.time", "formattedTime"));
-      outputVariables.add(OutputComponentVariable.create(
-        "access.trigger.formatted.date", "formattedDate"));
-      outputVariables.add(OutputComponentVariable.create(
-        "access.trigger.unix.time", "unixTime"));
+      outputVariables.addAll(collectTriggerOutputVariables());
     }
     information.put("outputVariables",
       componentVariablesInformation(language, outputVariables));
     return information;
   }
 
-  public <T extends ComponentVariable> List<Map<String, Object>> componentVariablesInformation(
+  private List<OutputComponentVariable> collectTriggerOutputVariables() {
+    var outputVariables = Lists.<OutputComponentVariable>newArrayList();
+    outputVariables.add(OutputComponentVariable.create(
+      "access.trigger.formatted.time", "formattedTime"));
+    outputVariables.add(OutputComponentVariable.create(
+      "access.trigger.formatted.date", "formattedDate"));
+    outputVariables.add(OutputComponentVariable.create(
+      "access.trigger.unix.time", "unixTime"));
+    return outputVariables;
+  }
+
+  private <T extends ComponentVariable> List<Map<String, Object>> componentVariablesInformation(
     String language, List<T> variables
   ) {
     var variablesInformation = Lists.<Map<String, Object>>newArrayList();
     for (var variable : variables) {
       var variableInformation = Maps.<String, Object>newHashMap();
       variableInformation.put("identifier", variable.identifier());
+      if (variable instanceof DynamicInputComponentVariable inputVariable) {
+        variableInformation.putAll(dynamicInputVariableInformation(inputVariable));
+        variablesInformation.add(variableInformation);
+        continue;
+      }
       variableInformation.put("name", translation.translate(language,
         variable.displayName()));
       if (variable instanceof InputComponentVariable inputVariable) {
-        variableInformation.put("description", translation.translate(language,
-          inputVariable.description()));
-        variableInformation.put("placeholder", translation.translate(language,
-          inputVariable.placeholder()));
-        variableInformation.put("type", inputVariable.type());
-        variableInformation.put("dataType", inputVariable.dataType());
+        variableInformation.putAll(inputVariableInformation(language, inputVariable));
       }
       variablesInformation.add(variableInformation);
     }
     return variablesInformation;
+  }
+
+  private Map<String, Object> inputVariableInformation(
+    String language, InputComponentVariable variable
+  ) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("description", translation.translate(language,
+      variable.description()));
+    information.put("placeholder", translation.translate(language,
+      variable.placeholder()));
+    information.put("type", variable.type());
+    information.put("dataType", variable.dataType());
+    return information;
+  }
+
+  private Map<String, Object> dynamicInputVariableInformation(
+    DynamicInputComponentVariable variable
+  ) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("dataType", variable.dataType());
+    information.put("requiredPredecessors", variable.requiredPredecessors());
+    return information;
   }
 
   @RequestMapping(path = "/component/select/items/", method = RequestMethod.POST)
@@ -187,31 +218,85 @@ public final class ComponentController extends DulnoRestController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var module = body.getString("module");
-    var type = body.getString("type");
-    var component = body.getString("componentType").equalsIgnoreCase("trigger") ?
-      coreModule.findTriggerInformation(module, type) :
-      coreModule.findActionInformation(module, type);
+    var component = findSelectableInputComponentVariable(body.getString("module"),
+      body.getString("type"), body.getString("componentType"),
+      body.getString("select"));
     if (component.isEmpty()) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
-    var select = component.get().inputVariables().stream()
-      .filter(variable -> variable.dataType().equals(InputComponentDataType.SELECT))
-      .filter(variable -> variable.identifier().equals(body.getString("select")))
-      .findFirst();
-    if (select.isEmpty()) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    var previousInputs =body.getObject("previousInputs").raw().toMap()
+    var previousInputs = body.getObject("previousInputs").raw().toMap()
       .entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
         entry -> (String) entry.getValue()));;
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> findSelectItemsTarget(user.id())
-      .thenAccept(target -> select.get().select().compile(user, target, previousInputs)
+    return findUser(request).thenCompose(user ->
+      findSelectItemsTarget(user.id()).thenCompose(target -> component.get()
+        .select().compile(user, target, previousInputs)
         .thenApply(items -> items.stream().map(item -> new JSONObject(Map.of(
           "identifier", item.identifier(), "name", item.name())).toString()))
-        .thenAccept(items -> futureResponse.complete(Map.of("items", items)))));
-    return futureResponse;
+        .thenApply(items -> Map.of("items", items))));
+  }
+
+  private Optional<SelectableInputComponentVariable> findSelectableInputComponentVariable(
+    String module, String type, String componentType, String componentIdentifier
+  ) {
+    return this.findInputComponentVariable(module, type, componentType,
+      componentIdentifier, InputComponentDataType.SELECT);
+  }
+
+  @RequestMapping(path = "/component/dynamic/inputs/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findDynamicInputs(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var component = findDynamicInputComponentVariable(body.getString("module"),
+      body.getString("type"), body.getString("componentType"),
+      body.getString("dynamic"));
+    if (component.isEmpty()) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    var content = body.getObject("content").raw();
+    if (!checkDynamicContentCompleteness(component.get(), content)) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return findUser(request)
+      .thenCompose(user -> findSelectItemsTarget(user.id())
+        .thenCompose(target -> component.get().variableFunction()
+          .compile(user, target, content)
+          .thenApply(inputs -> Map.of("dynamicInputs",
+            componentVariablesInformation(user.language(), inputs)))));
+  }
+
+  private Optional<DynamicInputComponentVariable> findDynamicInputComponentVariable(
+    String module, String type, String componentType, String componentIdentifier
+  ) {
+    return this.findInputComponentVariable(module, type, componentType,
+      componentIdentifier, InputComponentDataType.DYNAMIC);
+  }
+
+  private boolean checkDynamicContentCompleteness(
+    DynamicInputComponentVariable component, JSONObject content
+  ) {
+    for (var predecessor : component.requiredPredecessors()) {
+      if (!content.has(predecessor)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private <T extends InputComponentVariable> Optional<T> findInputComponentVariable(
+    String module, String type, String componentType, String componentIdentifier,
+    InputComponentDataType dataType
+  ) {
+    var component = componentType.equalsIgnoreCase("trigger") ?
+      coreModule.findTriggerInformation(module, type) :
+      coreModule.findActionInformation(module, type);
+    return component.flatMap(componentInformation ->
+      componentInformation.inputVariables().stream()
+        .filter(variable -> variable.dataType().equals(dataType))
+        .filter(variable -> variable.identifier().equals(componentIdentifier))
+        .map(entry -> (T) entry)
+        .findFirst());
   }
 
   private CompletableFuture<UUID> findSelectItemsTarget(UUID userId) {

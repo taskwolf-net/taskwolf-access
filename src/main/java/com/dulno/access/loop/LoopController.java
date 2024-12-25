@@ -5,7 +5,6 @@ import com.dulno.core.loop.LoopInformationRepository;
 import com.dulno.core.workflow.component.ComponentVariable;
 import com.dulno.core.workflow.component.input.InputComponentVariable;
 import com.dulno.core.workflow.component.output.DynamicOutputComponentVariable;
-import com.dulno.core.workflow.component.output.DynamicOutputComponentVariableInput;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
@@ -95,23 +94,14 @@ public final class LoopController extends DulnoRestController {
     var variablesInformation = Lists.<Map<String, Object>>newArrayList();
     for (var variable : variables) {
       if (variable instanceof DynamicOutputComponentVariable dynamicVariable) {
-        variablesInformation.addAll(collectDynamicOutputVariableInformation(
-          dynamicVariable, language, currentContent, previousComponents));
+        variablesInformation.addAll(dynamicVariable.variableFunction()
+          .compile(currentContent, previousComponents).stream()
+          .map(entry -> assembleVariableInformation(entry, language)).toList());
         continue;
       }
       variablesInformation.add(assembleVariableInformation(variable, language));
     }
     return variablesInformation;
-  }
-
-  private List<Map<String, Object>> collectDynamicOutputVariableInformation(
-    DynamicOutputComponentVariable variable, String language,
-    JSONObject currentContent, List<JSONObject> previousComponents
-  ) {
-    var input = DynamicOutputComponentVariableInput.create(currentContent,
-      previousComponents);
-    return variable.variableFunction().apply(input).stream()
-      .map(entry -> assembleVariableInformation(entry, language)).toList();
   }
 
   private <T extends ComponentVariable> Map<String, Object> assembleVariableInformation(

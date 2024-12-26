@@ -3,7 +3,6 @@ package com.dulno.access.account;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.account.AccountLink;

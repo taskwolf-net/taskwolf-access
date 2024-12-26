@@ -1,26 +1,26 @@
 package com.dulno.access.workflow;
 
-import com.dulno.core.workflow.timeline.entry.TimelineWorkflowFailureEntry;
+import com.dulno.core.locale.Translation;
+import com.dulno.workflow.timeline.Timeline;
+import com.dulno.workflow.timeline.TimelineDatabaseTable;
+import com.dulno.workflow.timeline.TimelineFactory;
+import com.dulno.workflow.timeline.entry.TimelineEntry;
+import com.dulno.workflow.timeline.entry.TimelineWorkflowFailureEntry;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.action.ActionDatabaseTable;
+import com.dulno.workflow.action.ActionDatabaseTable;
 import com.dulno.core.bundle.BundleDatabaseTable;
-import com.dulno.core.condition.ConditionDatabaseTable;
+import com.dulno.workflow.condition.ConditionDatabaseTable;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
-import com.dulno.core.workflow.WorkflowDatabaseTable;
-import com.dulno.core.workflow.WorkflowEntry;
-import com.dulno.core.workflow.timeline.Timeline;
-import com.dulno.core.workflow.timeline.TimelineDatabaseTable;
-import com.dulno.core.workflow.timeline.TimelineFactory;
-import com.dulno.core.workflow.timeline.entry.TimelineEntry;
+import com.dulno.workflow.structure.WorkflowDatabaseTable;
+import com.dulno.workflow.structure.WorkflowEntry;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -33,7 +33,7 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class WorkflowTimelineController extends WorkflowController {
-  private final CoreModule coreModule;
+  private final Translation translation;
   private final TimelineFactory timelineFactory;
   private final TimelineDatabaseTable timelineDatabaseTable;
 
@@ -45,13 +45,13 @@ public final class WorkflowTimelineController extends WorkflowController {
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable,
-    CoreModule coreModule, TimelineFactory timelineFactory,
+    Translation translation, TimelineFactory timelineFactory,
     TimelineDatabaseTable timelineDatabaseTable
   ) {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
       teamTargetDatabaseTable, bundleDatabaseTable, teamDatabaseTable);
-    this.coreModule = coreModule;
+    this.translation = translation;
     this.timelineFactory = timelineFactory;
     this.timelineDatabaseTable = timelineDatabaseTable;
   }
@@ -85,16 +85,16 @@ public final class WorkflowTimelineController extends WorkflowController {
       .sorted(Comparator.comparing(TimelineEntry::rawTime).reversed()).toList();
     for (var entry : entries) {
       var entryInformation = Maps.<String, Object>newHashMap();
-      entryInformation.put("title", entry.title(coreModule, user));
-      entryInformation.put("description", entry.description(coreModule, user));
+      entryInformation.put("title", entry.title(translation, user));
+      entryInformation.put("description", entry.description(translation, user));
       entryInformation.put("level", entry.level());
       entryInformation.put("time", entry.formattedTime());
       if (entry instanceof TimelineWorkflowFailureEntry failureEntry) {
         entryInformation.put("isFailure", true);
         entryInformation.put("failureModuleName",
-          coreModule.translate(user, failureEntry.moduleName()));
+          translation.translate(user, failureEntry.moduleName()));
         entryInformation.put("failureStepName",
-          coreModule.translate(user, failureEntry.stepName()));
+          translation.translate(user, failureEntry.stepName()));
         entryInformation.put("failureStepIndex", failureEntry.stepIndex());
       } else {
         entryInformation.put("isFailure", false);

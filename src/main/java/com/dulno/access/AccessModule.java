@@ -2,6 +2,7 @@ package com.dulno.access;
 
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.worker.WorkerConfiguration;
+import com.dulno.workflow.WorkflowModule;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.name.Names;
@@ -22,7 +23,6 @@ import com.dulno.access.tutorial.TutorialContextInitializer;
 import com.dulno.access.verification.VerificationContextInitializer;
 import com.dulno.access.whitelist.WhitelistContextInitializer;
 import com.dulno.access.workflow.WorkflowContextInitializer;
-import com.dulno.core.CoreModule;
 import com.dulno.core.database.DatabaseConnection;
 import com.dulno.core.database.DatabaseKeyspace;
 import com.dulno.core.locale.Translation;
@@ -52,17 +52,17 @@ public final class AccessModule extends Module {
   }
 
   private void registerContextInitializers(SpringApplication application) {
+    var moduleLoader = injector().getInstance(ModuleLoader.class);
     application.addInitializers(AccessContextInitializer.create(log,
       injector().getInstance(Key.get(java.security.Key.class, Names.named("homeKey"))),
       injector().getInstance(Key.get(java.security.Key.class, Names.named("productKey"))),
       injector().getInstance(Key.get(java.security.Key.class, Names.named("refreshKey"))),
-      injector().getInstance(ModuleLoader.class),
-      injector().getInstance(DatabaseConnection.class),
+      moduleLoader, injector().getInstance(DatabaseConnection.class),
       injector().getInstance(DatabaseKeyspace.class),
       injector().getInstance(WorkerDistribution.class),
       injector().getInstance(WorkerProxyClient.class),
       injector().getInstance(WorkerConfiguration.class),
-      injector().getInstance(CoreModule.class),
+      (WorkflowModule) moduleLoader.findModule("workflow").get(),
       injector().getInstance(Translation.class),
       injector().getInstance(ErrorRepository.class),
       injector().getInstance(MailFactory.class)));

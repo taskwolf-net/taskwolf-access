@@ -2,7 +2,7 @@ package com.dulno.access.organization;
 
 import com.dulno.access.account.AccountController;
 import com.dulno.access.workflow.WorkflowModificationController;
-import com.dulno.core.workflow.WorkflowDatabaseTable;
+import com.dulno.workflow.structure.WorkflowDatabaseTable;
 import com.dulno.device.structure.UserDeviceDatabaseTable;
 import com.dulno.process.access.ProcessModificationController;
 import com.dulno.process.structure.ProcessDatabaseTable;

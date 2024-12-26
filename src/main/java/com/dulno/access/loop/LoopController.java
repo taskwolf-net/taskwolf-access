@@ -1,10 +1,10 @@
 package com.dulno.access.loop;
 
-import com.dulno.core.loop.LoopInformation;
-import com.dulno.core.loop.LoopInformationRepository;
-import com.dulno.core.workflow.component.ComponentVariable;
-import com.dulno.core.workflow.component.input.InputComponentVariable;
-import com.dulno.core.workflow.component.output.DynamicOutputComponentVariable;
+import com.dulno.workflow.loop.LoopInformation;
+import com.dulno.workflow.loop.LoopInformationRepository;
+import com.dulno.workflow.component.ComponentVariable;
+import com.dulno.workflow.component.input.InputComponentVariable;
+import com.dulno.workflow.component.output.DynamicOutputComponentVariable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;

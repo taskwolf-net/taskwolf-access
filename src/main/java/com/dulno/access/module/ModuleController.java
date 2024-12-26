@@ -1,10 +1,10 @@
 package com.dulno.access.module;
 
+import com.dulno.workflow.integration.Integration;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.locale.Translation;
@@ -52,15 +52,17 @@ public final class ModuleController extends DulnoRestController {
     return findUser(request).thenApply(user ->
       Map.of("modules", moduleLoader.allRegisteredModules().stream()
         .filter(module -> module.module().moduleInformation().type().isPublic())
-        .filter(module -> moduleFitsComponentType(module, componentType))
+        .filter(module -> module.module() instanceof Integration)
+        .filter(module -> moduleFitsComponentType((Integration) module.module(),
+          componentType))
         .map(module -> moduleInformation(user.language(), module)).toList()));
   }
 
-  private boolean moduleFitsComponentType(RegisteredModule module, String componentType) {
+  private boolean moduleFitsComponentType(Integration module, String componentType) {
     if (componentType.equalsIgnoreCase("trigger")) {
-      return !module.module().triggerRepository().isEmpty();
+      return !module.triggerRepository().isEmpty();
     } else if(componentType.equalsIgnoreCase("action")) {
-      return !module.module().actionRepository().isEmpty();
+      return !module.actionRepository().isEmpty();
     }
     return false;
   }

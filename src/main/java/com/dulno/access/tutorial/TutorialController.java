@@ -2,7 +2,6 @@ package com.dulno.access.tutorial;
 
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.tutorial.Tutorial;

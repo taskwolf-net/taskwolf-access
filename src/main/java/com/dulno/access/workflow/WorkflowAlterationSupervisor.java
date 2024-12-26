@@ -3,9 +3,9 @@ package com.dulno.access.workflow;
 import lombok.RequiredArgsConstructor;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.user.User;
-import com.dulno.core.workflow.WorkflowEntry;
-import com.dulno.core.workflow.timeline.TimelineDatabaseEntry;
-import com.dulno.core.workflow.timeline.TimelineDatabaseTable;
+import com.dulno.workflow.structure.WorkflowEntry;
+import com.dulno.workflow.timeline.TimelineDatabaseEntry;
+import com.dulno.workflow.timeline.TimelineDatabaseTable;
 import org.json.JSONObject;
 
 import java.util.List;

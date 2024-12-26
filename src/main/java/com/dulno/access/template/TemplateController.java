@@ -1,19 +1,19 @@
 package com.dulno.access.template;
 
+import com.dulno.core.module.ModuleLoader;
+import com.dulno.workflow.WorkflowModule;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.DulnoRestController;
-import com.dulno.core.action.ActionInformation;
+import com.dulno.workflow.action.ActionInformation;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.module.ModuleInformation;
 import com.dulno.core.template.Template;
 import com.dulno.core.template.TemplateDatabaseTable;
-import com.dulno.core.trigger.TriggerInformation;
-import com.dulno.core.user.User;
+import com.dulno.workflow.trigger.TriggerInformation;
 import com.dulno.core.user.UserDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,17 +24,20 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class TemplateController extends DulnoRestController {
-  private final CoreModule coreModule;
+  private final ModuleLoader moduleLoader;
+  private final WorkflowModule workflowModule;
   private final Translation translation;
   private final TemplateDatabaseTable templateDatabaseTable;
 
   private TemplateController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
-    Translation translation, TemplateDatabaseTable templateDatabaseTable
+    Key secretKey, UserDatabaseTable userDatabaseTable, ModuleLoader moduleLoader,
+    WorkflowModule workflowModule, Translation translation,
+    TemplateDatabaseTable templateDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
+    this.moduleLoader = moduleLoader;
+    this.workflowModule = workflowModule;
     this.translation = translation;
-    this.coreModule = coreModule;
     this.templateDatabaseTable = templateDatabaseTable;
   }
 
@@ -114,12 +117,12 @@ public final class TemplateController extends DulnoRestController {
     var triggerInformation = Maps.<String, Object>newHashMap();
     var triggerModule = template.trigger().module();
     triggerInformation.put("module", triggerModule);
-    triggerInformation.put("moduleLogo", coreModule.findModuleInformation(triggerModule)
+    triggerInformation.put("moduleLogo", moduleLoader.findModuleInformation(triggerModule)
       .map(ModuleInformation::logo).orElse(""));
     var triggerType = template.trigger().type();
     triggerInformation.put("type", triggerType);
     triggerInformation.put("typeDescription", translation.translate(language,
-      coreModule.findTriggerInformation(triggerModule, triggerType)
+      workflowModule.findTriggerInformation(triggerModule, triggerType)
         .map(TriggerInformation::description).orElse("")));
     information.put("trigger", triggerInformation);
     var actionsInformation = Lists.<Map<String, Object>>newArrayList();
@@ -128,12 +131,12 @@ public final class TemplateController extends DulnoRestController {
       var actionModule = action.module();
       actionInformation.put("actionIndex", action.actionIndex());
       actionInformation.put("module", action.module());
-      actionInformation.put("moduleLogo", coreModule.findModuleInformation(actionModule)
+      actionInformation.put("moduleLogo", moduleLoader.findModuleInformation(actionModule)
         .map(ModuleInformation::logo).orElse(""));
       var actionType = action.type();
       actionInformation.put("type", action.type());
       actionInformation.put("typeDescription", translation.translate(language,
-        coreModule.findActionInformation(actionModule, actionType)
+        workflowModule.findActionInformation(actionModule, actionType)
           .map(ActionInformation::description).orElse("")));
       actionsInformation.add(actionInformation);
     }

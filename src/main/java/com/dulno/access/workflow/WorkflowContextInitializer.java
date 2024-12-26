@@ -1,20 +1,20 @@
 package com.dulno.access.workflow;
 
-import com.dulno.core.loop.LoopDatabaseTable;
-import com.dulno.core.loop.LoopInformationRepository;
+import com.dulno.workflow.loop.LoopDatabaseTable;
+import com.dulno.workflow.loop.LoopInformationRepository;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
-import com.dulno.core.action.ActionDatabaseTable;
-import com.dulno.core.condition.ConditionDatabaseTable;
-import com.dulno.core.condition.ConditionInformationRepository;
-import com.dulno.core.trigger.TriggerDatabaseTable;
-import com.dulno.core.workflow.WorkflowDatabaseTable;
-import com.dulno.core.workflow.operation.OperationDatabaseTable;
-import com.dulno.core.workflow.throttle.WorkflowThrottleDatabaseTable;
-import com.dulno.core.workflow.timeline.TimelineDatabaseTable;
-import com.dulno.core.workflow.timeline.TimelineFactory;
+import com.dulno.workflow.action.ActionDatabaseTable;
+import com.dulno.workflow.condition.ConditionDatabaseTable;
+import com.dulno.workflow.condition.ConditionInformationRepository;
+import com.dulno.workflow.trigger.TriggerDatabaseTable;
+import com.dulno.workflow.structure.WorkflowDatabaseTable;
+import com.dulno.workflow.operation.OperationDatabaseTable;
+import com.dulno.workflow.throttle.WorkflowThrottleDatabaseTable;
+import com.dulno.workflow.timeline.TimelineDatabaseTable;
+import com.dulno.workflow.timeline.TimelineFactory;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 

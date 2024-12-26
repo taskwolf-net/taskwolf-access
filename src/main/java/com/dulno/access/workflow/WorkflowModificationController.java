@@ -1,25 +1,25 @@
 package com.dulno.access.workflow;
 
-import com.dulno.core.loop.LoopDatabaseTable;
+import com.dulno.workflow.WorkflowModule;
+import com.dulno.workflow.loop.LoopDatabaseTable;
+import com.dulno.workflow.timeline.TimelineDatabaseEntry;
+import com.dulno.workflow.timeline.TimelineDatabaseTable;
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.action.ActionDatabaseTable;
+import com.dulno.workflow.action.ActionDatabaseTable;
 import com.dulno.core.bundle.BundleDatabaseTable;
-import com.dulno.core.condition.ConditionDatabaseTable;
+import com.dulno.workflow.condition.ConditionDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
-import com.dulno.core.trigger.TriggerDatabaseTable;
-import com.dulno.core.trigger.TriggerState;
+import com.dulno.workflow.trigger.TriggerDatabaseTable;
+import com.dulno.workflow.trigger.TriggerState;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
-import com.dulno.core.workflow.*;
-import com.dulno.core.workflow.timeline.TimelineDatabaseEntry;
-import com.dulno.core.workflow.timeline.TimelineDatabaseTable;
+import com.dulno.workflow.structure.*;
 import org.json.JSONObject;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,7 +34,7 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class WorkflowModificationController extends WorkflowController {
-  private final CoreModule coreModule;
+  private final WorkflowModule workflowModule;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
@@ -42,7 +42,7 @@ public final class WorkflowModificationController extends WorkflowController {
   private final TimelineDatabaseTable timelineDatabaseTable;
 
   private WorkflowModificationController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
+    Key secretKey, UserDatabaseTable userDatabaseTable, WorkflowModule workflowModule,
     WorkflowDatabaseTable workflowDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable, LoopDatabaseTable loopDatabaseTable,
@@ -54,7 +54,7 @@ public final class WorkflowModificationController extends WorkflowController {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
       teamTargetDatabaseTable, bundleDatabaseTable, teamDatabaseTable);
-    this.coreModule = coreModule;
+    this.workflowModule = workflowModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
@@ -251,7 +251,7 @@ public final class WorkflowModificationController extends WorkflowController {
     var type = triggerData.getString("type");
     return triggerDatabaseTable.insertTrigger(triggerId, ownerId, workflowId,
       module, type, TriggerState.ARMED.toString())
-      .thenCompose(value -> coreModule.findTrigger(module, type).get().insert(
+      .thenCompose(value -> workflowModule.findTrigger(module, type).get().insert(
         triggerId, new JSONObject(triggerData.getString("content")).toMap()));
   }
 
@@ -262,7 +262,7 @@ public final class WorkflowModificationController extends WorkflowController {
     var type = actionData.getString("type");
     return actionDatabaseTable.insertAction(actionId, ownerId, workflowId,
         module, type, actionData.getInt("index"))
-      .thenCompose(value -> coreModule.findAction(module, type).get().insert(
+      .thenCompose(value -> workflowModule.findAction(module, type).get().insert(
         actionId, new JSONObject(actionData.getString("content")).toMap()));
   }
 
@@ -341,7 +341,7 @@ public final class WorkflowModificationController extends WorkflowController {
     }
     return triggerDatabaseTable.findTrigger(triggerId)
       .thenCompose(entry -> triggerDatabaseTable.deleteTrigger(triggerId)
-        .thenCompose(value -> coreModule.findTrigger(entry.module(), entry.type())
+        .thenCompose(value -> workflowModule.findTrigger(entry.module(), entry.type())
           .get().delete(entry.id())));
   }
 
@@ -358,7 +358,7 @@ public final class WorkflowModificationController extends WorkflowController {
     }
     return actionDatabaseTable.findAction(actionId)
       .thenCompose(entry -> actionDatabaseTable.deleteAction(actionId)
-        .thenCompose(value -> coreModule.findAction(entry.module(), entry.type())
+        .thenCompose(value -> workflowModule.findAction(entry.module(), entry.type())
           .get().delete(entry.id())));
   }
 }

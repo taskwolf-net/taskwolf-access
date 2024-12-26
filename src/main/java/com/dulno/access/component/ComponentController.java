@@ -1,26 +1,26 @@
 package com.dulno.access.component;
 
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
-import com.dulno.core.trigger.TriggerInformation;
-import com.dulno.core.workflow.component.input.DynamicInputComponentVariable;
-import com.dulno.core.workflow.component.input.SelectableInputComponentVariable;
-import com.dulno.core.workflow.component.output.OutputComponentVariable;
+import com.dulno.workflow.WorkflowModule;
+import com.dulno.workflow.integration.Integration;
+import com.dulno.workflow.trigger.TriggerInformation;
+import com.dulno.workflow.component.input.DynamicInputComponentVariable;
+import com.dulno.workflow.component.input.SelectableInputComponentVariable;
+import com.dulno.workflow.component.output.OutputComponentVariable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.locale.Translation;
-import com.dulno.core.module.Module;
 import com.dulno.core.module.ModuleLoader;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
-import com.dulno.core.workflow.component.ComponentInformation;
-import com.dulno.core.workflow.component.ComponentVariable;
-import com.dulno.core.workflow.component.input.InputComponentDataType;
-import com.dulno.core.workflow.component.input.InputComponentVariable;
+import com.dulno.workflow.component.ComponentInformation;
+import com.dulno.workflow.component.ComponentVariable;
+import com.dulno.workflow.component.input.InputComponentDataType;
+import com.dulno.workflow.component.input.InputComponentVariable;
 import org.json.JSONObject;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,20 +37,20 @@ public final class ComponentController extends DulnoRestController {
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final TeamTargetDatabaseTable teamTargetDatabaseTable;
   private final ModuleLoader moduleLoader;
-  private final CoreModule coreModule;
+  private final WorkflowModule workflowModule;
   private final Translation translation;
 
   private ComponentController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable, ModuleLoader moduleLoader,
-    CoreModule coreModule, Translation translation
+    WorkflowModule workflowModule, Translation translation
   ) {
     super(secretKey, userDatabaseTable);
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.teamTargetDatabaseTable = teamTargetDatabaseTable;
     this.moduleLoader = moduleLoader;
-    this.coreModule = coreModule;
+    this.workflowModule = workflowModule;
     this.translation = translation;
   }
 
@@ -66,10 +66,14 @@ public final class ComponentController extends DulnoRestController {
       return CompletableFuture.completedFuture(Map.of("components",
         Lists.newArrayList()));
     }
-    return findUser(request).thenApply(user ->
-      body.getString("componentType").equalsIgnoreCase("trigger") ?
-        findTriggerComponents(user.language(), registeredModule.get().module()) :
-        findActionComponents(user.language(), registeredModule.get().module()));
+    if (registeredModule.get().module() instanceof Integration integration) {
+      return findUser(request).thenApply(user ->
+        body.getString("componentType").equalsIgnoreCase("trigger") ?
+          findTriggerComponents(user.language(), integration) :
+          findActionComponents(user.language(), integration));
+    }
+    return CompletableFuture.completedFuture(Map.of("components",
+      Lists.newArrayList()));
   }
 
   @RequestMapping(path = "/components/find/unauthorized/{language}/",
@@ -82,19 +86,21 @@ public final class ComponentController extends DulnoRestController {
     var registeredModule = moduleLoader.findRegisteredModuleById(
       body.getString("module"));
       return registeredModule
+        .filter(module -> module.module() instanceof Integration)
+        .map(module -> (Integration) module.module())
         .map(module -> body.getString("componentType").equalsIgnoreCase("trigger") ?
-          findTriggerComponents(language, module.module()) :
-          findActionComponents(language, module.module()))
+          findTriggerComponents(language, module) :
+          findActionComponents(language, module))
         .orElseGet(() -> Map.of("components", Lists.newArrayList()));
   }
 
-  private Map<String, Object> findTriggerComponents(String language, Module module) {
+  private Map<String, Object> findTriggerComponents(String language, Integration module) {
     return Map.of("components", module.triggerRepository().allTriggers()
       .stream().map(trigger -> superficialComponentInformation(language,
         trigger.type(), trigger.information())).toList());
   }
 
-  private Map<String, Object> findActionComponents(String language, Module module) {
+  private Map<String, Object> findActionComponents(String language, Integration module) {
     return Map.of("components", module.actionRepository().allActions()
       .stream().map(action -> superficialComponentInformation(language,
         action.type(), action.information())).toList());
@@ -117,7 +123,7 @@ public final class ComponentController extends DulnoRestController {
   private Map<String, Object> findTriggerComponent(
     String language, String module, String type
   ) {
-    return coreModule.findTrigger(module, type).map(trigger ->
+    return workflowModule.findTrigger(module, type).map(trigger ->
         detailedComponentInformation(language, trigger.type(), trigger.information()))
       .orElseGet(Maps::newHashMap);
   }
@@ -125,7 +131,7 @@ public final class ComponentController extends DulnoRestController {
   private Map<String, Object> findActionComponent(
     String language, String module, String type
   ) {
-    return coreModule.findAction(module, type).map(action ->
+    return workflowModule.findAction(module, type).map(action ->
         detailedComponentInformation(language, action.type(), action.information()))
       .orElseGet(Maps::newHashMap);
   }
@@ -289,8 +295,8 @@ public final class ComponentController extends DulnoRestController {
     InputComponentDataType dataType
   ) {
     var component = componentType.equalsIgnoreCase("trigger") ?
-      coreModule.findTriggerInformation(module, type) :
-      coreModule.findActionInformation(module, type);
+      workflowModule.findTriggerInformation(module, type) :
+      workflowModule.findActionInformation(module, type);
     return component.flatMap(componentInformation ->
       componentInformation.inputVariables().stream()
         .filter(variable -> variable.dataType().equals(dataType))

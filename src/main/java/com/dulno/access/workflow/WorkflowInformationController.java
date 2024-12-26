@@ -1,20 +1,21 @@
 package com.dulno.access.workflow;
 
-import com.dulno.core.loop.LoopDatabaseTable;
-import com.dulno.core.loop.LoopEntry;
-import com.dulno.core.loop.LoopInformationRepository;
+import com.dulno.core.module.ModuleLoader;
+import com.dulno.workflow.WorkflowModule;
+import com.dulno.workflow.loop.LoopDatabaseTable;
+import com.dulno.workflow.loop.LoopEntry;
+import com.dulno.workflow.loop.LoopInformationRepository;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.action.ActionDatabaseTable;
-import com.dulno.core.action.ActionEntry;
+import com.dulno.workflow.action.ActionDatabaseTable;
+import com.dulno.workflow.action.ActionEntry;
 import com.dulno.core.bundle.BundleDatabaseTable;
-import com.dulno.core.condition.ConditionDatabaseTable;
-import com.dulno.core.condition.ConditionEntry;
-import com.dulno.core.condition.ConditionInformationRepository;
+import com.dulno.workflow.condition.ConditionDatabaseTable;
+import com.dulno.workflow.condition.ConditionEntry;
+import com.dulno.workflow.condition.ConditionInformationRepository;
 import com.dulno.core.database.paging.DatabaseDirection;
 import com.dulno.core.database.paging.DatabaseOrder;
 import com.dulno.core.database.paging.DatabasePage;
@@ -22,14 +23,14 @@ import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
-import com.dulno.core.trigger.TriggerDatabaseTable;
-import com.dulno.core.trigger.TriggerEntry;
-import com.dulno.core.trigger.TriggerState;
+import com.dulno.workflow.trigger.TriggerDatabaseTable;
+import com.dulno.workflow.trigger.TriggerEntry;
+import com.dulno.workflow.trigger.TriggerState;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
-import com.dulno.core.workflow.WorkflowDatabaseTable;
-import com.dulno.core.workflow.WorkflowEntry;
+import com.dulno.workflow.structure.WorkflowDatabaseTable;
+import com.dulno.workflow.structure.WorkflowEntry;
 import org.json.JSONObject;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,7 +41,8 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class WorkflowInformationController extends WorkflowController {
-  private final CoreModule coreModule;
+  private final ModuleLoader moduleLoader;
+  private final WorkflowModule workflowModule;
   private final Translation translation;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
@@ -52,8 +54,9 @@ public final class WorkflowInformationController extends WorkflowController {
 
   private WorkflowInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    WorkflowDatabaseTable workflowDatabaseTable, CoreModule coreModule,
-    Translation translation, TriggerDatabaseTable triggerDatabaseTable,
+    WorkflowDatabaseTable workflowDatabaseTable, ModuleLoader moduleLoader,
+    WorkflowModule workflowModule, Translation translation,
+    TriggerDatabaseTable triggerDatabaseTable,
     ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
@@ -65,7 +68,8 @@ public final class WorkflowInformationController extends WorkflowController {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
       teamTargetDatabaseTable, bundleDatabaseTable, teamDatabaseTable);
-    this.coreModule = coreModule;
+    this.moduleLoader = moduleLoader;
+    this.workflowModule = workflowModule;
     this.translation = translation;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
@@ -191,7 +195,7 @@ public final class WorkflowInformationController extends WorkflowController {
       return CompletableFuture.completedFuture(createEmptyTriggerInformation());
     }
     return triggerDatabaseTable.findTrigger(workflow.triggerId())
-      .thenCompose(entry -> coreModule.findTrigger(entry.module(), entry.type())
+      .thenCompose(entry -> workflowModule.findTrigger(entry.module(), entry.type())
         .get().findContent(entry.id())
         .thenApply(content -> assemblyTriggerInformation(user, entry, content))
         .exceptionally(throwable -> assemblyTriggerInformation(user, entry,
@@ -204,10 +208,10 @@ public final class WorkflowInformationController extends WorkflowController {
     var information = Maps.<String, Object>newHashMap();
     information.put("triggerModule", trigger.module());
     information.put("triggerModuleLogo",
-      coreModule.findModuleInformation(trigger.module()).get().logo());
+      moduleLoader.findModuleInformation(trigger.module()).get().logo());
     information.put("triggerType", trigger.type());
     information.put("triggerTypeDescription", translation.translate(user,
-      coreModule.findTriggerInformation(trigger.module(),
+      workflowModule.findTriggerInformation(trigger.module(),
         trigger.type()).get().description()));
     information.put("triggerContent", new JSONObject(content).toString());
     information.put("armed", trigger.state() == TriggerState.ARMED);
@@ -237,7 +241,7 @@ public final class WorkflowInformationController extends WorkflowController {
   private CompletableFuture<Map<String, Object>> gatherActionInformation(
     User user, ActionEntry entry
   ) {
-    return coreModule.findAction(entry.module(), entry.type())
+    return workflowModule.findAction(entry.module(), entry.type())
       .get().findContent(entry.id())
       .thenApply(content -> assemblyActionInformation(user, entry, content))
       .exceptionally(throwable -> assemblyActionInformation(user, entry,
@@ -251,10 +255,10 @@ public final class WorkflowInformationController extends WorkflowController {
     information.put("actionIndex", action.index());
     information.put("actionModule", action.module());
     information.put("actionModuleLogo",
-      coreModule.findModuleInformation(action.module()).get().logo());
+      moduleLoader.findModuleInformation(action.module()).get().logo());
     information.put("actionType", action.type());
     information.put("actionTypeDescription", translation.translate(user,
-      coreModule.findActionInformation(action.module(),
+      workflowModule.findActionInformation(action.module(),
         action.type()).get().description()));
     information.put("actionContent", new JSONObject(content).toString());
     return information;

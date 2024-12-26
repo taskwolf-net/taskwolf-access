@@ -2,8 +2,8 @@ package com.dulno.access;
 
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.worker.WorkerConfiguration;
+import com.dulno.workflow.WorkflowModule;
 import lombok.RequiredArgsConstructor;
-import com.dulno.core.CoreModule;
 import com.dulno.core.database.DatabaseConnection;
 import com.dulno.core.database.DatabaseKeyspace;
 import com.dulno.core.locale.Translation;
@@ -33,7 +33,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final WorkerDistribution distribution;
   private final WorkerProxyClient workerProxyClient;
   private final WorkerConfiguration workerConfiguration;
-  private final CoreModule coreModule;
+  private final WorkflowModule workflowModule;
   private final Translation translation;
   private final ErrorRepository errorRepository;
   private final MailFactory mailFactory;
@@ -48,7 +48,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("distribution", distribution);
     beanFactory.registerSingleton("workerProxyClient", workerProxyClient);
     beanFactory.registerSingleton("workerConfiguration", workerConfiguration);
-    beanFactory.registerSingleton("coreModule", coreModule);
+    beanFactory.registerSingleton("workflowModule", workflowModule);
     beanFactory.registerSingleton("translation", translation);
     beanFactory.registerSingleton("errorRepository", errorRepository);
     beanFactory.registerSingleton("mailFactory", mailFactory);

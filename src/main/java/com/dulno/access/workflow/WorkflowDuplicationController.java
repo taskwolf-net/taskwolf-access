@@ -1,24 +1,25 @@
 package com.dulno.access.workflow;
 
-import com.dulno.core.loop.LoopDatabaseTable;
+import com.dulno.core.locale.Translation;
+import com.dulno.workflow.WorkflowModule;
+import com.dulno.workflow.loop.LoopDatabaseTable;
 import com.google.api.client.util.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.dulno.core.CoreModule;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.action.ActionDatabaseTable;
+import com.dulno.workflow.action.ActionDatabaseTable;
 import com.dulno.core.bundle.BundleDatabaseTable;
-import com.dulno.core.condition.ConditionDatabaseTable;
-import com.dulno.core.condition.ConditionEntry;
+import com.dulno.workflow.condition.ConditionDatabaseTable;
+import com.dulno.workflow.condition.ConditionEntry;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
-import com.dulno.core.trigger.TriggerDatabaseTable;
+import com.dulno.workflow.trigger.TriggerDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
-import com.dulno.core.workflow.WorkflowDatabaseTable;
-import com.dulno.core.workflow.WorkflowEntry;
+import com.dulno.workflow.structure.WorkflowDatabaseTable;
+import com.dulno.workflow.structure.WorkflowEntry;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -31,15 +32,16 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class WorkflowDuplicationController extends WorkflowController {
-  private final CoreModule coreModule;
+  private final Translation translation;
+  private final WorkflowModule workflowModule;
   private final TriggerDatabaseTable triggerDatabaseTable;
   private final ActionDatabaseTable actionDatabaseTable;
   private final ConditionDatabaseTable conditionDatabaseTable;
   private final LoopDatabaseTable loopDatabaseTable;
 
   private WorkflowDuplicationController(
-    Key secretKey, UserDatabaseTable userDatabaseTable, CoreModule coreModule,
-    WorkflowDatabaseTable workflowDatabaseTable,
+    Key secretKey, UserDatabaseTable userDatabaseTable, Translation translation,
+    WorkflowModule workflowModule, WorkflowDatabaseTable workflowDatabaseTable,
     TriggerDatabaseTable triggerDatabaseTable, ActionDatabaseTable actionDatabaseTable,
     ConditionDatabaseTable conditionDatabaseTable, LoopDatabaseTable loopDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
@@ -49,7 +51,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
     super(secretKey, userDatabaseTable, workflowDatabaseTable,
       actionDatabaseTable, conditionDatabaseTable, userTargetDatabaseTable,
       teamTargetDatabaseTable, bundleDatabaseTable, teamDatabaseTable);
-    this.coreModule = coreModule;
+    this.translation = translation;
+    this.workflowModule = workflowModule;
     this.triggerDatabaseTable = triggerDatabaseTable;
     this.actionDatabaseTable = actionDatabaseTable;
     this.conditionDatabaseTable = conditionDatabaseTable;
@@ -115,7 +118,7 @@ public final class WorkflowDuplicationController extends WorkflowController {
         duplicateLoopId));
     }
     var name = workflow.name() + " (" +
-      coreModule.translate(user, "workflow.duplicated") + ")";
+      translation.translate(user, "workflow.duplicated") + ")";
     name = name.substring(0, Math.min(64, name.length()));
     processes.add(workflowDatabaseTable().insertWorkflow(WorkflowEntry.create(
       duplicateWorkflowId, workflow.ownerId(), workflow.creatorId(),
@@ -146,7 +149,7 @@ public final class WorkflowDuplicationController extends WorkflowController {
       .thenCompose(entry -> triggerDatabaseTable.insertTrigger(duplicateTriggerId,
           entry.ownerId(), duplicateWorkflowId, entry.module(), entry.type(),
           entry.state().toString())
-        .thenCompose(value -> coreModule.findTrigger(entry.module(), entry.type())
+        .thenCompose(value -> workflowModule.findTrigger(entry.module(), entry.type())
           .map(trigger -> trigger.findContent(entry.id())
             .thenCompose(content -> trigger.insert(duplicateTriggerId, content))
             .exceptionally(throwable -> null))
@@ -187,7 +190,7 @@ public final class WorkflowDuplicationController extends WorkflowController {
       .thenCompose(entry -> actionDatabaseTable.insertAction(duplicateActionId,
           entry.ownerId(), duplicateWorkflowId, entry.module(), entry.type(),
           entry.index())
-        .thenCompose(value -> coreModule.findAction(entry.module(), entry.type())
+        .thenCompose(value -> workflowModule.findAction(entry.module(), entry.type())
           .map(action -> action.findContent(entry.id())
             .thenCompose(content -> action.insert(duplicateActionId, content))
             .exceptionally(throwable -> null))

@@ -2,6 +2,7 @@ package com.dulno.access.component;
 
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.workflow.WorkflowModule;
+import com.dulno.workflow.component.output.DynamicOutputComponentVariable;
 import com.dulno.workflow.integration.Integration;
 import com.dulno.workflow.trigger.TriggerInformation;
 import com.dulno.workflow.component.input.DynamicInputComponentVariable;
@@ -114,25 +115,34 @@ public final class ComponentController extends DulnoRestController {
     var body = DulnoRequestBody.of(payload, response);
     var module = body.getString("module");
     var type = body.getString("type");
+    var currentContent = body.getObject("currentContent").raw();
+    var previousComponents = body.getObjectList("previousComponents").stream()
+      .map(DulnoRequestBody::raw).toList();
     return findUser(request).thenApply(user ->
       body.getString("componentType").equalsIgnoreCase("trigger") ?
-        findTriggerComponent(user.language(), module, type) :
-        findActionComponent(user.language(), module, type));
+        findTriggerComponent(user.language(), module, type, currentContent,
+          previousComponents) :
+        findActionComponent(user.language(), module, type, currentContent,
+          previousComponents));
   }
 
   private Map<String, Object> findTriggerComponent(
-    String language, String module, String type
+    String language, String module, String type,
+    JSONObject currentContent, List<JSONObject> previousComponents
   ) {
     return workflowModule.findTrigger(module, type).map(trigger ->
-        detailedComponentInformation(language, trigger.type(), trigger.information()))
+        detailedComponentInformation(language, trigger.type(),
+          trigger.information(), currentContent, previousComponents))
       .orElseGet(Maps::newHashMap);
   }
 
   private Map<String, Object> findActionComponent(
-    String language, String module, String type
+    String language, String module, String type,
+    JSONObject currentContent, List<JSONObject> previousComponents
   ) {
     return workflowModule.findAction(module, type).map(action ->
-        detailedComponentInformation(language, action.type(), action.information()))
+        detailedComponentInformation(language, action.type(),
+          action.information(), currentContent, previousComponents))
       .orElseGet(Maps::newHashMap);
   }
 
@@ -149,17 +159,18 @@ public final class ComponentController extends DulnoRestController {
   }
 
   private Map<String, Object> detailedComponentInformation(
-    String language, String identifier, ComponentInformation component
+    String language, String identifier, ComponentInformation component,
+    JSONObject currentContent, List<JSONObject> previousComponents
   ) {
     var information = superficialComponentInformation(language, identifier, component);
-    information.put("inputVariables",
-      componentVariablesInformation(language, component.inputVariables()));
+    information.put("inputVariables", componentVariablesInformation(language,
+      component.inputVariables(), currentContent, previousComponents));
     var outputVariables = Lists.newArrayList(component.outputVariables());
     if (component instanceof TriggerInformation) {
       outputVariables.addAll(collectTriggerOutputVariables());
     }
-    information.put("outputVariables",
-      componentVariablesInformation(language, outputVariables));
+    information.put("outputVariables", componentVariablesInformation(language,
+      outputVariables, currentContent, previousComponents));
     return information;
   }
 
@@ -175,25 +186,37 @@ public final class ComponentController extends DulnoRestController {
   }
 
   private <T extends ComponentVariable> List<Map<String, Object>> componentVariablesInformation(
-    String language, List<T> variables
+    String language, List<T> variables,
+    JSONObject currentContent, List<JSONObject> previousComponents
   ) {
     var variablesInformation = Lists.<Map<String, Object>>newArrayList();
     for (var variable : variables) {
-      var variableInformation = Maps.<String, Object>newHashMap();
-      variableInformation.put("identifier", variable.identifier());
-      if (variable instanceof DynamicInputComponentVariable inputVariable) {
-        variableInformation.putAll(dynamicInputVariableInformation(inputVariable));
-        variablesInformation.add(variableInformation);
+      if (variable instanceof DynamicOutputComponentVariable dynamicVariable) {
+        variablesInformation.addAll(dynamicVariable.variableFunction()
+          .compile(currentContent, previousComponents).stream()
+          .map(entry -> assembleVariableInformation(entry, language)).toList());
         continue;
       }
-      variableInformation.put("name", translation.translate(language,
-        variable.displayName()));
-      if (variable instanceof InputComponentVariable inputVariable) {
-        variableInformation.putAll(inputVariableInformation(language, inputVariable));
-      }
-      variablesInformation.add(variableInformation);
+      variablesInformation.add(assembleVariableInformation(variable, language));
     }
     return variablesInformation;
+  }
+
+  private <T extends ComponentVariable> Map<String, Object> assembleVariableInformation(
+    T variable, String language
+  ) {
+    var variableInformation = Maps.<String, Object>newHashMap();
+    variableInformation.put("identifier", variable.identifier());
+    if (variable instanceof DynamicInputComponentVariable inputVariable) {
+      variableInformation.putAll(dynamicInputVariableInformation(inputVariable));
+      return variableInformation;
+    }
+    variableInformation.put("name", translation.translate(language,
+      variable.displayName()));
+    if (variable instanceof InputComponentVariable inputVariable) {
+      variableInformation.putAll(inputVariableInformation(language, inputVariable));
+    }
+    return variableInformation;
   }
 
   private Map<String, Object> inputVariableInformation(
@@ -268,8 +291,9 @@ public final class ComponentController extends DulnoRestController {
       .thenCompose(user -> findSelectItemsTarget(user.id())
         .thenCompose(target -> component.get().variableFunction()
           .compile(user, target, content)
-          .thenApply(inputs -> Map.of("dynamicInputs",
-            componentVariablesInformation(user.language(), inputs)))));
+          .thenApply(inputs -> Map.of("dynamicInputs", inputs.stream()
+            .map(input -> assembleVariableInformation(input, user.language()))
+            .toList()))));
   }
 
   private Optional<DynamicInputComponentVariable> findDynamicInputComponentVariable(

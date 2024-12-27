@@ -2,6 +2,7 @@ package com.dulno.access;
 
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.worker.WorkerConfiguration;
+import com.dulno.workflow.WorkflowInjectionModule;
 import com.dulno.workflow.WorkflowModule;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -40,7 +41,7 @@ public final class AccessModule extends Module {
   private Log log;
 
   public AccessModule(Injector injector) {
-    super(injector);
+    super(injector.createChildInjector(WorkflowInjectionModule.create()));
   }
 
   @Override

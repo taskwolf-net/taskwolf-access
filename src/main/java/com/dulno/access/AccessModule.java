@@ -41,7 +41,7 @@ public final class AccessModule extends Module {
   private Log log;
 
   public AccessModule(Injector injector) {
-    super(injector.createChildInjector(WorkflowInjectionModule.create()));
+    super(injector);
   }
 
   @Override
@@ -53,17 +53,17 @@ public final class AccessModule extends Module {
   }
 
   private void registerContextInitializers(SpringApplication application) {
-    var moduleLoader = injector().getInstance(ModuleLoader.class);
     application.addInitializers(AccessContextInitializer.create(log,
       injector().getInstance(Key.get(java.security.Key.class, Names.named("homeKey"))),
       injector().getInstance(Key.get(java.security.Key.class, Names.named("productKey"))),
       injector().getInstance(Key.get(java.security.Key.class, Names.named("refreshKey"))),
-      moduleLoader, injector().getInstance(DatabaseConnection.class),
+      injector().getInstance(ModuleLoader.class),
+      injector().getInstance(DatabaseConnection.class),
       injector().getInstance(DatabaseKeyspace.class),
       injector().getInstance(WorkerDistribution.class),
       injector().getInstance(WorkerProxyClient.class),
       injector().getInstance(WorkerConfiguration.class),
-      (WorkflowModule) moduleLoader.findModule("workflow").get(),
+      injector().getInstance(WorkflowModule.class),
       injector().getInstance(Translation.class),
       injector().getInstance(ErrorRepository.class),
       injector().getInstance(MailFactory.class)));

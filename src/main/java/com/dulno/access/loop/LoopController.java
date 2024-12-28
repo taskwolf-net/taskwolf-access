@@ -1,5 +1,6 @@
 package com.dulno.access.loop;
 
+import com.dulno.core.iterator.AsyncListIterator;
 import com.dulno.workflow.loop.LoopInformation;
 import com.dulno.workflow.loop.LoopInformationRepository;
 import com.dulno.workflow.component.ComponentVariable;
@@ -65,43 +66,59 @@ public final class LoopController extends DulnoRestController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var loop = loopRepository.findByIdentifier(body.getString("identifier"));
-    return findUser(request).thenApply(user -> loop.map(value ->
+    return findUser(request).thenCompose(user -> loop.map(value ->
       detailedLoopInformation(user, value, body.getObject("currentContent").raw(),
         body.getObjectList("previousComponents").stream()
           .map(DulnoRequestBody::raw).toList()))
-      .orElseGet(Maps::newHashMap));
+      .orElseGet(() -> CompletableFuture.completedFuture(Maps.newHashMap())));
   }
 
-  private Map<String, Object> detailedLoopInformation(
+  private CompletableFuture<Map<String, Object>> detailedLoopInformation(
     User user, LoopInformation loop,
     JSONObject currentContent, List<JSONObject> previousComponents
   ) {
-    var information = Maps.<String, Object>newHashMap();
-    information.putAll(superficialLoopInformation(user, loop));
-    information.put("inputVariables",
-      componentVariablesInformation(user.language(), loop.inputVariables(),
-        currentContent, previousComponents));
-    information.put("outputVariables",
-      componentVariablesInformation(user.language(), loop.outputVariables(),
-        currentContent, previousComponents));
+    return componentVariablesInformation(user.language(),
+      Lists.newArrayList(loop.inputVariables()), currentContent, previousComponents)
+      .thenCompose(inputInformation -> componentVariablesInformation(user.language(),
+        Lists.newArrayList(loop.outputVariables()), currentContent, previousComponents)
+        .thenApply(outputInformation -> assemblyDetailedLoopInformation(
+          user, loop, inputInformation, outputInformation)));
+  }
+
+  private Map<String, Object> assemblyDetailedLoopInformation(
+    User user, LoopInformation loop,
+    List<Map<String, Object>> inputInformation,
+    List<Map<String, Object>> outputInformation
+  ) {
+    var information = superficialLoopInformation(user, loop);
+    information.put("inputVariables", inputInformation);
+    information.put("outputVariables", outputInformation);
     return information;
   }
 
-  public <T extends ComponentVariable> List<Map<String, Object>> componentVariablesInformation(
-    String language, List<T> variables, JSONObject currentContent,
-    List<JSONObject> previousComponents
+  private <T extends ComponentVariable> CompletableFuture<List<Map<String, Object>>>
+  componentVariablesInformation(
+    String language, List<T> variables,
+    JSONObject currentContent, List<JSONObject> previousComponents
   ) {
-    var variablesInformation = Lists.<Map<String, Object>>newArrayList();
-    for (var variable : variables) {
-      if (variable instanceof DynamicOutputComponentVariable dynamicVariable) {
-        variablesInformation.addAll(dynamicVariable.variableFunction()
-          .compile(currentContent, previousComponents).stream()
-          .map(entry -> assembleVariableInformation(entry, language)).toList());
-        continue;
-      }
-      variablesInformation.add(assembleVariableInformation(variable, language));
-    }
-    return variablesInformation;
+    var dynamicVariables = variables.stream()
+      .filter(variable -> variable instanceof DynamicOutputComponentVariable).toList();
+    variables.removeAll(dynamicVariables);
+    var result = dynamicOutputVariableInformation(language,
+      (List<DynamicOutputComponentVariable>) dynamicVariables, currentContent,
+      previousComponents);
+    result.thenAccept(information -> information.addAll(variables.stream()
+      .map(variable -> assembleVariableInformation(variable, language)).toList()));
+    return result;
+  }
+
+  private CompletableFuture<List<Map<String, Object>>> dynamicOutputVariableInformation(
+    String language, List<DynamicOutputComponentVariable> variables,
+    JSONObject currentContent, List<JSONObject> previousComponents
+  ) {
+    return AsyncListIterator.execute(variables, variable -> variable.variableFunction()
+      .compile(currentContent, previousComponents).thenApply(outputs -> outputs.stream()
+        .map(entry -> assembleVariableInformation(entry, language)).toList()));
   }
 
   private <T extends ComponentVariable> Map<String, Object> assembleVariableInformation(

@@ -1,5 +1,6 @@
 package com.dulno.access.component;
 
+import com.dulno.core.iterator.AsyncListIterator;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.workflow.WorkflowModule;
 import com.dulno.workflow.component.output.DynamicOutputComponentVariable;
@@ -118,7 +119,7 @@ public final class ComponentController extends DulnoRestController {
     var currentContent = body.getObject("currentContent").raw();
     var previousComponents = body.getObjectList("previousComponents").stream()
       .map(DulnoRequestBody::raw).toList();
-    return findUser(request).thenApply(user ->
+    return findUser(request).thenCompose(user ->
       body.getString("componentType").equalsIgnoreCase("trigger") ?
         findTriggerComponent(user.language(), module, type, currentContent,
           previousComponents) :
@@ -126,24 +127,24 @@ public final class ComponentController extends DulnoRestController {
           previousComponents));
   }
 
-  private Map<String, Object> findTriggerComponent(
+  private CompletableFuture<Map<String, Object>> findTriggerComponent(
     String language, String module, String type,
     JSONObject currentContent, List<JSONObject> previousComponents
   ) {
     return workflowModule.findTrigger(module, type).map(trigger ->
         detailedComponentInformation(language, trigger.type(),
           trigger.information(), currentContent, previousComponents))
-      .orElseGet(Maps::newHashMap);
+      .orElseGet(() -> CompletableFuture.completedFuture(Maps.newHashMap()));
   }
 
-  private Map<String, Object> findActionComponent(
+  private CompletableFuture<Map<String, Object>> findActionComponent(
     String language, String module, String type,
     JSONObject currentContent, List<JSONObject> previousComponents
   ) {
     return workflowModule.findAction(module, type).map(action ->
         detailedComponentInformation(language, action.type(),
           action.information(), currentContent, previousComponents))
-      .orElseGet(Maps::newHashMap);
+      .orElseGet(() -> CompletableFuture.completedFuture(Maps.newHashMap()));
   }
 
   private Map<String, Object> superficialComponentInformation(
@@ -158,19 +159,31 @@ public final class ComponentController extends DulnoRestController {
     return information;
   }
 
-  private Map<String, Object> detailedComponentInformation(
+  private CompletableFuture<Map<String, Object>> detailedComponentInformation(
     String language, String identifier, ComponentInformation component,
     JSONObject currentContent, List<JSONObject> previousComponents
   ) {
-    var information = superficialComponentInformation(language, identifier, component);
-    information.put("inputVariables", componentVariablesInformation(language,
-      component.inputVariables(), currentContent, previousComponents));
     var outputVariables = Lists.newArrayList(component.outputVariables());
     if (component instanceof TriggerInformation) {
       outputVariables.addAll(collectTriggerOutputVariables());
     }
-    information.put("outputVariables", componentVariablesInformation(language,
-      outputVariables, currentContent, previousComponents));
+    return componentVariablesInformation(language,
+      Lists.newArrayList(component.inputVariables()), currentContent,
+      previousComponents)
+      .thenCompose(inputInformation -> componentVariablesInformation(language,
+        outputVariables, currentContent, previousComponents)
+        .thenApply(outputInformation -> assemblyDetailedComponentInformation(
+          language, identifier, component, inputInformation, outputInformation)));
+  }
+
+  private Map<String, Object> assemblyDetailedComponentInformation(
+    String language, String identifier, ComponentInformation component,
+    List<Map<String, Object>> inputInformation,
+    List<Map<String, Object>> outputInformation
+    ) {
+    var information = superficialComponentInformation(language, identifier, component);
+    information.put("inputVariables", inputInformation);
+    information.put("outputVariables", outputInformation);
     return information;
   }
 
@@ -185,21 +198,29 @@ public final class ComponentController extends DulnoRestController {
     return outputVariables;
   }
 
-  private <T extends ComponentVariable> List<Map<String, Object>> componentVariablesInformation(
+  private <T extends ComponentVariable> CompletableFuture<List<Map<String, Object>>>
+  componentVariablesInformation(
     String language, List<T> variables,
     JSONObject currentContent, List<JSONObject> previousComponents
   ) {
-    var variablesInformation = Lists.<Map<String, Object>>newArrayList();
-    for (var variable : variables) {
-      if (variable instanceof DynamicOutputComponentVariable dynamicVariable) {
-        variablesInformation.addAll(dynamicVariable.variableFunction()
-          .compile(currentContent, previousComponents).stream()
-          .map(entry -> assembleVariableInformation(entry, language)).toList());
-        continue;
-      }
-      variablesInformation.add(assembleVariableInformation(variable, language));
-    }
-    return variablesInformation;
+    var dynamicVariables = variables.stream()
+      .filter(variable -> variable instanceof DynamicOutputComponentVariable).toList();
+    variables.removeAll(dynamicVariables);
+    var result = dynamicOutputVariableInformation(language,
+      (List<DynamicOutputComponentVariable>) dynamicVariables, currentContent,
+      previousComponents);
+    result.thenAccept(information -> information.addAll(variables.stream()
+      .map(variable -> assembleVariableInformation(variable, language)).toList()));
+    return result;
+  }
+
+  private CompletableFuture<List<Map<String, Object>>> dynamicOutputVariableInformation(
+    String language, List<DynamicOutputComponentVariable> variables,
+    JSONObject currentContent, List<JSONObject> previousComponents
+  ) {
+    return AsyncListIterator.execute(variables, variable -> variable.variableFunction()
+      .compile(currentContent, previousComponents).thenApply(outputs -> outputs.stream()
+        .map(entry -> assembleVariableInformation(entry, language)).toList()));
   }
 
   private <T extends ComponentVariable> Map<String, Object> assembleVariableInformation(

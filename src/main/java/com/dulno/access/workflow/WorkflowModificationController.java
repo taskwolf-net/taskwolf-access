@@ -150,10 +150,9 @@ public final class WorkflowModificationController extends WorkflowController {
     }
     return deleteWorkflow(entry).thenCompose(value ->
       userDatabaseTable().findUser(entry.creatorId()).thenCompose(creator ->
-        workflowDatabaseTable().generateAvailableWorkflowId().thenCompose(workflowId ->
-          updateWorkflow(workflowId, user, creator, entry, triggerData, actionData,
-            conditionData, loopData, timeZone, timeLocale, name, description,
-            timelineEntries, state))));
+        updateWorkflow(entry.id(), user, creator, entry, triggerData, actionData,
+          conditionData, loopData, timeZone, timeLocale, name, description,
+          timelineEntries, state)));
   }
 
   private CompletableFuture<Void> updateWorkflow(

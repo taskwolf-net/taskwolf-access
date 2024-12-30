@@ -251,7 +251,7 @@ public final class WorkflowModificationController extends WorkflowController {
     return triggerDatabaseTable.insertTrigger(triggerId, ownerId, workflowId,
       module, type, TriggerState.ARMED.toString())
       .thenCompose(value -> workflowModule.findTrigger(module, type).get().insert(
-        triggerId, new JSONObject(triggerData.getString("content")).toMap()));
+        triggerId, ownerId, new JSONObject(triggerData.getString("content")).toMap()));
   }
 
   private CompletableFuture<Void> createAction(
@@ -262,7 +262,7 @@ public final class WorkflowModificationController extends WorkflowController {
     return actionDatabaseTable.insertAction(actionId, ownerId, workflowId,
         module, type, actionData.getInt("index"))
       .thenCompose(value -> workflowModule.findAction(module, type).get().insert(
-        actionId, new JSONObject(actionData.getString("content")).toMap()));
+        actionId, ownerId, new JSONObject(actionData.getString("content")).toMap()));
   }
 
   private CompletableFuture<Void> createCondition(

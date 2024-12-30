@@ -151,7 +151,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
           entry.state().toString())
         .thenCompose(value -> workflowModule.findTrigger(entry.module(), entry.type())
           .map(trigger -> trigger.findContent(entry.id())
-            .thenCompose(content -> trigger.insert(duplicateTriggerId, content))
+            .thenCompose(content -> trigger.insert(duplicateTriggerId,
+              workflow.ownerId(), content))
             .exceptionally(throwable -> null))
           .orElse(CompletableFuture.completedFuture(null))));
   }
@@ -163,8 +164,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
     var currentIdIndex = 0;
     for (var action : workflow.actionIds()) {
       var duplicateActionId = newActionIds.get(currentIdIndex);
-      processes.add(duplicateWorkflowAction(action, duplicateWorkflowId,
-        duplicateActionId));
+      processes.add(duplicateWorkflowAction(action, workflow.ownerId(),
+        duplicateWorkflowId, duplicateActionId));
       currentIdIndex++;
     }
     return AsyncIterator.execute(processes, process -> process)
@@ -172,15 +173,15 @@ public final class WorkflowDuplicationController extends WorkflowController {
   }
 
   private CompletableFuture<Void> duplicateWorkflowAction(
-    UUID actionId, UUID duplicateWorkflowId, UUID duplicateActionId
+    UUID actionId, UUID ownerId, UUID duplicateWorkflowId, UUID duplicateActionId
   ) {
     return actionDatabaseTable.actionExists(actionId)
-      .thenCompose(exists -> duplicateWorkflowAction(actionId,
+      .thenCompose(exists -> duplicateWorkflowAction(actionId, ownerId,
         duplicateWorkflowId, duplicateActionId, exists));
   }
 
   private CompletableFuture<Void> duplicateWorkflowAction(
-    UUID actionId, UUID duplicateWorkflowId, UUID duplicateActionId,
+    UUID actionId, UUID ownerId, UUID duplicateWorkflowId, UUID duplicateActionId,
     boolean exists
   ) {
     if (!exists) {
@@ -192,7 +193,8 @@ public final class WorkflowDuplicationController extends WorkflowController {
           entry.index())
         .thenCompose(value -> workflowModule.findAction(entry.module(), entry.type())
           .map(action -> action.findContent(entry.id())
-            .thenCompose(content -> action.insert(duplicateActionId, content))
+            .thenCompose(content -> action.insert(duplicateActionId, ownerId,
+              content))
             .exceptionally(throwable -> null))
           .orElse(CompletableFuture.completedFuture(null))));
   }

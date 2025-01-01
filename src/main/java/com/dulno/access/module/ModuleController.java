@@ -75,7 +75,7 @@ public final class ModuleController extends DulnoRestController {
     modules.add(moduleLoader.findRegisteredModuleById("manual").get());
     modules.add(moduleLoader.findRegisteredModuleById("scheduler").get());
     modules.add(moduleLoader.findRegisteredModuleById("webhook").get());
-    modules.add(moduleLoader.findRegisteredModuleById("process").get());
+    modules.add(moduleLoader.findRegisteredModuleById("sub-workflow").get());
     modules.add(moduleLoader.findRegisteredModuleById("device").get());
     modules.add(moduleLoader.findRegisteredModuleById("table").get());
     return findUser(request).thenApply(user -> Map.of("modules", modules.stream()
@@ -89,10 +89,10 @@ public final class ModuleController extends DulnoRestController {
     var modules = Lists.<RegisteredModule>newArrayList();
     modules.add(moduleLoader.findRegisteredModuleById("table").get());
     modules.add(moduleLoader.findRegisteredModuleById("webhook").get());
-    modules.add(moduleLoader.findRegisteredModuleById("discord").get());
+    modules.add(moduleLoader.findRegisteredModuleById("json").get());
     modules.add(moduleLoader.findRegisteredModuleById("device").get());
     modules.add(moduleLoader.findRegisteredModuleById("mail").get());
-    modules.add(moduleLoader.findRegisteredModuleById("google-calendar").get());
+    modules.add(moduleLoader.findRegisteredModuleById("sub-workflow").get());
     return findUser(request).thenApply(user -> Map.of("modules", modules.stream()
       .map(module -> moduleInformation(user.language(), module)).toList()));
   }

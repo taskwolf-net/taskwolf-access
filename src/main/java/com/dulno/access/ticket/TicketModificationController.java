@@ -131,10 +131,11 @@ public final class TicketModificationController extends TicketController {
   ) {
     ticket.addMessage(messageId);
     ticket.disableExpirationTime();
-    ticketDatabaseTable().updateTicket(ticket);
-    ticketMessageDatabaseTable().insertTicketMessage(TicketMessage.create(
-      messageId, ticket.id(), userId, TicketMessageAuthorType.USER,
-      message, System.currentTimeMillis()));
+    ticketDatabaseTable().deleteTicket(ticket.id())
+      .thenAccept(deleteValue -> ticketDatabaseTable().insertTicket(ticket)
+        .thenAccept(insertValue -> ticketMessageDatabaseTable()
+          .insertTicketMessage(TicketMessage.create(messageId, ticket.id(), userId,
+            TicketMessageAuthorType.USER, message, System.currentTimeMillis()))));
   }
 
   @RequestMapping(path = "/ticket/message/delete/", method = RequestMethod.POST)

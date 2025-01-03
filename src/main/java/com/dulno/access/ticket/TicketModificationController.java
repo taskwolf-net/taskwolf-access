@@ -82,11 +82,16 @@ public final class TicketModificationController extends TicketController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var ticketId = body.getUUID("ticket");
     var userId = findUserId(request);
-    performTicketOperation(userId, ticketId, ticket ->
-      ticketDatabaseTable().renameTicket(ticketId, body.getString("title", 64)),
-      () -> {});
+    performTicketOperation(userId, body.getUUID("ticket"), ticket ->
+      renameTicket(ticket, body.getString("title", 64)), () -> {});
+  }
+
+  private void renameTicket(Ticket ticket, String title) {
+    if (ticket.status() == Ticket.Status.CLOSED) {
+      return;
+    }
+    ticketDatabaseTable().renameTicket(ticket.id(), title);
   }
 
   @RequestMapping(path = "/ticket/close/", method = RequestMethod.POST)
@@ -101,6 +106,9 @@ public final class TicketModificationController extends TicketController {
   }
 
   private void closeTicket(Ticket ticket) {
+    if (ticket.status() == Ticket.Status.CLOSED) {
+      return;
+    }
     ticketDatabaseTable().updateTicketStatus(ticket.id(), Ticket.Status.CLOSED);
     activityDatabaseTable.insertActivity(ticket.creator(), "activity.ticket.close.title",
       "activity.ticket.close.description", ActivityType.TICKET);
@@ -129,6 +137,9 @@ public final class TicketModificationController extends TicketController {
   private void addTicketMessage(
     UUID userId, Ticket ticket, UUID messageId, String message
   ) {
+    if (ticket.status() == Ticket.Status.CLOSED) {
+      return;
+    }
     ticket.addMessage(messageId);
     ticket.disableExpirationTime();
     ticketDatabaseTable().deleteTicket(ticket.id())
@@ -150,6 +161,9 @@ public final class TicketModificationController extends TicketController {
   }
 
   private void deleteTicketMessage(Ticket ticket, UUID messageId) {
+    if (ticket.status() == Ticket.Status.CLOSED) {
+      return;
+    }
     if (!ticket.messages().contains(messageId) || ticket.messages().indexOf(messageId) == 0) {
       return;
     }

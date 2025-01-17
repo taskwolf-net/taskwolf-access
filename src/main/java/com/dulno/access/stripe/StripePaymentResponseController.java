@@ -1,11 +1,11 @@
 package com.dulno.access.stripe;
 
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.workflow.operation.OperationDatabaseTable;
+import com.dulno.workflow.throttle.WorkflowThrottleDatabaseTable;
 import com.stripe.StripeClient;
-import com.stripe.model.Customer;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
-import com.stripe.param.SubscriptionListParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.bundle.Bundle;
@@ -35,6 +35,8 @@ public final class StripePaymentResponseController extends StripeController {
   private final TerminationDatabaseTable terminationDatabaseTable;
   private final StripeTerminationController stripeTerminationController;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final OperationDatabaseTable operationDatabaseTable;
+  private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
   private final OfferDatabaseTable offerDatabaseTable;
   private final ErrorRepository errorRepository;
 
@@ -46,7 +48,10 @@ public final class StripePaymentResponseController extends StripeController {
     OrganizationDatabaseTable organizationDatabaseTable,
     TerminationDatabaseTable terminationDatabaseTable,
     StripeTerminationController stripeTerminationController,
-    BundleDatabaseTable bundleDatabaseTable, OfferDatabaseTable offerDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable,
+    OperationDatabaseTable operationDatabaseTable,
+    WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
+    OfferDatabaseTable offerDatabaseTable,
     ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
@@ -55,6 +60,8 @@ public final class StripePaymentResponseController extends StripeController {
     this.terminationDatabaseTable = terminationDatabaseTable;
     this.stripeTerminationController = stripeTerminationController;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.operationDatabaseTable = operationDatabaseTable;
+    this.workflowThrottleDatabaseTable = workflowThrottleDatabaseTable;
     this.offerDatabaseTable = offerDatabaseTable;
     this.errorRepository = errorRepository;
   }
@@ -93,6 +100,8 @@ public final class StripePaymentResponseController extends StripeController {
     if (bundle == null) {
       return;
     }
+    operationDatabaseTable.resetExpiration(bundle.ownerId());
+    workflowThrottleDatabaseTable.setThrottle(bundle.ownerId(), 0, 0);
     var timeDifference = Math.abs(System.currentTimeMillis() - bundle.expiration());
     if (timeDifference > 1000L * 60 * 60 * 24) {
       return;

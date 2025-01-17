@@ -160,8 +160,9 @@ public final class TargetController extends DulnoRestController {
   private CompletableFuture<Boolean> checkTargetUsability(UUID target) {
     return bundleDatabaseTable.bundleExists(target)
       .thenCompose(exists -> !exists ? CompletableFuture.completedFuture(false) :
-        bundleDatabaseTable.findBundle(target).thenApply(bundle ->
-          bundle.expiration() > System.currentTimeMillis()));
+        bundleDatabaseTable.findBundle(target)
+          .thenApply(bundle -> bundle.expiration() < 0 ||
+            bundle.expiration() > System.currentTimeMillis()));
   }
 }
 

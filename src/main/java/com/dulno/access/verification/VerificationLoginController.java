@@ -179,6 +179,7 @@ public final class VerificationLoginController extends DulnoRestController {
     }
     return AsyncIterator.execute(targets, bundleDatabaseTable::findBundle)
       .thenApply(bundles -> bundles.stream().map(Bundle::expiration)
+        .map(expiration -> expiration < 0 ? Long.MAX_VALUE : expiration)
         .sorted(Comparator.reverseOrder()).findFirst().get());
   }
 

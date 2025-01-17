@@ -85,7 +85,7 @@ public final class BundleController extends DulnoRestController {
     if (bundleType.isTrial()) {
       return assemblyBundlePresetInformation(
         bundlePresetRepository.findPreset(BundleType.TRIAL).get(),
-        BundleRuntime.WEEKLY);
+        BundleRuntime.INFINITE);
     }
     if (bundleType.isEnterprise()) {
       return assemblyBundlePresetInformation(

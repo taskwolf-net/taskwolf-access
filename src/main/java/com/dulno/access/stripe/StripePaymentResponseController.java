@@ -2,6 +2,7 @@ package com.dulno.access.stripe;
 
 import com.dulno.core.error.ErrorRepository;
 import com.stripe.StripeClient;
+import com.stripe.model.Customer;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
 import com.stripe.param.SubscriptionListParams;
@@ -77,53 +78,21 @@ public final class StripePaymentResponseController extends StripeController {
     if (event.get().getType().equals("payment_intent.created")) {
       new Thread(() -> processPaymentCreation((PaymentIntent) object.get())).start();
     }
+    if (event.get().getType().equals("payment_intent.succeeded")) {
+      new Thread(() -> processPaymentSuccess((PaymentIntent) object.get())).start();
+    }
   }
 
   private void processPaymentCreation(PaymentIntent paymentIntent) {
-    try {
-      var subscription = stripeClient.subscriptions()
-        .list(SubscriptionListParams.builder()
-          .setCustomer(paymentIntent.getCustomer()).build())
-        .getData().get(0);
-      var customer = stripeClient.customers().retrieve(paymentIntent.getCustomer());
-      userDatabaseTable().findUser(customer.getEmail())
-        .thenAccept(user -> findBundleTarget(user, subscription)
-          .thenAccept(target -> processPaymentCreation(paymentIntent, target)));
-    } catch (Exception exception) {
-      errorRepository.processError(exception);
-    }
-  }
-
-  private void processPaymentCreation(
-    PaymentIntent paymentIntent, Optional<UUID> targetId
-  ) {
-    if (targetId.isEmpty()) {
-      return;
-    }
-    bundleDatabaseTable.bundleExists(targetId.get()).thenAccept(bundleExists ->
-      processPaymentCreation(paymentIntent, targetId.get(), bundleExists));
-  }
-
-  private void processPaymentCreation(
-    PaymentIntent paymentIntent, UUID targetId, boolean bundleExists
-  ) {
-    if (!bundleExists) {
-      return;
-    }
-    bundleDatabaseTable.findBundle(targetId).thenAccept(bundle ->
-      processPaymentCreation(paymentIntent, targetId, bundle));
-  }
-
-  private void processPaymentCreation(
-    PaymentIntent paymentIntent, UUID targetId, Bundle bundle
-  ) {
-    checkPackageExtension(bundle);
-    terminationDatabaseTable.terminationExists(targetId)
-      .thenAccept(terminationExists -> checkPackageTermination(paymentIntent,
-        targetId, bundle, terminationExists));
+    var subscription = paymentIntent.getInvoiceObject().getSubscriptionObject();
+    findBundle(paymentIntent, subscription)
+      .thenAccept(this::checkPackageExtension);
   }
 
   private void checkPackageExtension(Bundle bundle) {
+    if (bundle == null) {
+      return;
+    }
     var timeDifference = Math.abs(System.currentTimeMillis() - bundle.expiration());
     if (timeDifference > 1000L * 60 * 60 * 24) {
       return;
@@ -132,20 +101,72 @@ public final class StripePaymentResponseController extends StripeController {
     bundleDatabaseTable.updateBundle(bundle);
   }
 
+  private void processPaymentSuccess(PaymentIntent paymentIntent) {
+    var subscription = paymentIntent.getInvoiceObject().getSubscriptionObject();
+    findBundle(paymentIntent, subscription).thenAccept(bundle ->
+      processPaymentSuccess(paymentIntent, subscription, bundle));
+  }
+
+  private void processPaymentSuccess(
+    PaymentIntent paymentIntent, Subscription subscription, Bundle bundle
+  ) {
+    if (bundle == null) {
+      return;
+    }
+    terminationDatabaseTable.terminationExists(bundle.ownerId())
+      .thenAccept(terminationExists -> checkPackageTermination(paymentIntent,
+        subscription, bundle, terminationExists));
+  }
+
   private void checkPackageTermination(
-    PaymentIntent paymentIntent, UUID targetId, Bundle bundle,
+    PaymentIntent paymentIntent, Subscription subscription, Bundle bundle,
     boolean terminationExists
   ) {
     if (!terminationExists) {
       return;
     }
-    var timeDifference = Math.abs((System.currentTimeMillis() +
-      1000L * 60 * 60 * 24 * 30) - bundle.expiration());
+    var periodEnd = subscription.getCurrentPeriodEnd();
+    if (periodEnd == null) {
+      return;
+    }
+    var timeDifference = Math.abs(periodEnd - bundle.expiration());
     if (timeDifference > 1000L * 60 * 60 * 24) {
       return;
     }
-    terminationDatabaseTable.deleteTermination(targetId);
+    terminationDatabaseTable.deleteTermination(bundle.ownerId());
     stripeTerminationController.cancelSubscription(paymentIntent.getCustomer());
+  }
+
+  private CompletableFuture<Bundle> findBundle(
+    PaymentIntent paymentIntent, Subscription subscription
+  ) {
+    try {
+      var customer = stripeClient.customers().retrieve(paymentIntent.getCustomer());
+      return userDatabaseTable().findUser(customer.getEmail())
+        .thenCompose(user -> findBundleTarget(user, subscription)
+          .thenCompose(this::findBundle));
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private CompletableFuture<Bundle> findBundle(Optional<UUID> targetId) {
+    if (targetId.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return bundleDatabaseTable.bundleExists(targetId.get())
+      .thenCompose(bundleExists -> findBundle(targetId.get(),
+        bundleExists));
+  }
+
+  private CompletableFuture<Bundle> findBundle(
+    UUID targetId, boolean bundleExists
+  ) {
+    if (!bundleExists) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return bundleDatabaseTable.findBundle(targetId);
   }
 
   private CompletableFuture<Optional<UUID>> findBundleTarget(

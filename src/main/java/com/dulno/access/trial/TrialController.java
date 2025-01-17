@@ -95,7 +95,7 @@ public final class TrialController extends DulnoHomeRestController {
         workflowThrottleDatabaseTable.setThrottle(user.id(), 0, 0));
     return bundleDatabaseTable.insertBundle(Bundle.of(user.id(),
         bundlePresetRepository.findPreset(BundleType.TRIAL).get(),
-        BundleRuntime.WEEKLY))
+        BundleRuntime.INFINITE))
       .thenCompose(value -> loginUser(request, user));
   }
 

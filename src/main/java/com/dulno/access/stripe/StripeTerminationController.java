@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -89,7 +92,7 @@ public final class StripeTerminationController extends StripeController {
   ) {
     if (!terminationExists) {
       return Map.of("terminable", true, "terminated", false, "directlyEffective",
-        bundle.expiration() - System.currentTimeMillis() < 1000L * 60 * 60 * 24 * 30);
+        isDirectlyTerminable(bundle));
     }
     return Map.of("terminable", true, "terminated", true);
   }
@@ -109,7 +112,7 @@ public final class StripeTerminationController extends StripeController {
       .thenCompose(exists -> exists ?
         stripeDatabaseTable().findStripeAccountByTarget(targetId)
           .thenCompose(account -> bundleDatabaseTable.findBundle(account.targetId())
-            .thenAcceptAsync(bundle -> terminate(account.targetId(), bundle, account))) :
+            .thenComposeAsync(bundle -> terminate(account.targetId(), bundle, account))) :
         CompletableFuture.completedFuture(null));
   }
 
@@ -124,10 +127,11 @@ public final class StripeTerminationController extends StripeController {
     return CompletableFuture.completedFuture(null);
   }
 
-  private CompletableFuture<Void> terminateYearly(UUID targetId, Bundle bundle, StripeAccount account) {
-    if (bundle.expiration() - System.currentTimeMillis() < 1000L * 60 * 60 * 24 * 30) {
-      cancelSubscription(account);
-      return CompletableFuture.completedFuture(null);
+  private CompletableFuture<Void> terminateYearly(
+    UUID targetId, Bundle bundle, StripeAccount account
+  ) {
+    if (isDirectlyTerminable(bundle)) {
+      return cancelSubscription(account);
     }
     return terminationDatabaseTable.insertTermination(targetId);
   }
@@ -152,5 +156,17 @@ public final class StripeTerminationController extends StripeController {
       errorRepository.processError(exception);
       return CompletableFuture.completedFuture(null);
     }
+  }
+
+  private boolean isDirectlyTerminable(Bundle bundle) {
+    var current = ZonedDateTime.ofInstant(Instant.ofEpochMilli(bundle.expiration()),
+      ZoneId.systemDefault());
+    var next = current.minusMonths(1);
+    if (next.getDayOfMonth() != current.getDayOfMonth()) {
+      next = next.withDayOfMonth(next.getMonth().length(
+        next.toLocalDate().isLeapYear()));
+    }
+    return System.currentTimeMillis() >
+      (next.toInstant().toEpochMilli() + 1000L * 60 * 5);
   }
 }

@@ -41,12 +41,12 @@ public final class BundleExtensionSchedule {
     this.translation = translation;
   }
 
-  private static final int RESET_INTERVAL = 1000 * 60 * 60 * 24;
-  private static final TimeUnit RESET_TIME_UNIT = TimeUnit.MILLISECONDS;
+  private static final long CHECK_INTERVAL = 1000L * 60 * 60 * 24;
+  private static final TimeUnit CHECK_TIME_UNIT = TimeUnit.MILLISECONDS;
 
   public void start() {
     scheduler = executorService.scheduleAtFixedRate(this::execute,
-      calculateInitialDelay(), RESET_INTERVAL, RESET_TIME_UNIT);
+      calculateInitialDelay(), CHECK_INTERVAL, CHECK_TIME_UNIT);
   }
 
   private long calculateInitialDelay() {

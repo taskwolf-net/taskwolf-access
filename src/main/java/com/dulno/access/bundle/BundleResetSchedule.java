@@ -10,6 +10,9 @@ import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.organization.OrganizationDatabaseTable;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Objects;
@@ -27,12 +30,12 @@ public final class BundleResetSchedule {
     Executors.newScheduledThreadPool(1);
   private ScheduledFuture<?> scheduler;
 
-  private static final int RESET_INTERVAL = 1000 * 60 * 60 * 24;
-  private static final TimeUnit RESET_TIME_UNIT = TimeUnit.MILLISECONDS;
+  private static final long CHECK_INTERVAL = 1000L * 60 * 60 * 24;
+  private static final TimeUnit CHECK_TIME_UNIT = TimeUnit.MILLISECONDS;
 
   public void start() {
     scheduler = executorService.scheduleAtFixedRate(this::execute,
-      calculateInitialDelay(), RESET_INTERVAL, RESET_TIME_UNIT);
+      calculateInitialDelay(), CHECK_INTERVAL, CHECK_TIME_UNIT);
   }
 
   private long calculateInitialDelay() {
@@ -54,12 +57,16 @@ public final class BundleResetSchedule {
         .filter(Objects::nonNull).toList()));
   }
 
-  private static final long RESET_THRESHOLD = 1000L * 60 * 60 * 24 * 30 * 6;
-
   private void findBundlesToReset(List<Bundle> bundles) {
-    var maximumValue = System.currentTimeMillis() - RESET_THRESHOLD;
+    var current = ZonedDateTime.now();
+    var next = current.minusMonths(6);
+    if (next.getDayOfMonth() != current.getDayOfMonth()) {
+      next = next.withDayOfMonth(next.getMonth().length(
+        next.toLocalDate().isLeapYear()));
+    }
+    var maximumValue = next.toInstant().toEpochMilli();
     for (var bundle : bundles) {
-      if (bundle.expiration() <= maximumValue) {
+      if (bundle.expiration() > 0 && bundle.expiration() <= maximumValue) {
         resetBundle(bundle);
       }
     }

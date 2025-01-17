@@ -9,7 +9,6 @@ import com.stripe.StripeClient;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
-import com.stripe.param.PaymentIntentListParams;
 import com.stripe.param.RefundCreateParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -37,7 +36,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.net.URL;
 import java.security.Key;
-import java.util.Comparator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -163,35 +161,25 @@ public final class StripeCheckoutResponseController extends StripeController {
     }
     return stripeDatabaseTable().findStripeAccount(accountId)
       .thenAcceptAsync(account -> terminatePreviousSubscriptions(user,
-        accountId, account.subscriptionId()));
+        account.subscriptionId()));
   }
 
-  private void terminatePreviousSubscriptions(
-    User user, String accountId, String subscriptionId
-  ) {
+  private void terminatePreviousSubscriptions(User user, String subscriptionId) {
     try {
-      var customer = stripeClient.customers().retrieve(accountId);
       if (subscriptionId.isEmpty()) {
         return;
       }
       var subscription = stripeClient.subscriptions().retrieve(subscriptionId);
-      refundLastPayment(user, customer.getId());
+      refundLastPayment(user, subscription);
       subscription.cancel();
     } catch (Exception exception) {
       errorRepository.processError(exception);
     }
   }
 
-  private void refundLastPayment(User user, String accountId) throws Exception  {
-    var payments = stripeClient.paymentIntents()
-      .list(PaymentIntentListParams.builder().setCustomer(accountId).build())
-      .getData();
-    payments.sort(Comparator.comparing(PaymentIntent::getCreated));
-    if (payments.size() <= 1) {
-      return;
-    }
-    var payment = payments.get(payments.size() - 2);
-    var amount = calculatePaymentRefundAmount(payment);
+  private void refundLastPayment(User user, Subscription subscription) throws Exception {
+    var payment = subscription.getLatestInvoiceObject().getPaymentIntentObject();
+    var amount = calculatePaymentRefundAmount(subscription, payment);
     stripeClient.refunds().create(RefundCreateParams.builder()
       .setPaymentIntent(payment.getId())
       .setAmount(amount)
@@ -202,11 +190,20 @@ public final class StripeCheckoutResponseController extends StripeController {
     orderMail.send(user.email(), title, body);
   }
 
-  private long calculatePaymentRefundAmount(PaymentIntent payment) {
-    var monthMillis = 1000L * 60 * 60 * 24 * 30;
-    var percentageLeft = (monthMillis - (System.currentTimeMillis() -
-      (payment.getCreated() * 1000))) / (double) monthMillis;
-    return Math.round(percentageLeft * payment.getAmount());
+  private long calculatePaymentRefundAmount(
+    Subscription subscription, PaymentIntent payment
+  ) {
+    var periodStart = subscription.getCurrentPeriodStart();
+    var periodEnd = subscription.getCurrentPeriodEnd();
+    if (periodStart == null || periodEnd == null) {
+      return 0;
+    }
+    var currentTime = System.currentTimeMillis() / 1000L;
+    var totalPeriod = periodEnd - periodStart;
+    var timeRemaining = periodEnd - currentTime;
+    var percentageRemaining = (timeRemaining / totalPeriod) * 100;
+    percentageRemaining = Math.max(0, Math.min(percentageRemaining, 100));
+    return Math.round(percentageRemaining * payment.getAmount());
   }
 
   private CompletableFuture<StripeAccount> findStripeAccount(

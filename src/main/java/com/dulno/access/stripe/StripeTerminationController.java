@@ -3,6 +3,7 @@ package com.dulno.access.stripe;
 import com.dulno.core.error.ErrorRepository;
 import com.google.common.collect.Maps;
 import com.stripe.StripeClient;
+import com.stripe.model.Subscription;
 import com.stripe.param.SubscriptionListParams;
 import jakarta.servlet.http.HttpServletRequest;
 import com.dulno.core.bundle.Bundle;
@@ -136,12 +137,12 @@ public final class StripeTerminationController extends StripeController {
     return terminationDatabaseTable.insertTermination(targetId);
   }
 
-  public CompletableFuture<Void> cancelSubscription(String stripeAccountId) {
-    return stripeDatabaseTable().findStripeAccount(stripeAccountId)
-      .thenComposeAsync(this::cancelSubscription);
+  public CompletableFuture<Void> cancelSubscription(Subscription subscription) {
+    return stripeDatabaseTable().findStripeAccount(subscription.getCustomer())
+      .thenComposeAsync(account -> cancelSubscription(subscription, account));
   }
 
-  public CompletableFuture<Void> cancelSubscription(StripeAccount account) {
+  private CompletableFuture<Void> cancelSubscription(StripeAccount account) {
     try {
       var subscriptions = stripeClient.subscriptions()
         .list(SubscriptionListParams.builder().setCustomer(account.accountId()).build())
@@ -149,7 +150,18 @@ public final class StripeTerminationController extends StripeController {
       if (subscriptions.isEmpty()) {
         return CompletableFuture.completedFuture(null);
       }
-      subscriptions.get(0).cancel();
+      return cancelSubscription(subscriptions.get(0), account);
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private CompletableFuture<Void> cancelSubscription(
+    Subscription subscription, StripeAccount account
+  ) {
+    try {
+      subscription.cancel();
       return stripeDatabaseTable().updateStripeAccount(account.accountId(),
         account.targetId(), account.userId(), "");
     } catch (Exception exception) {
@@ -166,7 +178,6 @@ public final class StripeTerminationController extends StripeController {
       next = next.withDayOfMonth(next.getMonth().length(
         next.toLocalDate().isLeapYear()));
     }
-    return System.currentTimeMillis() >
-      (next.toInstant().toEpochMilli() + 1000L * 60 * 5);
+    return System.currentTimeMillis() > next.toInstant().toEpochMilli();
   }
 }

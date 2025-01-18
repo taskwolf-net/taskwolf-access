@@ -177,17 +177,22 @@ public final class StripeCheckoutResponseController extends StripeController {
     }
   }
 
-  private void refundLastPayment(User user, Subscription subscription) throws Exception {
-    var payment = subscription.getLatestInvoiceObject().getPaymentIntentObject();
-    var amount = calculatePaymentRefundAmount(subscription, payment);
-    stripeClient.refunds().create(RefundCreateParams.builder()
-      .setPaymentIntent(payment.getId())
-      .setAmount(amount)
-      .build());
-    var title = translation.translate(user, "upgrade.email.title");
-    var body = String.format(translation.translate(user, "upgrade.email.body"),
-      user.name(), amount / 100D);
-    orderMail.send(user.email(), title, body);
+  private void refundLastPayment(User user, Subscription subscription) {
+    try {
+      var invoice = stripeClient.invoices().retrieve(subscription.getLatestInvoice());
+      var payment = stripeClient.paymentIntents().retrieve(invoice.getPaymentIntent());
+      var amount = calculatePaymentRefundAmount(subscription, payment);
+      stripeClient.refunds().create(RefundCreateParams.builder()
+        .setPaymentIntent(payment.getId())
+        .setAmount(amount)
+        .build());
+      var title = translation.translate(user, "upgrade.email.title");
+      var body = String.format(translation.translate(user, "upgrade.email.body"),
+        user.name(), amount / 100D);
+      orderMail.send(user.email(), title, body);
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+    }
   }
 
   private long calculatePaymentRefundAmount(
@@ -198,11 +203,11 @@ public final class StripeCheckoutResponseController extends StripeController {
     if (periodStart == null || periodEnd == null) {
       return 0;
     }
-    var currentTime = System.currentTimeMillis() / 1000L;
-    var totalPeriod = periodEnd - periodStart;
-    var timeRemaining = periodEnd - currentTime;
-    var percentageRemaining = (timeRemaining / totalPeriod) * 100;
-    percentageRemaining = Math.max(0, Math.min(percentageRemaining, 100));
+    long currentTime = System.currentTimeMillis() / 1000L;
+    double totalPeriod = periodEnd - periodStart;
+    double timeRemaining = periodEnd - currentTime;
+    double percentageRemaining = timeRemaining / totalPeriod;
+    percentageRemaining = Math.max(0, Math.min(percentageRemaining, 1));
     return Math.round(percentageRemaining * payment.getAmount());
   }
 

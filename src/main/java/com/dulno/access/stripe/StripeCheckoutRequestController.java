@@ -196,6 +196,7 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
 
   private boolean checkBundleUsability(Bundle bundle, BundleClass bundleClass) {
     return bundle.bundleClass().weight() < bundleClass.weight() ||
-      System.currentTimeMillis() > bundle.expiration();
+      (bundle.bundleClass().weight() == bundleClass.weight() &&
+        System.currentTimeMillis() > bundle.expiration());
   }
 }

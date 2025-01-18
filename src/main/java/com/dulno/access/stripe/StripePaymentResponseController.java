@@ -91,9 +91,14 @@ public final class StripePaymentResponseController extends StripeController {
   }
 
   private void processPaymentCreation(PaymentIntent paymentIntent) {
-    var subscription = paymentIntent.getInvoiceObject().getSubscriptionObject();
-    findBundle(paymentIntent, subscription)
-      .thenAccept(this::checkPackageExtension);
+    try {
+      var invoice = stripeClient.invoices().retrieve(paymentIntent.getInvoice());
+      var subscription = stripeClient.subscriptions().retrieve(
+        invoice.getSubscription());
+      findBundle(subscription).thenAccept(this::checkPackageExtension);
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+    }
   }
 
   private void checkPackageExtension(Bundle bundle) {
@@ -111,25 +116,28 @@ public final class StripePaymentResponseController extends StripeController {
   }
 
   private void processPaymentSuccess(PaymentIntent paymentIntent) {
-    var subscription = paymentIntent.getInvoiceObject().getSubscriptionObject();
-    findBundle(paymentIntent, subscription).thenAccept(bundle ->
-      processPaymentSuccess(paymentIntent, subscription, bundle));
+    try {
+      var invoice = stripeClient.invoices().retrieve(paymentIntent.getInvoice());
+      var subscription = stripeClient.subscriptions().retrieve(
+        invoice.getSubscription());
+      findBundle(subscription).thenAccept(bundle ->
+        processPaymentSuccess(subscription, bundle));
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+    }
   }
 
-  private void processPaymentSuccess(
-    PaymentIntent paymentIntent, Subscription subscription, Bundle bundle
-  ) {
+  private void processPaymentSuccess(Subscription subscription, Bundle bundle) {
     if (bundle == null) {
       return;
     }
     terminationDatabaseTable.terminationExists(bundle.ownerId())
-      .thenAccept(terminationExists -> checkPackageTermination(paymentIntent,
-        subscription, bundle, terminationExists));
+      .thenAccept(terminationExists -> checkPackageTermination(subscription,
+        bundle, terminationExists));
   }
 
   private void checkPackageTermination(
-    PaymentIntent paymentIntent, Subscription subscription, Bundle bundle,
-    boolean terminationExists
+    Subscription subscription, Bundle bundle, boolean terminationExists
   ) {
     if (!terminationExists) {
       return;
@@ -143,14 +151,12 @@ public final class StripePaymentResponseController extends StripeController {
       return;
     }
     terminationDatabaseTable.deleteTermination(bundle.ownerId());
-    stripeTerminationController.cancelSubscription(paymentIntent.getCustomer());
+    stripeTerminationController.cancelSubscription(subscription);
   }
 
-  private CompletableFuture<Bundle> findBundle(
-    PaymentIntent paymentIntent, Subscription subscription
-  ) {
+  private CompletableFuture<Bundle> findBundle(Subscription subscription) {
     try {
-      var customer = stripeClient.customers().retrieve(paymentIntent.getCustomer());
+      var customer = stripeClient.customers().retrieve(subscription.getCustomer());
       return userDatabaseTable().findUser(customer.getEmail())
         .thenCompose(user -> findBundleTarget(user, subscription)
           .thenCompose(this::findBundle));

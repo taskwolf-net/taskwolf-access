@@ -22,7 +22,6 @@ import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
 import com.dulno.workflow.structure.WorkflowDatabaseTable;
-import com.dulno.workflow.structure.WorkflowEntry;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -30,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -101,10 +101,10 @@ public final class WorkflowTimelineController extends WorkflowController {
         assemblyTimelineInformation(user, timeline), "page", page.pageState()));
   }
 
-  private Map<String, Object> assemblyTimelineInformation(
+  private List<Map<String, Object>> assemblyTimelineInformation(
     User user, Timeline timeline
   ) {
-    var information = Lists.newArrayList();
+    var information = Lists.<Map<String, Object>>newArrayList();
     var entries = timeline.findAllEntries().stream()
       .sorted(Comparator.comparing(TimelineEntry::rawTime).reversed()).toList();
     for (var entry : entries) {
@@ -125,7 +125,7 @@ public final class WorkflowTimelineController extends WorkflowController {
       }
       information.add(entryInformation);
     }
-    return Map.of("timeline", information);
+    return information;
   }
 
   @RequestMapping(path = "/workflow/timeline/reset/", method = RequestMethod.POST)

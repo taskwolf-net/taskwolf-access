@@ -90,12 +90,11 @@ public final class WorkflowModificationController extends WorkflowController {
     }
     var created = System.currentTimeMillis();
     return findWorkflowOwner(user, target).thenCompose(owner ->
-      createWorkflowCreateTimelineEntry(user).thenCompose(value ->
-        createWorkflow(user, owner, body.getObject("trigger"),
-          body.getObjectList("actions"), body.getObjectList("conditions"),
-          body.getObject("loop"), body.getString("timeZone"),
-          body.getString("timeLocale"), created, body.getString("name", 64),
-          body.getString("description", 128), WorkflowState.OPERATIONAL)));
+      createWorkflow(user, owner, body.getObject("trigger"),
+        body.getObjectList("actions"), body.getObjectList("conditions"),
+        body.getObject("loop"), body.getString("timeZone"),
+        body.getString("timeLocale"), created, body.getString("name", 64),
+        body.getString("description", 128), WorkflowState.OPERATIONAL));
   }
 
   private CompletableFuture<UUID> findWorkflowOwner(User user, UUID target) {
@@ -103,14 +102,6 @@ public final class WorkflowModificationController extends WorkflowController {
       CompletableFuture.completedFuture(target) :
       teamTargetDatabaseTable().findTargetSecured(user.id())
         .thenApply(team -> team.orElse(target));
-  }
-
-  private CompletableFuture<Void> createWorkflowCreateTimelineEntry(User creator) {
-    return timelineDatabaseTable.generateAvailableEntryId()
-      .thenApply(id -> TimelineDatabaseEntry.create(id, null,
-        System.currentTimeMillis(), "timeline-workflow-create",
-        new JSONObject(Map.of("creator", creator.id().toString())).toString()))
-      .thenCompose(timelineDatabaseTable::insertEntry);
   }
 
   @RequestMapping(path = "/workflow/update/", method = RequestMethod.POST)
@@ -172,9 +163,21 @@ public final class WorkflowModificationController extends WorkflowController {
     String name, String description, WorkflowState state
   ) {
     return workflowDatabaseTable().generateAvailableWorkflowId()
-      .thenCompose(workflowId -> createWorkflow(workflowId, creator, ownerId,
-        triggerData, actionData, conditionData, loopData, timeZone, timeLocale,
-        created, name, description, state));
+      .thenCompose(workflowId ->
+        createWorkflowCreateTimelineEntry(creator, workflowId)
+          .thenCompose(value -> createWorkflow(workflowId, creator, ownerId,
+            triggerData, actionData, conditionData, loopData, timeZone,
+            timeLocale, created, name, description, state)));
+  }
+
+  private CompletableFuture<Void> createWorkflowCreateTimelineEntry(
+    User creator, UUID workflowId
+  ) {
+    return timelineDatabaseTable.generateAvailableEntryId()
+      .thenApply(id -> TimelineDatabaseEntry.create(id, workflowId,
+        System.currentTimeMillis(), "timeline-workflow-create",
+        new JSONObject(Map.of("creator", creator.id().toString())).toString()))
+      .thenCompose(timelineDatabaseTable::insertEntry);
   }
 
   private CompletableFuture<Void> createWorkflow(

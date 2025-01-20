@@ -130,7 +130,8 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
           .build())
         .setSuccessUrl(String.format(SUCCESS_URL_FORMAT, token))
         .setCancelUrl("https://dulno.com/pricing/")
-        .setMode(SessionCreateParams.Mode.SUBSCRIPTION);
+        .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
+        .setBillingAddressCollection(SessionCreateParams.BillingAddressCollection.REQUIRED);
       if (!accountId.isEmpty()) {
         sessionBuilder.setCustomer(accountId);
       } else {

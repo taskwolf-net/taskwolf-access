@@ -47,10 +47,10 @@ deploy_core:
   only:
     - master
 
-deploy_nginx:
+deploy_wiki:
   stage: deploy
   trigger:
-    project: $NGINX_PIPELINE_PROJECT
-    branch: $NGINX_PIPELINE_BRANCH
+    project: $WIKI_PIPELINE_PROJECT
+    branch: $WIKI_PIPELINE_BRANCH
   only:
     - master

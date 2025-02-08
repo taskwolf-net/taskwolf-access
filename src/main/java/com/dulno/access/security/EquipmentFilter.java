@@ -28,7 +28,7 @@ public class EquipmentFilter extends OncePerRequestFilter {
 
   private void prepareResponseHeaders(HttpServletResponse response) {
     response.setHeader("Content-Type", "application/json");
-    response.setHeader("Access-Control-Allow-Origin", "https://api.dulno.com");
+    response.setHeader("Access-Control-Allow-Origin", "https://dulno.com, https://*.dulno.com");
     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     response.setHeader("Access-Control-Max-Age", "3600");
     response.setHeader("Access-Control-Allow-Headers", "content-type, authorization, home-authorization, whitelist-key");

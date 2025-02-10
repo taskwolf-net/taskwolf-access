@@ -382,4 +382,13 @@ public final class VerificationLoginController extends DulnoRestController {
     return userDatabaseTable().userExists(body.getString("email"))
       .thenApply(exists -> Map.of("exists", exists));
   }
+
+  @RequestMapping(path = "/address/", method = RequestMethod.GET)
+  public Map<String, Object> findRequestAddress(HttpServletRequest request) {
+    var address = request.getHeader("X-Real-IP");
+    if (address == null) {
+      return Map.of("address", "");
+    }
+    return Map.of("address", address);
+  }
 }

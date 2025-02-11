@@ -27,7 +27,7 @@ public class EquipmentFilter extends OncePerRequestFilter {
   }
 
   private static final List<String> ALLOWED_ORIGINS = List.of("https://dulno.com",
-    "https://panel.dulno.com");
+    "https://panel.dulno.com", "https://documentation.dulno.com");
 
   private void prepareResponseHeaders(
     HttpServletRequest request, HttpServletResponse response

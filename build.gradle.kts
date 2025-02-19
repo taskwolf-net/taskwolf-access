@@ -131,7 +131,7 @@ dependencies {
 
   compileOnly("com.sun.mail:javax.mail:1.6.2")
 
-  compileOnly("com.stripe:stripe-java:26.12.0")
+  compileOnly("com.stripe:stripe-java:28.3.1")
 
   compileOnly("com.maxmind.geoip2:geoip2:4.2.1")
 }

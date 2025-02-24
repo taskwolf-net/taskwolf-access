@@ -2,6 +2,7 @@ package com.dulno.access.trial;
 
 import com.dulno.access.verification.Verification;
 import com.dulno.access.verification.VerificationLoginController;
+import com.dulno.core.hashing.Hashing;
 import com.dulno.workflow.operation.OperationDatabaseTable;
 import com.dulno.workflow.throttle.WorkflowThrottleDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,6 +30,7 @@ public final class TrialController extends DulnoHomeRestController {
   private final OperationDatabaseTable operationDatabaseTable;
   private final WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable;
   private final VerificationLoginController verificationLoginController;
+  private final Hashing hashing;
 
   private TrialController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
@@ -37,7 +39,7 @@ public final class TrialController extends DulnoHomeRestController {
     BundlePresetRepository bundlePresetRepository,
     OperationDatabaseTable operationDatabaseTable,
     WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
-    VerificationLoginController verificationLoginController
+    VerificationLoginController verificationLoginController, Hashing hashing
   ) {
     super(homeKey, userDatabaseTable);
     this.productKey = productKey;
@@ -48,6 +50,7 @@ public final class TrialController extends DulnoHomeRestController {
     this.operationDatabaseTable = operationDatabaseTable;
     this.workflowThrottleDatabaseTable = workflowThrottleDatabaseTable;
     this.verificationLoginController = verificationLoginController;
+    this.hashing = hashing;
   }
 
   @RequestMapping(path = "/trial/use/", method = RequestMethod.GET)
@@ -103,7 +106,7 @@ public final class TrialController extends DulnoHomeRestController {
     HttpServletRequest request, User user
   ) {
     var verification = Verification.create(userDatabaseTable(), secretKey(),
-      productKey, refreshKey, user.email(), "");
+      productKey, refreshKey, hashing, user.email(), "");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verificationLoginController.processAuthorizedLogin(request, verification,
       futureResponse);

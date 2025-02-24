@@ -1,8 +1,8 @@
 package com.dulno.access.verification;
 
+import com.dulno.core.hashing.Hashing;
 import com.dulno.core.session.SessionDatabaseTable;
 import com.google.common.collect.Lists;
-import com.google.common.hash.Hashing;
 import com.maxmind.geoip2.DatabaseReader;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -31,7 +31,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Map;
 import java.util.UUID;
@@ -56,6 +55,7 @@ public final class VerificationRegistrationController {
   private final DatabaseReader geoDatabaseReader;
   private final SessionDatabaseTable sessionDatabaseTable;
   private final VerificationLoginController loginController;
+  private final Hashing hashing;
 
   private VerificationRegistrationController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
@@ -69,7 +69,7 @@ public final class VerificationRegistrationController {
     WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable,
     DatabaseReader geoDatabaseReader, SessionDatabaseTable sessionDatabaseTable,
-    VerificationLoginController loginController
+    VerificationLoginController loginController, Hashing hashing
   ) {
     this.homeKey = homeKey;
     this.productKey = productKey;
@@ -87,6 +87,7 @@ public final class VerificationRegistrationController {
     this.geoDatabaseReader = geoDatabaseReader;
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.loginController = loginController;
+    this.hashing = hashing;
   }
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
@@ -154,7 +155,7 @@ public final class VerificationRegistrationController {
       futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
-    createUser(name, email, hashPassword(password), redirect, ipAddress,
+    createUser(name, email, hashing.hash(password), redirect, ipAddress,
       legalAccepted, newsletter, true);
     futureResponse.complete(Map.of("success", true));
   }
@@ -219,7 +220,7 @@ public final class VerificationRegistrationController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var email = body.getString("email").replace(" ", "");
+    var email = body.getString("email").trim();
     userDatabaseTable.userExists(email).thenAccept(userExists ->
       resendEmailCheckUser(email, userExists));
   }
@@ -285,15 +286,10 @@ public final class VerificationRegistrationController {
   ) {
     userVerificationDatabaseTable.deleteVerification(userId);
     var apiKey = Verification.create(userDatabaseTable, homeKey, productKey,
-      refreshKey, "", "").generateHomeApiKey(userId, sessionId);
+      refreshKey, hashing).generateHomeApiKey(userId, sessionId);
     loginController.storeSession(request, userId, sessionId, "");
     return userDatabaseTable.findUser(userId).thenApply(user ->
       Map.of("success", true, "homeApiKey", apiKey, "userName", user.name()));
-  }
-
-  private String hashPassword(String password) {
-    return Hashing.sha256().hashString(password, StandardCharsets.UTF_8)
-      .toString();
   }
 }
 

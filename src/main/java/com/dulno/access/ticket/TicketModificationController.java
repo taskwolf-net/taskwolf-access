@@ -7,6 +7,9 @@ import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.activity.ActivityType;
 import com.dulno.core.user.activity.UserActivityDatabaseTable;
+import org.owasp.html.HtmlPolicyBuilder;
+import org.owasp.html.PolicyFactory;
+import org.owasp.html.Sanitizers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,8 +45,10 @@ public final class TicketModificationController extends TicketController {
     var body = DulnoRequestBody.of(payload, response);
     var userId = findUserId(request);
     return ticketDatabaseTable().findTicketCount(userId)
-      .thenApply(ticketCount -> createTicket(userId, body.getString("title", 64),
-        body.getString("type"), body.getString("message"), ticketCount));
+      .thenApply(ticketCount -> createTicket(userId,
+        body.getSanitizedString("title", 64), body.getSanitizedString("type"),
+        body.getSanitizedString("message", buildMessageSanitizationPolicy()),
+        ticketCount));
   }
 
   private static final long TICKET_LIMIT = 5;
@@ -84,7 +89,7 @@ public final class TicketModificationController extends TicketController {
     var body = DulnoRequestBody.of(payload, response);
     var userId = findUserId(request);
     performTicketOperation(userId, body.getUUID("ticket"), ticket ->
-      renameTicket(ticket, body.getString("title", 64)), () -> {});
+      renameTicket(ticket, body.getSanitizedString("title", 64)), () -> {});
   }
 
   private void renameTicket(Ticket ticket, String title) {
@@ -131,7 +136,8 @@ public final class TicketModificationController extends TicketController {
     performTicketOperation(userId, body.getUUID("ticket"), ticket ->
       ticketMessageDatabaseTable().generateAvailableTicketMessageId()
         .thenAccept(messageId -> addTicketMessage(userId, ticket, messageId,
-          body.getString("message"))), () -> {});
+          body.getSanitizedString("message", buildMessageSanitizationPolicy()))),
+      () -> {});
   }
 
   private void addTicketMessage(
@@ -169,5 +175,13 @@ public final class TicketModificationController extends TicketController {
     }
     ticketMessageDatabaseTable().deleteTicketMessage(messageId);
     ticketDatabaseTable().removeTicketMessage(ticket.id(), messageId);
+  }
+
+  private PolicyFactory buildMessageSanitizationPolicy() {
+    return new HtmlPolicyBuilder()
+      .allowAttributes("class", "contenteditable", "data-list").globally()
+      .toFactory().and(Sanitizers.FORMATTING
+        .and(Sanitizers.BLOCKS).and(Sanitizers.IMAGES).and(Sanitizers.STYLES)
+        .and(Sanitizers.LINKS));
   }
 }

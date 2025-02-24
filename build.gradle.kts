@@ -134,6 +134,8 @@ dependencies {
   compileOnly("com.stripe:stripe-java:28.3.1")
 
   compileOnly("com.maxmind.geoip2:geoip2:4.2.1")
+
+  compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1")
 }
 
 tasks.test {

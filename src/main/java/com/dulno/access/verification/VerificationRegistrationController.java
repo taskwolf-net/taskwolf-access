@@ -111,7 +111,7 @@ public final class VerificationRegistrationController {
     userDatabaseTable.userExists(email)
       .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
         .thenAccept(recaptchaVerified -> completeRegistration(futureResponse,
-          exists, recaptchaVerified, email, body.getString("name", 32),
+          exists, recaptchaVerified, email, body.getSanitizedString("name", 32),
           body.getString("password"), body.getString("redirect"), ipAddress,
           legalAccepted, body.getBoolean("newsletter"))));
     return futureResponse;

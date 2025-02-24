@@ -6,6 +6,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.question.QuestionDatabaseTable;
 import com.dulno.core.question.QuestionMessageDatabaseTable;
+import org.owasp.html.HtmlPolicyBuilder;
+import org.owasp.html.PolicyFactory;
+import org.owasp.html.Sanitizers;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -36,8 +39,16 @@ public final class QuestionController {
     return questionDatabaseTable.generateAvailableQuestionId().thenCompose(
       questionId -> questionMessageDatabaseTable.generateAvailableMessageId()
         .thenApply(messageId -> createQuestion(questionId, messageId,
-          body.getString("email"), body.getString("title"),
-          body.getString("question"))));
+          body.getSanitizedString("email"), body.getSanitizedString("title"),
+          body.getSanitizedString("question", buildQuestionSanitizationPolicy()))));
+  }
+
+  private PolicyFactory buildQuestionSanitizationPolicy() {
+    return new HtmlPolicyBuilder()
+      .allowAttributes("class", "contenteditable", "data-list").globally()
+      .toFactory().and(Sanitizers.FORMATTING
+        .and(Sanitizers.BLOCKS).and(Sanitizers.IMAGES).and(Sanitizers.STYLES)
+        .and(Sanitizers.LINKS));
   }
 
   private Map<String, Object> createQuestion(

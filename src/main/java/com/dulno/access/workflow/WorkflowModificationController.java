@@ -93,8 +93,9 @@ public final class WorkflowModificationController extends WorkflowController {
       createWorkflow(user, owner, body.getObject("trigger"),
         body.getObjectList("actions"), body.getObjectList("conditions"),
         body.getObject("loop"), body.getString("timeZone"),
-        body.getString("timeLocale"), created, body.getString("name", 64),
-        body.getString("description", 128), WorkflowState.OPERATIONAL));
+        body.getString("timeLocale"), created,
+        body.getSanitizedString("name", 64),
+        body.getSanitizedString("description", 128), WorkflowState.OPERATIONAL));
   }
 
   private CompletableFuture<UUID> findWorkflowOwner(User user, UUID target) {
@@ -122,8 +123,8 @@ public final class WorkflowModificationController extends WorkflowController {
             body.getObject("trigger"), body.getObjectList("actions"),
             body.getObjectList("conditions"), body.getObject("loop"),
             body.getString("timeZone"), body.getString("timeLocale"),
-            body.getString("name", 64), body.getString("description", 128),
-            workflow.state()))));
+            body.getSanitizedString("name", 64),
+            body.getSanitizedString("description", 128), workflow.state()))));
   }
 
   private CompletableFuture<Void> updateWorkflow(

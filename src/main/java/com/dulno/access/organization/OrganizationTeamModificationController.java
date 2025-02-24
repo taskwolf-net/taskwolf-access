@@ -80,7 +80,7 @@ public final class OrganizationTeamModificationController extends OrganizationTe
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var name = body.getString("name");
+    var name = body.getSanitizedString("name");
     var futureResponse = new CompletableFuture<Void>();
     performOrganizationOwnerOperation(findUserId(request),
       organization -> bundleDatabaseTable.findBundle(organization.id())
@@ -205,7 +205,7 @@ public final class OrganizationTeamModificationController extends OrganizationTe
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var teamId = body.getUUID("team");
-    var name = body.getString("name");
+    var name = body.getSanitizedString("name");
     performOrganizationTeamOperation(findUserId(request), teamId,
       team -> teamDatabaseTable().renameTeam(team, name), () -> {});
   }

@@ -6,10 +6,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.sale.SaleDatabaseTable;
 import com.dulno.core.sale.SaleMessageDatabaseTable;
+import org.owasp.html.HtmlPolicyBuilder;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
+
+import org.owasp.html.PolicyFactory;
+import org.owasp.html.Sanitizers;
 
 import java.util.Map;
 import java.util.UUID;
@@ -36,12 +40,21 @@ public final class SaleController {
     return saleDatabaseTable.generateAvailableSaleId()
       .thenCompose(saleId -> saleMessageDatabaseTable.generateAvailableMessageId()
         .thenApply(messageId -> createSale(saleId, messageId,
-          body.getString("email"), body.getString("firstName"),
-          body.getString("lastName"), body.getString("phoneNumber"),
-          body.getString("country"), body.getString("companyName"),
-          body.getString("companySize"), body.getString("companyRole"),
-          body.getString("title"), body.getString("message"))));
-}
+          body.getSanitizedString("email"), body.getSanitizedString("firstName"),
+          body.getSanitizedString("lastName"), body.getSanitizedString("phoneNumber"),
+          body.getSanitizedString("country"), body.getSanitizedString("companyName"),
+          body.getSanitizedString("companySize"), body.getSanitizedString("companyRole"),
+          body.getSanitizedString("title"),
+          body.getSanitizedString("message", buildMessageSanitizationPolicy()))));
+  }
+
+  private PolicyFactory buildMessageSanitizationPolicy() {
+    return new HtmlPolicyBuilder()
+      .allowAttributes("class", "contenteditable", "data-list").globally()
+      .toFactory().and(Sanitizers.FORMATTING
+        .and(Sanitizers.BLOCKS).and(Sanitizers.IMAGES).and(Sanitizers.STYLES)
+        .and(Sanitizers.LINKS));
+  }
 
   private Map<String, Object> createSale(
     UUID saleId, UUID messageId, String email, String firstName, String lastName,

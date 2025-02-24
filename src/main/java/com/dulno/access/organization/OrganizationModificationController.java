@@ -110,7 +110,7 @@ public final class OrganizationModificationController extends OrganizationContro
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var name = body.getString("name");
+    var name = body.getSanitizedString("name");
     performOrganizationOwnerOperation(findUserId(request), organization ->
         organizationDatabaseTable().renameOrganization(organization, name),
       () -> {});

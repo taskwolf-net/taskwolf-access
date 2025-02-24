@@ -36,6 +36,7 @@ import java.security.Key;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 
 @RestController
 public final class VerificationRegistrationController {
@@ -97,10 +98,15 @@ public final class VerificationRegistrationController {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var legalAccepted = body.getBoolean("legalAccepted");
     if (!legalAccepted) {
-      return CompletableFuture.completedFuture(Map.of("success", false));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1002));
     }
     var ipAddress = request.getHeader("X-Real-IP");
     var email = body.getString("email");
+    if (!checkEmailFormat(email)) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1003));
+    }
     userDatabaseTable.userExists(email)
       .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
         .thenAccept(recaptchaVerified -> completeRegistration(futureResponse,
@@ -110,7 +116,19 @@ public final class VerificationRegistrationController {
     return futureResponse;
   }
 
-  private static final String RECAPTCHA_URL = "https://www.google.com/recaptcha/api/siteverify?secret=%s&response=%s";
+  private static final Pattern EMAIL_PATTERN = Pattern.compile(
+    "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$");
+
+  private boolean checkEmailFormat(String email) {
+    if (email == null) {
+      return false;
+    }
+    var matcher = EMAIL_PATTERN.matcher(email);
+    return matcher.matches();
+  }
+
+  private static final String RECAPTCHA_URL =
+    "https://www.google.com/recaptcha/api/siteverify?secret=%s&response=%s";
 
   private CompletableFuture<Boolean> checkRecaptcha(String token) {
     var url = URI.create(String.format(RECAPTCHA_URL,

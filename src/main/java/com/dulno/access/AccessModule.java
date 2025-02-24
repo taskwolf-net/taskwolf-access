@@ -1,8 +1,8 @@
 package com.dulno.access;
 
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.core.hashing.Hashing;
 import com.dulno.core.worker.WorkerConfiguration;
-import com.dulno.workflow.WorkflowInjectionModule;
 import com.dulno.workflow.WorkflowModule;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -66,7 +66,8 @@ public final class AccessModule extends Module {
       injector().getInstance(WorkflowModule.class),
       injector().getInstance(Translation.class),
       injector().getInstance(ErrorRepository.class),
-      injector().getInstance(MailFactory.class)));
+      injector().getInstance(MailFactory.class),
+      injector().getInstance(Hashing.class)));
     application.addInitializers(injector().getInstance(WhitelistContextInitializer.class));
     application.addInitializers(injector().getInstance(MaintenanceContextInitializer.class));
     application.addInitializers(injector().getInstance(VerificationContextInitializer.class));

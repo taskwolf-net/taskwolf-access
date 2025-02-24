@@ -1,11 +1,10 @@
 package com.dulno.access.setting;
 
+import com.dulno.core.hashing.Hashing;
 import com.google.common.collect.Maps;
-import com.google.common.hash.Hashing;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.mfa.MultiFactorAuthDatabaseTable;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Map;
 import java.util.UUID;
@@ -28,16 +26,18 @@ import java.util.concurrent.CompletableFuture;
 public final class MultiFactorAuthSettingController extends SettingController {
   private final MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable;
   private final MultiFactorAuthFactory multiFactorAuthFactory;
+  private final Hashing hashing;
 
   private MultiFactorAuthSettingController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
     UserDatabaseTable userDatabaseTable,
     MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable,
-    MultiFactorAuthFactory multiFactorAuthFactory
+    MultiFactorAuthFactory multiFactorAuthFactory, Hashing hashing
   ) {
     super(productKey, homeKey, userDatabaseTable);
     this.multiFactorAuthDatabaseTable = multiFactorAuthDatabaseTable;
     this.multiFactorAuthFactory = multiFactorAuthFactory;
+    this.hashing = hashing;
   }
 
   @RequestMapping(path = "/settings/2fa/", method = RequestMethod.GET)
@@ -61,7 +61,7 @@ public final class MultiFactorAuthSettingController extends SettingController {
   private CompletableFuture<Map<String, Object>> switchMultiFactorAuth(
     User user, String password
   ) {
-    if (!user.passwordHash().equals(hashPassword(password))) {
+    if (!hashing.matches(password, user.passwordHash())) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
     return multiFactorAuthDatabaseTable.authExists(user.id())
@@ -81,11 +81,6 @@ public final class MultiFactorAuthSettingController extends SettingController {
       .thenCompose(qrCodeEncoded -> multiFactorAuthDatabaseTable.findAuth(userId)
         .thenApply(authUser -> Map.of("qrCode", qrCodeEncoded, "secret",
           authUser.secret(), "recoveryCodes", authUser.recoveryCodes()))));
-  }
-
-  private String hashPassword(String password) {
-    return Hashing.sha256().hashString(password, StandardCharsets.UTF_8)
-      .toString();
   }
 
   @RequestMapping(path = "/settings/2fa/confirm/", method = RequestMethod.POST)

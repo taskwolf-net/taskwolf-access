@@ -1,6 +1,8 @@
 package com.dulno.access.verification;
 
+import com.dulno.core.hashing.Hashing;
 import io.jsonwebtoken.Jwts;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
@@ -13,18 +15,20 @@ import java.util.concurrent.CompletableFuture;
 
 @Accessors(fluent = true)
 @RequiredArgsConstructor(staticName = "create")
+@AllArgsConstructor(staticName = "create")
 public final class Verification {
   private final UserDatabaseTable userDatabaseTable;
   private final Key homeSecret;
   private final Key productSecret;
   private final Key refreshSecret;
+  private final Hashing hashing;
   @Getter
-  private final String email;
-  private final String passwordHash;
+  private String email;
+  private String password;
 
   public CompletableFuture<Boolean> isAuthenticated() {
     var futureResponse = new CompletableFuture<Boolean>();
-    if (email == null || passwordHash == null || email.isEmpty()) {
+    if (email == null || password == null || email.isEmpty()) {
       futureResponse.complete(false);
       return futureResponse;
     }
@@ -40,7 +44,7 @@ public final class Verification {
       return futureResponse;
     }
     userDatabaseTable.findUser(email).thenAccept(user ->
-      futureResponse.complete(user.passwordHash().equals(passwordHash)));
+      futureResponse.complete(hashing.matches(password, user.passwordHash())));
     return futureResponse;
   }
 

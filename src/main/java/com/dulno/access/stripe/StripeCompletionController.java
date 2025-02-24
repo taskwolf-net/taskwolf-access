@@ -4,6 +4,7 @@ import com.dulno.access.verification.Verification;
 import com.dulno.access.verification.VerificationLoginController;
 import com.dulno.core.access.DulnoHomeRestController;
 import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.core.hashing.Hashing;
 import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
@@ -26,18 +27,20 @@ public final class StripeCompletionController extends DulnoHomeRestController {
   private final Key refreshKey;
   private final StripeCompletionDatabaseTable stripeCompletionDatabaseTable;
   private final VerificationLoginController verificationLoginController;
+  private final Hashing hashing;
 
   private StripeCompletionController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
     @Qualifier("refreshKey") Key refreshKey, UserDatabaseTable userDatabaseTable,
     StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
-    VerificationLoginController verificationLoginController
+    VerificationLoginController verificationLoginController, Hashing hashing
   ) {
     super(homeKey, userDatabaseTable);
     this.productKey = productKey;
     this.refreshKey = refreshKey;
     this.stripeCompletionDatabaseTable = stripeCompletionDatabaseTable;
     this.verificationLoginController = verificationLoginController;
+    this.hashing = hashing;
   }
 
   @RequestMapping(path = "/stripe/complete/", method = RequestMethod.POST)
@@ -77,7 +80,7 @@ public final class StripeCompletionController extends DulnoHomeRestController {
     }
     stripeCompletionDatabaseTable.deleteStripeCompletion(user.id(), completionToken);
     var verification = Verification.create(userDatabaseTable(), secretKey(),
-      productKey, refreshKey, user.email(), "");
+      productKey, refreshKey, hashing, user.email(), "");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verificationLoginController.processAuthorizedLogin(request, verification,
       futureResponse);

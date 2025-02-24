@@ -3,13 +3,13 @@ package com.dulno.access.setting;
 import com.dulno.access.organization.OrganizationModificationController;
 import com.dulno.access.password.PasswordController;
 import com.dulno.access.stripe.StripeTerminationController;
+import com.dulno.core.hashing.Hashing;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.session.SessionDatabaseTable;
 import com.dulno.core.user.mfa.MultiFactorAuthDatabaseTable;
 import com.dulno.workflow.operation.OperationDatabaseTable;
 import com.dulno.device.access.DeviceModificationController;
 import com.dulno.workflow.throttle.WorkflowThrottleDatabaseTable;
-import com.google.common.hash.Hashing;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.access.account.AccountController;
@@ -41,7 +41,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Map;
 import java.util.UUID;
@@ -80,6 +79,7 @@ public final class AccountSettingController extends SettingController {
   private final TutorialDatabaseTable tutorialDatabaseTable;
   private final UserActivityDatabaseTable activityDatabaseTable;
   private final SessionDatabaseTable sessionDatabaseTable;
+  private final Hashing hashing;
 
   private AccountSettingController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
@@ -112,7 +112,7 @@ public final class AccountSettingController extends SettingController {
     StripeTerminationController terminationController,
     TutorialDatabaseTable tutorialDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable,
-    SessionDatabaseTable sessionDatabaseTable
+    SessionDatabaseTable sessionDatabaseTable, Hashing hashing
   ) {
     super(productKey, homeKey, userDatabaseTable);
     this.changeMail = changeMail;
@@ -146,6 +146,7 @@ public final class AccountSettingController extends SettingController {
     this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.activityDatabaseTable = activityDatabaseTable;
     this.sessionDatabaseTable = sessionDatabaseTable;
+    this.hashing = hashing;
   }
 
   @RequestMapping(path = "/settings/account/unlocked/", method = RequestMethod.GET)
@@ -183,10 +184,10 @@ public final class AccountSettingController extends SettingController {
   private Map<String, Object> changePassword(
     User user, String currentPassword, String newPassword
   ) {
-    if (!user.passwordHash().equals(hashPassword(currentPassword))) {
+    if (!hashing.matches(currentPassword, user.passwordHash())) {
       return Map.of("success", false);
     }
-    userDatabaseTable().changeUserPassword(user.id(), hashPassword(newPassword));
+    userDatabaseTable().changeUserPassword(user.id(), hashing.hash(newPassword));
     activityDatabaseTable.insertActivity(user.id(), "activity.setting.password.title",
       "activity.setting.password.description", ActivityType.SETTING);
     return Map.of("success", true);
@@ -216,7 +217,7 @@ public final class AccountSettingController extends SettingController {
   private CompletableFuture<Map<String, Object>> requestEmailChange(
     User user, String password, String newEmail, boolean accountExists
   ) {
-    if (!user.passwordHash().equals(hashPassword(password))) {
+    if (!hashing.matches(password, user.passwordHash())) {
       return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
     }
     if (accountExists) {
@@ -300,7 +301,7 @@ public final class AccountSettingController extends SettingController {
   private Map<String, Object> deleteAccount(
     User user, String password
   ) {
-    if (!user.passwordHash().equals(hashPassword(password))) {
+    if (!hashing.matches(password, user.passwordHash())) {
       return Map.of("success", false);
     }
     deleteAccount(user);
@@ -357,10 +358,5 @@ public final class AccountSettingController extends SettingController {
       organizationModificationController.leaveOrganization(user.id(),
         organization);
     }
-  }
-
-  private String hashPassword(String password) {
-    return Hashing.sha256().hashString(password, StandardCharsets.UTF_8)
-      .toString();
   }
 }

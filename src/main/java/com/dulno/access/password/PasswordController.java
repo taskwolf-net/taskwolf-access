@@ -1,6 +1,6 @@
 package com.dulno.access.password;
 
-import com.google.common.hash.Hashing;
+import com.dulno.core.hashing.Hashing;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.DulnoRestController;
@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Map;
 import java.util.UUID;
@@ -26,17 +25,19 @@ public final class PasswordController extends DulnoRestController {
   private final Mail changeMail;
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final Translation translation;
+  private final Hashing hashing;
 
   private PasswordController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     @Qualifier("changeMail") Mail changeMail,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
-    Translation translation
+    Translation translation, Hashing hashing
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
     this.translation = translation;
+    this.hashing = hashing;
   }
 
   @RequestMapping(path = "/password/reset/request/", method = RequestMethod.POST)
@@ -130,13 +131,8 @@ public final class PasswordController extends DulnoRestController {
       return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
     }
     userPasswordResetDatabaseTable.deleteResetToken(userId);
-    userDatabaseTable().changeUserPassword(userId, hashPassword(newPassword));
+    userDatabaseTable().changeUserPassword(userId, hashing.hash(newPassword));
     return CompletableFuture.completedFuture(Map.of("success", true));
-  }
-
-  private String hashPassword(String password) {
-    return Hashing.sha256().hashString(password, StandardCharsets.UTF_8)
-      .toString();
   }
 }
 

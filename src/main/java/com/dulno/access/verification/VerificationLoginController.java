@@ -1,8 +1,8 @@
 package com.dulno.access.verification;
 
+import com.dulno.core.hashing.Hashing;
 import com.dulno.core.organization.OrganizationDatabaseTable;
 import com.google.common.collect.Lists;
-import com.google.common.hash.Hashing;
 import com.maxmind.geoip2.DatabaseReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.InetAddress;
-import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -45,6 +44,7 @@ public final class VerificationLoginController extends DulnoRestController {
   private final MultiFactorAuthFactory multiFactorAuthFactory;
   private final SessionDatabaseTable sessionDatabaseTable;
   private final DatabaseReader geoDatabaseReader;
+  private final Hashing hashing;
 
   private VerificationLoginController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
@@ -53,7 +53,8 @@ public final class VerificationLoginController extends DulnoRestController {
     BundleDatabaseTable bundleDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     MultiFactorAuthFactory multiFactorAuthFactory,
-    SessionDatabaseTable sessionDatabaseTable, DatabaseReader geoDatabaseReader
+    SessionDatabaseTable sessionDatabaseTable, DatabaseReader geoDatabaseReader,
+    Hashing hashing
   ) {
     super(productKey, userDatabaseTable);
     this.homeKey = homeKey;
@@ -65,6 +66,7 @@ public final class VerificationLoginController extends DulnoRestController {
     this.multiFactorAuthFactory = multiFactorAuthFactory;
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.geoDatabaseReader = geoDatabaseReader;
+    this.hashing = hashing;
   }
 
   @RequestMapping(path = "/verification/login/", method = RequestMethod.POST)
@@ -94,7 +96,7 @@ public final class VerificationLoginController extends DulnoRestController {
     String multiFactorCode
   ) {
     var verification = Verification.create(userDatabaseTable(), homeKey, productKey,
-      refreshKey, email.replace(" ", ""), hashPassword(password));
+      refreshKey, hashing, email.trim(), password);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
       checkAuthorization(request, verification, multiFactorCode, futureResponse,
@@ -287,7 +289,7 @@ public final class VerificationLoginController extends DulnoRestController {
       return Map.of("success", "false");
     }
     var verification = Verification.create(userDatabaseTable(), homeKey,
-      productKey, refreshKey, "", "");
+      productKey, refreshKey, hashing);
     var newProductApiKey = verification.generateProductApiKey(user.id(),
       session.id(), expiration);
     var newRefreshToken = verification.generateRefreshToken(user.id(),
@@ -367,11 +369,6 @@ public final class VerificationLoginController extends DulnoRestController {
       return new AbstractMap.SimpleEntry(
         HttpServletResponse.SC_FORBIDDEN, null);
     }
-  }
-
-  private String hashPassword(String password) {
-    return Hashing.sha256().hashString(password, StandardCharsets.UTF_8)
-      .toString();
   }
 
   @RequestMapping(path = "/email/exists/", method = RequestMethod.POST)

@@ -2,6 +2,7 @@ package com.dulno.access.organization;
 
 import com.dulno.access.verification.Verification;
 import com.dulno.access.verification.VerificationLoginController;
+import com.dulno.core.hashing.Hashing;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoHomeRestController;
@@ -32,6 +33,7 @@ public final class OrganizationJoinController extends DulnoHomeRestController {
   private final BundleDatabaseTable bundleDatabaseTable;
   private final UserActivityDatabaseTable activityDatabaseTable;
   private final VerificationLoginController verificationLoginController;
+  private final Hashing hashing;
 
   private OrganizationJoinController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
@@ -39,7 +41,7 @@ public final class OrganizationJoinController extends DulnoHomeRestController {
     OrganizationDatabaseTable organizationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable,
-    VerificationLoginController verificationLoginController
+    VerificationLoginController verificationLoginController, Hashing hashing
   ) {
     super(homeKey, userDatabaseTable);
     this.productKey = productKey;
@@ -48,6 +50,7 @@ public final class OrganizationJoinController extends DulnoHomeRestController {
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.activityDatabaseTable = activityDatabaseTable;
     this.verificationLoginController = verificationLoginController;
+    this.hashing = hashing;
   }
 
   @RequestMapping(path = "/organization/join/", method = RequestMethod.POST)
@@ -116,7 +119,7 @@ public final class OrganizationJoinController extends DulnoHomeRestController {
     HttpServletRequest request, User user
   ) {
     var verification = Verification.create(userDatabaseTable(), secretKey(),
-      productKey, refreshKey, user.email(), "");
+      productKey, refreshKey, hashing, user.email(), "");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verificationLoginController.processAuthorizedLogin(request, verification,
       futureResponse);

@@ -244,7 +244,7 @@ public final class AccountSettingController extends SettingController {
     var body = String.format(
       translation.translate(user, "email.change.email.body"),
       String.format(EMAIL_CHANGE_URL, user.id().toString(), token));
-    changeMail.send(newEmail, title, body);
+    changeMail.send(newEmail, user.language(), title, body);
     return Map.of("success", true);
   }
 

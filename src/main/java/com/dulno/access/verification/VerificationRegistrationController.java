@@ -193,12 +193,12 @@ public final class VerificationRegistrationController {
     var body = String.format(
       translation.translate(language, "registration.email.body"), name,
       verificationUrl);
-    verificationMail.send(email, title, body);
+    verificationMail.send(email, language, title, body);
     distribution.addUser(userId);
     tutorialDatabaseTable.insertTutorial(userId, 0, 0);
     var user = User.create(userId, name, email, passwordHash, language,
       Lists.newArrayList(), legalAccepted, newsletter, System.currentTimeMillis());
-    return  userTargetDatabaseTable.insertTarget(userId, userId)
+    return userTargetDatabaseTable.insertTarget(userId, userId)
       .thenCompose(targetValue -> userDatabaseTable.insertUser(user)
         .thenApply(userValue -> user));
   }
@@ -244,7 +244,7 @@ public final class VerificationRegistrationController {
       .thenApply(token -> String.format(
         translation.translate(user, "registration.email.body"), user.name(),
         String.format(VERIFICATION_URL, user.id().toString(), token)))
-      .thenAccept(body -> verificationMail.send(user.email(), title, body));
+      .thenAccept(body -> verificationMail.send(user, title, body));
   }
 
   @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)

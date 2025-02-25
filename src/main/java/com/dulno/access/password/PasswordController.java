@@ -94,7 +94,7 @@ public final class PasswordController extends DulnoRestController {
     var title = translation.translate(user, emailTitle);
     var body = String.format(translation.translate(user, emailBody), user.name(),
       String.format(PASSWORD_RESET_URL, user.id().toString(), token));
-    changeMail.send(user.email(), title, body);
+    changeMail.send(user, title, body);
     return Map.of("success", true);
   }
 

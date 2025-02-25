@@ -189,7 +189,7 @@ public final class StripeCheckoutResponseController extends StripeController {
       var title = translation.translate(user, "upgrade.email.title");
       var body = String.format(translation.translate(user, "upgrade.email.body"),
         user.name(), amount / 100D);
-      orderMail.send(user.email(), title, body);
+      orderMail.send(user, title, body);
     } catch (Exception exception) {
       errorRepository.processError(exception);
     }
@@ -286,7 +286,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     var title = translation.translate(user, "payment.email.title");
     var body = String.format(translation.translate(user, "payment.email.body"),
       user.name());
-    orderMail.send(user.email(), title, body,
+    orderMail.send(user, title, body,
         Lists.newArrayList(MailAttachment.create("Invoice.pdf", invoiceFile)))
       .thenAccept(value -> invoiceFile.delete());
   }

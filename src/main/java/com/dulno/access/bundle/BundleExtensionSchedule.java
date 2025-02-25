@@ -99,7 +99,7 @@ public final class BundleExtensionSchedule {
     var title = translation.translate(receiver, "bundle.extension.email.title");
     var body = String.format(translation.translate(receiver,
       "bundle.extension.email.body"), receiver.name());
-    notificationMail.send(receiver.email(), title, body);
+    notificationMail.send(receiver, title, body);
   }
 
   public void stop() {

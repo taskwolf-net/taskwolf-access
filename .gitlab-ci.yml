@@ -81,7 +81,7 @@ deploy_productive:
 
 merge:
   stage: merge
-  image: alpine:latest
+  image: curlimages/curl:latest
   script:
     - |
       curl --request POST --header "PRIVATE-TOKEN: $DULNO_GITLAB_PRIVATE_TOKEN" \

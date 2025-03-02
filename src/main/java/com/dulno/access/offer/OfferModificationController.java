@@ -1,5 +1,6 @@
 package com.dulno.access.offer;
 
+import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import com.stripe.StripeClient;
@@ -34,13 +35,15 @@ public final class OfferModificationController extends OfferController {
   private final StripeCompletionDatabaseTable stripeCompletionDatabaseTable;
   private final StripeClient stripeClient;
   private final ErrorRepository errorRepository;
+  private final DulnoEnvironment environment;
 
   private OfferModificationController(
     @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     OfferDatabaseTable offerDatabaseTable, StripeDatabaseTable stripeDatabaseTable,
     StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
-    StripeClient stripeClient, ErrorRepository errorRepository
+    StripeClient stripeClient, ErrorRepository errorRepository,
+    DulnoEnvironment environment
   ) {
     super(secretKey, userDatabaseTable, organizationDatabaseTable,
       offerDatabaseTable);
@@ -48,6 +51,7 @@ public final class OfferModificationController extends OfferController {
     this.stripeCompletionDatabaseTable = stripeCompletionDatabaseTable;
     this.stripeClient = stripeClient;
     this.errorRepository = errorRepository;
+    this.environment = environment;
   }
 
   @RequestMapping(path = "/offer/accept/", method = RequestMethod.POST)
@@ -65,10 +69,8 @@ public final class OfferModificationController extends OfferController {
     return futureResponse;
   }
 
-  private static final String SUCCESS_URL_FORMAT =
-    "https://dulno.com/payment/complete/%s/";
-  private static final String CANCEL_URL_FORMAT =
-    "https://dulno.com/offer/%s/";
+  private static final String SUCCESS_URL_FORMAT = "https://%s/payment/complete/%s/";
+  private static final String CANCEL_URL_FORMAT = "https://%s/offer/%s/";
 
   public Map<String, Object> acceptOffer(Offer offer, User user, String accountId) {
     try {
@@ -79,8 +81,9 @@ public final class OfferModificationController extends OfferController {
           .setPrice(offer.priceId())
           .setQuantity(1L)
           .build())
-        .setSuccessUrl(String.format(SUCCESS_URL_FORMAT, token))
-        .setCancelUrl(String.format(CANCEL_URL_FORMAT, offer.id().toString()))
+        .setSuccessUrl(String.format(SUCCESS_URL_FORMAT, environment.domain(), token))
+        .setCancelUrl(String.format(CANCEL_URL_FORMAT, environment.domain(),
+          offer.id().toString()))
         .setMode(SessionCreateParams.Mode.SUBSCRIPTION);
       if (!accountId.isEmpty()) {
         sessionBuilder.setCustomer(accountId);

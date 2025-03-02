@@ -1,5 +1,6 @@
 package com.dulno.access.verification;
 
+import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.session.SessionDatabaseTable;
 import com.google.common.collect.Lists;
@@ -56,6 +57,7 @@ public final class VerificationRegistrationController {
   private final SessionDatabaseTable sessionDatabaseTable;
   private final VerificationLoginController loginController;
   private final Hashing hashing;
+  private final DulnoEnvironment environment;
 
   private VerificationRegistrationController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
@@ -69,7 +71,8 @@ public final class VerificationRegistrationController {
     WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable,
     DatabaseReader geoDatabaseReader, SessionDatabaseTable sessionDatabaseTable,
-    VerificationLoginController loginController, Hashing hashing
+    VerificationLoginController loginController, Hashing hashing,
+    DulnoEnvironment environment
   ) {
     this.homeKey = homeKey;
     this.productKey = productKey;
@@ -88,6 +91,7 @@ public final class VerificationRegistrationController {
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.loginController = loginController;
     this.hashing = hashing;
+    this.environment = environment;
   }
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
@@ -170,7 +174,7 @@ public final class VerificationRegistrationController {
         legalAccepted, newsletter, verificationRequired));
   }
 
-  private static final String VERIFICATION_URL = "https://dulno.com/register/confirm/%s/%s/";
+  private static final String VERIFICATION_URL = "https://%s/register/confirm/%s/%s/";
 
   private CompletableFuture<User> insertNewUser(
     UUID userId, String name, String email, String passwordHash, String redirect,
@@ -186,7 +190,8 @@ public final class VerificationRegistrationController {
       userVerificationDatabaseTable.insertVerification(userId, token);
     }
     var title = translation.translate(language, "registration.email.title");
-    var verificationUrl = String.format(VERIFICATION_URL, userId.toString(), token);
+    var verificationUrl = String.format(VERIFICATION_URL, environment.domain(),
+      userId.toString(), token);
     if (!redirect.isEmpty()) {
       verificationUrl += "?redirect=" + redirect;
     }
@@ -243,7 +248,8 @@ public final class VerificationRegistrationController {
     userVerificationDatabaseTable.findVerification(user.id())
       .thenApply(token -> String.format(
         translation.translate(user, "registration.email.body"), user.name(),
-        String.format(VERIFICATION_URL, user.id().toString(), token)))
+        String.format(VERIFICATION_URL, environment.domain(),
+          user.id().toString(), token)))
       .thenAccept(body -> verificationMail.send(user, title, body));
   }
 

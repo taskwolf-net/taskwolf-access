@@ -57,7 +57,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("errorRepository", errorRepository);
     beanFactory.registerSingleton("mailFactory", mailFactory);
     beanFactory.registerSingleton("hashing", hashing);
-    beanFactory.registerSingleton("environment", environment);
+    beanFactory.registerSingleton("dulnoEnvironment", environment);
     applicationContext.addBeanFactoryPostProcessor(
       new KeyPostProcessor(homeKey, productKey, refreshKey));
   }

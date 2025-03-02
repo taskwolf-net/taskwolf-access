@@ -1,5 +1,6 @@
 package com.dulno.access;
 
+import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.worker.WorkerConfiguration;
@@ -67,7 +68,8 @@ public final class AccessModule extends Module {
       injector().getInstance(Translation.class),
       injector().getInstance(ErrorRepository.class),
       injector().getInstance(MailFactory.class),
-      injector().getInstance(Hashing.class)));
+      injector().getInstance(Hashing.class),
+      injector().getInstance(DulnoEnvironment.class)));
     application.addInitializers(injector().getInstance(WhitelistContextInitializer.class));
     application.addInitializers(injector().getInstance(MaintenanceContextInitializer.class));
     application.addInitializers(injector().getInstance(VerificationContextInitializer.class));

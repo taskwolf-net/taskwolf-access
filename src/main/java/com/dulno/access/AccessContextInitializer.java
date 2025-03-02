@@ -1,5 +1,6 @@
 package com.dulno.access;
 
+import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.worker.WorkerConfiguration;
@@ -39,6 +40,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final ErrorRepository errorRepository;
   private final MailFactory mailFactory;
   private final Hashing hashing;
+  private final DulnoEnvironment environment;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -55,6 +57,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("errorRepository", errorRepository);
     beanFactory.registerSingleton("mailFactory", mailFactory);
     beanFactory.registerSingleton("hashing", hashing);
+    beanFactory.registerSingleton("dulnoEnvironment", environment);
     applicationContext.addBeanFactoryPostProcessor(
       new KeyPostProcessor(homeKey, productKey, refreshKey));
   }

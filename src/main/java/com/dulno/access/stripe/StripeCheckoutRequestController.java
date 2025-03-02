@@ -1,6 +1,7 @@
 package com.dulno.access.stripe;
 
 import com.dulno.core.bundle.*;
+import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import com.stripe.StripeClient;
@@ -35,6 +36,7 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
   private final BundleDatabaseTable bundleDatabaseTable;
   private final OrganizationDatabaseTable organizationDatabaseTable;
   private final ErrorRepository errorRepository;
+  private final DulnoEnvironment environment;
 
   private StripeCheckoutRequestController(
     @Qualifier("homeKey") Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -43,7 +45,7 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
     StripeConfiguration stripeConfiguration, StripeClient stripeClient,
     BundleDatabaseTable bundleDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
-    ErrorRepository errorRepository
+    ErrorRepository errorRepository, DulnoEnvironment environment
   ) {
     super(secretKey, userDatabaseTable);
     this.stripeDatabaseTable = stripeDatabaseTable;
@@ -53,6 +55,7 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.errorRepository = errorRepository;
+    this.environment = environment;
   }
 
   @RequestMapping(path = "/checkout/", method = RequestMethod.POST)
@@ -112,8 +115,8 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
         CompletableFuture.completedFuture(""));
   }
 
-  private static final String SUCCESS_URL_FORMAT =
-    "https://dulno.com/payment/complete/%s/";
+  private static final String SUCCESS_URL_FORMAT = "https://%s/payment/complete/%s/";
+  private static final String CANCEL_URL_FORMAT = "https://%s/pricing/";
 
   private Map<String, Object> checkout(
     User user, BundleType bundleType, BundleClass bundleClass,
@@ -128,8 +131,8 @@ public final class StripeCheckoutRequestController extends DulnoHomeRestControll
             bundleClass, bundleRuntime))
           .setQuantity(1L)
           .build())
-        .setSuccessUrl(String.format(SUCCESS_URL_FORMAT, token))
-        .setCancelUrl("https://dulno.com/pricing/")
+        .setSuccessUrl(String.format(SUCCESS_URL_FORMAT, environment.domain(), token))
+        .setCancelUrl(String.format(CANCEL_URL_FORMAT, environment.domain()))
         .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
         .setBillingAddressCollection(SessionCreateParams.BillingAddressCollection.REQUIRED);
       if (!accountId.isEmpty()) {

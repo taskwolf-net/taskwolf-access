@@ -1,5 +1,6 @@
 package com.dulno.access.organization;
 
+import com.dulno.core.environment.DulnoEnvironment;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,13 +22,16 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class OrganizationInformationController extends OrganizationController {
+  private final DulnoEnvironment environment;
+
   private OrganizationInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
-    UserTargetDatabaseTable targetDatabaseTable
+    UserTargetDatabaseTable targetDatabaseTable, DulnoEnvironment environment
   ) {
     super(secretKey, userDatabaseTable, organizationDatabaseTable,
       targetDatabaseTable);
+    this.environment = environment;
   }
 
   @RequestMapping(path = "/organizations/all/", method = RequestMethod.GET)
@@ -100,14 +104,14 @@ public final class OrganizationInformationController extends OrganizationControl
     return information;
   }
 
-  private static final String LINK_FORMAT = "https://dulno.com/organization/join/%s/%s/";
+  private static final String LINK_FORMAT = "https://%s/organization/join/%s/%s/";
 
   @RequestMapping(path = "/organization/link/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findLink(HttpServletRequest request) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performOrganizationMemberOperation(findUserId(request), organization ->
         futureResponse.complete(Map.of("link", String.format(LINK_FORMAT,
-          organization.id(), organization.invitationToken()))),
+          environment.domain(), organization.id(), organization.invitationToken()))),
       () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
   }

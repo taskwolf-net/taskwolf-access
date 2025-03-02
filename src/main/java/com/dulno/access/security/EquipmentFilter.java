@@ -34,9 +34,6 @@ public class EquipmentFilter extends OncePerRequestFilter {
     filterChain.doFilter(request, response);
   }
 
-  private static final List<String> ALLOWED_ORIGINS = List.of("https://dulno.com",
-    "https://panel.dulno.com", "https://documentation.dulno.com");
-
   private void prepareResponseHeaders(
     HttpServletRequest request, HttpServletResponse response
   ) {
@@ -44,7 +41,7 @@ public class EquipmentFilter extends OncePerRequestFilter {
       fillAllowedOrigins();
     }
     var origin = request.getHeader("Origin");
-    if (origin != null && ALLOWED_ORIGINS.contains(origin)) {
+    if (origin != null && allowedOrigins.contains(origin)) {
       response.setHeader("Access-Control-Allow-Origin", origin);
     }
     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, " +

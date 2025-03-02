@@ -18,7 +18,7 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class EquipmentFilter extends OncePerRequestFilter {
-  private DulnoEnvironment environment;
+  private final DulnoEnvironment environment;
   private final List<String> allowedOrigins = Lists.newArrayList();
 
   @Override

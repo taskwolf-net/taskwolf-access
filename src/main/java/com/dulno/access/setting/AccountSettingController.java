@@ -3,6 +3,7 @@ package com.dulno.access.setting;
 import com.dulno.access.organization.OrganizationModificationController;
 import com.dulno.access.password.PasswordController;
 import com.dulno.access.stripe.StripeTerminationController;
+import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.session.SessionDatabaseTable;
@@ -80,6 +81,7 @@ public final class AccountSettingController extends SettingController {
   private final UserActivityDatabaseTable activityDatabaseTable;
   private final SessionDatabaseTable sessionDatabaseTable;
   private final Hashing hashing;
+  private final DulnoEnvironment environment;
 
   private AccountSettingController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
@@ -112,7 +114,8 @@ public final class AccountSettingController extends SettingController {
     StripeTerminationController terminationController,
     TutorialDatabaseTable tutorialDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable,
-    SessionDatabaseTable sessionDatabaseTable, Hashing hashing
+    SessionDatabaseTable sessionDatabaseTable, Hashing hashing,
+    DulnoEnvironment environment
   ) {
     super(productKey, homeKey, userDatabaseTable);
     this.changeMail = changeMail;
@@ -147,6 +150,7 @@ public final class AccountSettingController extends SettingController {
     this.activityDatabaseTable = activityDatabaseTable;
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.hashing = hashing;
+    this.environment = environment;
   }
 
   @RequestMapping(path = "/settings/account/unlocked/", method = RequestMethod.GET)
@@ -229,7 +233,7 @@ public final class AccountSettingController extends SettingController {
     return futureResponse;
   }
 
-  private static final String EMAIL_CHANGE_URL = "https://dulno.com/email/change/complete/%s/%s/";
+  private static final String EMAIL_CHANGE_URL = "https://%s/email/change/complete/%s/%s/";
 
   private Map<String, Object> requestEmailChange(
     User user, String newEmail, boolean requestExists
@@ -243,7 +247,8 @@ public final class AccountSettingController extends SettingController {
     var title = translation.translate(user, "email.change.email.title");
     var body = String.format(
       translation.translate(user, "email.change.email.body"),
-      String.format(EMAIL_CHANGE_URL, user.id().toString(), token));
+      String.format(EMAIL_CHANGE_URL, environment.domain(), user.id().toString(),
+        token));
     changeMail.send(newEmail, user.language(), title, body);
     return Map.of("success", true);
   }

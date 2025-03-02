@@ -1,5 +1,6 @@
 package com.dulno.access.password;
 
+import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
@@ -26,18 +27,20 @@ public final class PasswordController extends DulnoRestController {
   private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
   private final Translation translation;
   private final Hashing hashing;
+  private final DulnoEnvironment environment;
 
   private PasswordController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     @Qualifier("changeMail") Mail changeMail,
     UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
-    Translation translation, Hashing hashing
+    Translation translation, Hashing hashing, DulnoEnvironment environment
   ) {
     super(secretKey, userDatabaseTable);
     this.changeMail = changeMail;
     this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
     this.translation = translation;
     this.hashing = hashing;
+    this.environment = environment;
   }
 
   @RequestMapping(path = "/password/reset/request/", method = RequestMethod.POST)
@@ -86,14 +89,15 @@ public final class PasswordController extends DulnoRestController {
       emailTitle, emailBody));
   }
 
-  private static final String PASSWORD_RESET_URL = "https://dulno.com/password/reset/complete/%s/%s/";
+  private static final String PASSWORD_RESET_URL = "https://%s/password/reset/complete/%s/%s/";
 
   private Map<String, Object> sendPasswordResetMail(
     User user, String token, String emailTitle, String emailBody
   ) {
     var title = translation.translate(user, emailTitle);
     var body = String.format(translation.translate(user, emailBody), user.name(),
-      String.format(PASSWORD_RESET_URL, user.id().toString(), token));
+      String.format(PASSWORD_RESET_URL, environment.domain(),
+        user.id().toString(), token));
     changeMail.send(user, title, body);
     return Map.of("success", true);
   }

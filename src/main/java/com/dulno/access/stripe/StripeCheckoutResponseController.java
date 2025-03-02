@@ -1,5 +1,6 @@
 package com.dulno.access.stripe;
 
+import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.stripe.*;
 import com.dulno.workflow.operation.OperationDatabaseTable;
@@ -52,6 +53,7 @@ public final class StripeCheckoutResponseController extends StripeController {
   private final WorkerDistribution distribution;
   private final Translation translation;
   private final ErrorRepository errorRepository;
+  private final DulnoEnvironment environment;
 
   private StripeCheckoutResponseController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -66,7 +68,8 @@ public final class StripeCheckoutResponseController extends StripeController {
     OperationDatabaseTable operationDatabaseTable,
     WorkflowThrottleDatabaseTable workflowThrottleDatabaseTable,
     OfferDatabaseTable offerDatabaseTable, WorkerDistribution distribution,
-    Translation translation, ErrorRepository errorRepository
+    Translation translation, ErrorRepository errorRepository,
+    DulnoEnvironment environment
   ) {
     super(secretKey, userDatabaseTable, stripeConfiguration, stripeDatabaseTable,
       targetDatabaseTable, organizationDatabaseTable);
@@ -81,6 +84,7 @@ public final class StripeCheckoutResponseController extends StripeController {
     this.distribution = distribution;
     this.translation = translation;
     this.errorRepository = errorRepository;
+    this.environment = environment;
   }
 
   @RequestMapping(path = "/stripe/checkout/", method = RequestMethod.POST)
@@ -246,8 +250,8 @@ public final class StripeCheckoutResponseController extends StripeController {
       errorRepository.processError(exception);
     }
     return stripeCompletionDatabaseTable.confirmStripeCompletion(user.id(),
-      session.getSuccessUrl().replace("https://dulno.com/payment/complete/", "")
-        .replace("/", ""));
+      session.getSuccessUrl().replace("https://" + environment.domain() +
+        "/payment/complete/", "").replace("/", ""));
   }
 
   private void applyBundle(UUID target, Bundle bundle, boolean bundleExists) {

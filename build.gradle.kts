@@ -1,7 +1,7 @@
 plugins {
   id("java")
   id("maven-publish")
-  id("io.freefair.lombok") version "8.12.2"
+  id("io.freefair.lombok") version "8.12.2.1"
 }
 
 group = "com.dulno"
@@ -131,7 +131,7 @@ dependencies {
 
   compileOnly("com.sun.mail:javax.mail:1.6.2")
 
-  compileOnly("com.stripe:stripe-java:28.3.1")
+  compileOnly("com.stripe:stripe-java:28.4.0")
 
   compileOnly("com.maxmind.geoip2:geoip2:4.2.1")
 

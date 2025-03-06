@@ -27,7 +27,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -53,7 +52,6 @@ public final class VerificationRegistrationController {
   private final WorkerDistribution distribution;
   private final TutorialDatabaseTable tutorialDatabaseTable;
   private final UserActivityDatabaseTable activityDatabaseTable;
-  private final DatabaseReader geoDatabaseReader;
   private final SessionDatabaseTable sessionDatabaseTable;
   private final VerificationLoginController loginController;
   private final Hashing hashing;
@@ -70,7 +68,7 @@ public final class VerificationRegistrationController {
     NotificationDatabaseTable notificationDatabaseTable,
     WorkerDistribution distribution, TutorialDatabaseTable tutorialDatabaseTable,
     UserActivityDatabaseTable activityDatabaseTable,
-    DatabaseReader geoDatabaseReader, SessionDatabaseTable sessionDatabaseTable,
+    SessionDatabaseTable sessionDatabaseTable,
     VerificationLoginController loginController, Hashing hashing,
     DulnoEnvironment environment
   ) {
@@ -87,7 +85,6 @@ public final class VerificationRegistrationController {
     this.distribution = distribution;
     this.tutorialDatabaseTable = tutorialDatabaseTable;
     this.activityDatabaseTable = activityDatabaseTable;
-    this.geoDatabaseReader = geoDatabaseReader;
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.loginController = loginController;
     this.hashing = hashing;
@@ -96,7 +93,7 @@ public final class VerificationRegistrationController {
 
   @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> register(
-    HttpServletRequest request,  @RequestBody String payload,
+    HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
@@ -106,7 +103,6 @@ public final class VerificationRegistrationController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1002));
     }
-    var ipAddress = request.getHeader("X-Real-IP");
     var email = body.getString("email");
     if (!checkEmailFormat(email)) {
       return CompletableFuture.completedFuture(Map.of("success", false,
@@ -116,8 +112,8 @@ public final class VerificationRegistrationController {
       .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
         .thenAccept(recaptchaVerified -> completeRegistration(futureResponse,
           exists, recaptchaVerified, email, body.getSanitizedString("name", 32),
-          body.getString("password"), body.getString("redirect"), ipAddress,
-          legalAccepted, body.getBoolean("newsletter"))));
+          body.getString("password"), body.getString("language"),
+          body.getString("redirect"), legalAccepted, body.getBoolean("newsletter"))));
     return futureResponse;
   }
 
@@ -149,7 +145,8 @@ public final class VerificationRegistrationController {
   private void completeRegistration(
     CompletableFuture<Map<String, Object>> futureResponse, boolean alreadyExists,
     boolean recaptchaVerified, String email, String name, String password,
-    String redirect, String ipAddress, boolean legalAccepted, boolean newsletter
+    String language, String redirect, boolean legalAccepted,
+    boolean newsletter
   ) {
     if (alreadyExists) {
       futureResponse.complete(Map.of("success", false, "error", 1000));
@@ -159,29 +156,29 @@ public final class VerificationRegistrationController {
       futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
-    createUser(name, email, hashing.hash(password), redirect, ipAddress,
+    createUser(name, email, hashing.hash(password), language, redirect,
       legalAccepted, newsletter, true);
     futureResponse.complete(Map.of("success", true));
   }
 
   public CompletableFuture<User> createUser(
-    String name, String email, String passwordHash, String redirect,
-    String ipAddress, boolean legalAccepted, boolean newsletter,
+    String name, String email, String passwordHash, String language,
+    String redirect,  boolean legalAccepted, boolean newsletter,
     boolean verificationRequired
   ) {
     return userDatabaseTable.generateAvailableUserId().thenCompose(id ->
-      insertNewUser(id, name, email, passwordHash, redirect, ipAddress,
+      insertNewUser(id, name, email, passwordHash, language, redirect,
         legalAccepted, newsletter, verificationRequired));
   }
 
   private static final String VERIFICATION_URL = "https://%s/register/confirm/%s/%s/";
 
   private CompletableFuture<User> insertNewUser(
-    UUID userId, String name, String email, String passwordHash, String redirect,
-    String ipAddress, boolean legalAccepted, boolean newsletter,
+    UUID userId, String name, String email, String passwordHash, String language,
+    String redirect, boolean legalAccepted, boolean newsletter,
     boolean verificationRequired
   ) {
-    var language = findUserLanguage(ipAddress);
+    language = parseUserLanguage(language);
     var token = UUID.randomUUID().toString();
     notificationDatabaseTable.insertNotificationSettings(userId, true, true);
     activityDatabaseTable.insertActivity(userId, "activity.setting.registration.title",
@@ -208,16 +205,11 @@ public final class VerificationRegistrationController {
         .thenApply(userValue -> user));
   }
 
-  private String findUserLanguage(String ipAddress) {
-    try {
-      var location = geoDatabaseReader.city(InetAddress.getByName(ipAddress));
-      if (location.getCountry().getIsoCode().equalsIgnoreCase("de")) {
-        return "de";
-      }
-      return "en";
-    } catch (Exception exception) {
-      return "en";
+  private String parseUserLanguage(String language) {
+    if (language.equals("en") || language.equals("de")) {
+      return language;
     }
+    return "en";
   }
 
   @RequestMapping(path = "/verification/email/resend/", method = RequestMethod.POST)

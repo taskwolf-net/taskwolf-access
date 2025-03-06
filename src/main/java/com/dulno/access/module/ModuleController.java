@@ -72,12 +72,12 @@ public final class ModuleController extends DulnoRestController {
     HttpServletRequest request
   ) {
     var modules = Lists.<RegisteredModule>newArrayList();
+    modules.add(moduleLoader.findRegisteredModuleById("google-calendar").get());
+    modules.add(moduleLoader.findRegisteredModuleById("discord").get());
+    modules.add(moduleLoader.findRegisteredModuleById("mail").get());
+    modules.add(moduleLoader.findRegisteredModuleById("gitlab").get());
     modules.add(moduleLoader.findRegisteredModuleById("manual").get());
     modules.add(moduleLoader.findRegisteredModuleById("scheduler").get());
-    modules.add(moduleLoader.findRegisteredModuleById("webhook").get());
-    modules.add(moduleLoader.findRegisteredModuleById("sub-workflow").get());
-    modules.add(moduleLoader.findRegisteredModuleById("device").get());
-    modules.add(moduleLoader.findRegisteredModuleById("table").get());
     return findUser(request).thenApply(user -> Map.of("modules", modules.stream()
       .map(module -> moduleInformation(user.language(), module)).toList()));
   }
@@ -87,12 +87,12 @@ public final class ModuleController extends DulnoRestController {
     HttpServletRequest request
   ) {
     var modules = Lists.<RegisteredModule>newArrayList();
-    modules.add(moduleLoader.findRegisteredModuleById("table").get());
-    modules.add(moduleLoader.findRegisteredModuleById("webhook").get());
-    modules.add(moduleLoader.findRegisteredModuleById("json").get());
-    modules.add(moduleLoader.findRegisteredModuleById("device").get());
-    modules.add(moduleLoader.findRegisteredModuleById("mail").get());
-    modules.add(moduleLoader.findRegisteredModuleById("sub-workflow").get());
+    modules.add(moduleLoader.findRegisteredModuleById("google-calendar").get());
+    modules.add(moduleLoader.findRegisteredModuleById("google-docs").get());
+    modules.add(moduleLoader.findRegisteredModuleById("chatgpt").get());
+    modules.add(moduleLoader.findRegisteredModuleById("google-maps").get());
+    modules.add(moduleLoader.findRegisteredModuleById("gitlab").get());
+    modules.add(moduleLoader.findRegisteredModuleById("discord").get());
     return findUser(request).thenApply(user -> Map.of("modules", modules.stream()
       .map(module -> moduleInformation(user.language(), module)).toList()));
   }

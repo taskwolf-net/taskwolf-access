@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 @RestController
 public final class AccountController extends DulnoRestController {
@@ -49,20 +48,34 @@ public final class AccountController extends DulnoRestController {
     this.translation = translation;
   }
 
-  @RequestMapping(path = "/account/apps/", method = RequestMethod.GET)
-  public CompletableFuture<String> findAccountApps(HttpServletRequest request) {
+  @RequestMapping(path = "/account/apps/", method = RequestMethod.POST)
+  public CompletableFuture<String> findAccountApps(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var connectedOnly = body.getBoolean("connectedOnly");
     var futureResponse = new CompletableFuture<String>();
-    findAccountTarget(findUserId(request))
-      .thenAccept(target -> findLinkedAccounts(target).thenAccept(modules ->
-        futureResponse.complete(finishAccountAppFinding(modules))));
+    findUser(request).thenAccept(user -> findAccountTarget(user.id())
+      .thenAccept(target -> findLinkedAccounts(target, connectedOnly)
+        .thenAccept(modules -> futureResponse.complete(
+          finishAccountAppFinding(user, target, findApiKey(request), modules)))));
     return futureResponse;
   }
 
-  public CompletableFuture<List<RegisteredModule>> findLinkedAccounts(UUID targetId) {
+  public CompletableFuture<List<RegisteredModule>> findLinkedAccounts(
+    UUID targetId, boolean connectedOnly
+  ) {
     var modules = moduleLoader.allRegisteredModules().stream()
       .filter(module -> module.module().accountLink() != null)
-      .filter(module -> !module.module().accountLink().registrationUrl(targetId,
-        "").isEmpty()).toList();
+      .filter(module -> !module.module().accountLink()
+        .registrationUrl(targetId, "").isEmpty())
+      .filter(module -> !module.name().equals("table") &&
+        !module.name().equals("webhook"))
+      .toList();
+    if (!connectedOnly) {
+      return CompletableFuture.completedFuture(modules);
+    }
     var futureResponse = new CompletableFuture<List<RegisteredModule>>();
     AsyncIterator.execute(modules, module -> module.module().accountLink()
         .accountExists(targetId).thenApply(exists ->
@@ -72,10 +85,16 @@ public final class AccountController extends DulnoRestController {
     return futureResponse;
   }
 
-  private String finishAccountAppFinding(List<RegisteredModule> modules) {
-    return new JSONObject(Map.of("apps", modules.stream().map(entry ->
-        new JSONObject(Map.of("logo", entry.module().moduleInformation().logo(),
-          "name", entry.module().moduleInformation().name(), "id", entry.name())))
+  private String finishAccountAppFinding(
+    User user, UUID targetId, String apiKey, List<RegisteredModule> modules
+  ) {
+    return new JSONObject(Map.of("apps", modules.stream()
+      .map(entry -> new JSONObject(Map.of(
+        "logo", entry.module().moduleInformation().logo(),
+        "name", translation.translate(user, entry.module().moduleInformation().name()),
+        "id", entry.name(),
+        "registrationUrl", entry.module().accountLink()
+          .registrationUrl(targetId, apiKey))))
       .toList())).toString();
   }
 
@@ -85,7 +104,8 @@ public final class AccountController extends DulnoRestController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var registeredModule = moduleLoader.findRegisteredModuleById(body.getString("module"));
+    var registeredModule = moduleLoader.findRegisteredModuleById(
+      body.getString("module"));
     return registeredModule.map(module ->
       findAccounts(findUserId(request), module.module())).orElse(null);
   }
@@ -119,7 +139,7 @@ public final class AccountController extends DulnoRestController {
   }
 
   public void deleteAllAccounts(UUID targetId) {
-    findLinkedAccounts(targetId).thenApply(modules ->
+    findLinkedAccounts(targetId, true).thenApply(modules ->
         modules.stream().map(module -> module.module().accountLink()).toList())
       .thenAccept(accountLinks -> deleteAccounts(targetId, accountLinks));
   }

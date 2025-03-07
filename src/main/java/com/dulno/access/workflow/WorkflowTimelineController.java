@@ -112,7 +112,7 @@ public final class WorkflowTimelineController extends WorkflowController {
       entryInformation.put("title", entry.title(translation, user));
       entryInformation.put("description", entry.description(translation, user));
       entryInformation.put("level", entry.level());
-      entryInformation.put("time", entry.formattedTime());
+      entryInformation.put("time", entry.rawTime());
       if (entry instanceof TimelineWorkflowFailureEntry failureEntry) {
         entryInformation.put("isFailure", true);
         entryInformation.put("failureModuleName",

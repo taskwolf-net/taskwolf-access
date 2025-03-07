@@ -52,9 +52,9 @@ public final class AccountController extends DulnoRestController {
   @RequestMapping(path = "/account/apps/", method = RequestMethod.GET)
   public CompletableFuture<String> findAccountApps(HttpServletRequest request) {
     var futureResponse = new CompletableFuture<String>();
-    findAccountTarget(findUserId(request))
+    findUser(request).thenAccept(user -> findAccountTarget(user.id())
       .thenAccept(target -> findLinkedAccounts(target).thenAccept(modules ->
-        futureResponse.complete(finishAccountAppFinding(modules))));
+        futureResponse.complete(finishAccountAppFinding(user, modules)))));
     return futureResponse;
   }
 
@@ -72,11 +72,14 @@ public final class AccountController extends DulnoRestController {
     return futureResponse;
   }
 
-  private String finishAccountAppFinding(List<RegisteredModule> modules) {
-    return new JSONObject(Map.of("apps", modules.stream().map(entry ->
-        new JSONObject(Map.of("logo", entry.module().moduleInformation().logo(),
-          "name", entry.module().moduleInformation().name(), "id", entry.name())))
-      .toList())).toString();
+  private String finishAccountAppFinding(
+    User user, List<RegisteredModule> modules
+  ) {
+    return new JSONObject(Map.of("apps", modules.stream()
+      .map(entry -> new JSONObject(Map.of(
+        "logo", entry.module().moduleInformation().logo(),
+        "name", translation.translate(user, entry.module().moduleInformation().name()),
+        "id", entry.name()))).toList())).toString();
   }
 
   @RequestMapping(path = "/accounts/", method = RequestMethod.POST)

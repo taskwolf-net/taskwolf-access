@@ -206,12 +206,12 @@ public final class ComponentController extends DulnoRestController {
     var dynamicVariables = variables.stream()
       .filter(variable -> variable instanceof DynamicOutputComponentVariable).toList();
     variables.removeAll(dynamicVariables);
-    var result = dynamicOutputVariableInformation(language,
+    var dynamicInformation = dynamicOutputVariableInformation(language,
       (List<DynamicOutputComponentVariable>) dynamicVariables, currentContent,
       previousComponents);
-    result.thenAccept(information -> information.addAll(variables.stream()
-      .map(variable -> assembleVariableInformation(variable, language)).toList()));
-    return result;
+    var result = variables.stream().map(variable ->
+      assembleVariableInformation(variable, language)).collect(Collectors.toList());
+    return dynamicInformation.thenAccept(result::addAll).thenApply(valur -> result);
   }
 
   private CompletableFuture<List<Map<String, Object>>> dynamicOutputVariableInformation(

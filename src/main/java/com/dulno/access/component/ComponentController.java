@@ -1,6 +1,6 @@
 package com.dulno.access.component;
 
-import com.dulno.core.iterator.AsyncListIterator;
+import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.workflow.WorkflowModule;
 import com.dulno.workflow.component.output.DynamicOutputComponentVariable;
@@ -23,16 +23,15 @@ import com.dulno.workflow.component.ComponentInformation;
 import com.dulno.workflow.component.ComponentVariable;
 import com.dulno.workflow.component.input.InputComponentDataType;
 import com.dulno.workflow.component.input.InputComponentVariable;
+import org.apache.commons.lang3.tuple.Pair;
 import org.json.JSONObject;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @RestController
 public final class ComponentController extends DulnoRestController {
@@ -198,33 +197,39 @@ public final class ComponentController extends DulnoRestController {
     return outputVariables;
   }
 
-  private <T extends ComponentVariable> CompletableFuture<List<Map<String, Object>>>
+  public <T extends ComponentVariable> CompletableFuture<List<Map<String, Object>>>
   componentVariablesInformation(
     String language, List<T> variables,
     JSONObject currentContent, List<JSONObject> previousComponents
   ) {
-    var dynamicVariables = variables.stream()
-      .filter(variable -> variable instanceof DynamicOutputComponentVariable).toList();
-    variables.removeAll(dynamicVariables);
-    var dynamicInformation = dynamicOutputVariableInformation(language,
-      (List<DynamicOutputComponentVariable>) dynamicVariables, currentContent,
-      previousComponents);
-    var result = variables.stream().map(variable ->
-      assembleVariableInformation(variable, language)).collect(Collectors.toList());
-    return dynamicInformation.thenAccept(result::addAll).thenApply(valur -> result);
+    var indexedVariables = IntStream.range(0, variables.size())
+      .mapToObj(i -> Pair.of(i, variables.get(i))).toList();
+    return AsyncIterator.execute(indexedVariables,
+        entry -> assembleVariableInformation(language, entry.getRight(),
+          currentContent, previousComponents)
+          .thenApply(result -> Pair.of(entry.getLeft(), result)))
+      .thenApply(result -> result.stream()
+        .sorted(Comparator.comparingInt(Pair::getLeft))
+        .flatMap(pair -> pair.getRight().stream()).toList());
   }
 
-  private CompletableFuture<List<Map<String, Object>>> dynamicOutputVariableInformation(
-    String language, List<DynamicOutputComponentVariable> variables,
+  private <T extends ComponentVariable> CompletableFuture<List<Map<String, Object>>>
+  assembleVariableInformation(
+    String language, T variable,
     JSONObject currentContent, List<JSONObject> previousComponents
   ) {
-    return AsyncListIterator.execute(variables, variable -> variable.variableFunction()
-      .compile(currentContent, previousComponents).thenApply(outputs -> outputs.stream()
-        .map(entry -> assembleVariableInformation(entry, language)).toList()));
+    if (variable instanceof DynamicOutputComponentVariable dynamicOutputVariable) {
+      return dynamicOutputVariable.variableFunction()
+        .compile(currentContent, previousComponents)
+        .thenCompose(outputs -> componentVariablesInformation(language, outputs,
+          currentContent, previousComponents));
+    }
+    return CompletableFuture.completedFuture(Lists.newArrayList(
+      assembleVariableInformation(language, variable)));
   }
 
   private <T extends ComponentVariable> Map<String, Object> assembleVariableInformation(
-    T variable, String language
+    String language, T variable
   ) {
     var variableInformation = Maps.<String, Object>newHashMap();
     variableInformation.put("identifier", variable.identifier());
@@ -313,7 +318,7 @@ public final class ComponentController extends DulnoRestController {
         .thenCompose(target -> component.get().variableFunction()
           .compile(user, target, content)
           .thenApply(inputs -> Map.of("dynamicInputs", inputs.stream()
-            .map(input -> assembleVariableInformation(input, user.language()))
+            .map(input -> assembleVariableInformation(user.language(), input))
             .toList()))));
   }
 

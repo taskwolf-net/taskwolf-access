@@ -1,12 +1,8 @@
 package com.dulno.access.loop;
 
-import com.dulno.core.iterator.AsyncListIterator;
+import com.dulno.access.component.ComponentController;
 import com.dulno.workflow.loop.LoopInformation;
 import com.dulno.workflow.loop.LoopInformationRepository;
-import com.dulno.workflow.component.ComponentVariable;
-import com.dulno.workflow.component.input.InputComponentVariable;
-import com.dulno.workflow.component.output.DynamicOutputComponentVariable;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,14 +26,17 @@ import java.util.concurrent.CompletableFuture;
 public final class LoopController extends DulnoRestController {
   private final Translation translation;
   private final LoopInformationRepository loopRepository;
+  private final ComponentController componentController;
 
   private LoopController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    Translation translation, LoopInformationRepository loopRepository
+    Translation translation, LoopInformationRepository loopRepository,
+    ComponentController componentController
   ) {
     super(secretKey, userDatabaseTable);
     this.translation = translation;
     this.loopRepository = loopRepository;
+    this.componentController = componentController;
   }
 
   @RequestMapping(path = "/loops/find/", method = RequestMethod.GET)
@@ -77,12 +76,13 @@ public final class LoopController extends DulnoRestController {
     User user, LoopInformation loop,
     JSONObject currentContent, List<JSONObject> previousComponents
   ) {
-    return componentVariablesInformation(user.language(),
-      Lists.newArrayList(loop.inputVariables()), currentContent, previousComponents)
-      .thenCompose(inputInformation -> componentVariablesInformation(user.language(),
-        Lists.newArrayList(loop.outputVariables()), currentContent, previousComponents)
-        .thenApply(outputInformation -> assemblyDetailedLoopInformation(
-          user, loop, inputInformation, outputInformation)));
+    return componentController.componentVariablesInformation(user.language(),
+        loop.inputVariables(), currentContent, previousComponents)
+      .thenCompose(inputInformation ->
+        componentController.componentVariablesInformation(user.language(),
+            loop.outputVariables(), currentContent, previousComponents)
+          .thenApply(outputInformation -> assemblyDetailedLoopInformation(
+            user, loop, inputInformation, outputInformation)));
   }
 
   private Map<String, Object> assemblyDetailedLoopInformation(
@@ -94,48 +94,5 @@ public final class LoopController extends DulnoRestController {
     information.put("inputVariables", inputInformation);
     information.put("outputVariables", outputInformation);
     return information;
-  }
-
-  private <T extends ComponentVariable> CompletableFuture<List<Map<String, Object>>>
-  componentVariablesInformation(
-    String language, List<T> variables,
-    JSONObject currentContent, List<JSONObject> previousComponents
-  ) {
-    var dynamicVariables = variables.stream()
-      .filter(variable -> variable instanceof DynamicOutputComponentVariable).toList();
-    variables.removeAll(dynamicVariables);
-    var result = dynamicOutputVariableInformation(language,
-      (List<DynamicOutputComponentVariable>) dynamicVariables, currentContent,
-      previousComponents);
-    result.thenAccept(information -> information.addAll(variables.stream()
-      .map(variable -> assembleVariableInformation(variable, language)).toList()));
-    return result;
-  }
-
-  private CompletableFuture<List<Map<String, Object>>> dynamicOutputVariableInformation(
-    String language, List<DynamicOutputComponentVariable> variables,
-    JSONObject currentContent, List<JSONObject> previousComponents
-  ) {
-    return AsyncListIterator.execute(variables, variable -> variable.variableFunction()
-      .compile(currentContent, previousComponents).thenApply(outputs -> outputs.stream()
-        .map(entry -> assembleVariableInformation(entry, language)).toList()));
-  }
-
-  private <T extends ComponentVariable> Map<String, Object> assembleVariableInformation(
-    T variable, String language
-  ) {
-    var variableInformation = Maps.<String, Object>newHashMap();
-    variableInformation.put("identifier", variable.identifier());
-    variableInformation.put("name", translation.translate(language,
-      variable.displayName()));
-    if (variable instanceof InputComponentVariable inputVariable) {
-      variableInformation.put("description", translation.translate(language,
-        inputVariable.description()));
-      variableInformation.put("placeholder", translation.translate(language,
-        inputVariable.placeholder()));
-      variableInformation.put("type", inputVariable.type());
-      variableInformation.put("dataType", inputVariable.dataType());
-    }
-    return variableInformation;
   }
 }

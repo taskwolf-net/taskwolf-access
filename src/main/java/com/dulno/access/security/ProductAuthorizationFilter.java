@@ -80,6 +80,8 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/gitlab/authorize/");
     controllers.add("/" + CURRENT_API_VERSION + "/gitlab/event/");
     controllers.add("/" + CURRENT_API_VERSION + "/microsoft/teams/messages/");
+    controllers.add("/" + CURRENT_API_VERSION + "/device/scan/");
+    controllers.add("/" + CURRENT_API_VERSION + "/device/scan/approved/");
     var url = request.getRequestURI();
     return controllers.contains(url) || url.contains("/team/") ||
       url.contains("/webhook/trigger/") || url.contains("unauthorized") ||

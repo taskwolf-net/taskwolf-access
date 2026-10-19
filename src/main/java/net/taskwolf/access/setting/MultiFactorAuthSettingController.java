@@ -10,7 +10,6 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.mfa.MultiFactorAuthDatabaseTable;
 import net.taskwolf.core.user.mfa.MultiFactorAuthFactory;
 import net.taskwolf.core.user.mfa.MultiFactorAuthUser;
-import org.apache.tomcat.util.codec.binary.Base64;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -77,7 +77,7 @@ public final class MultiFactorAuthSettingController extends SettingController {
     }
     var auth = multiFactorAuthFactory.createAuth(userId);
     return auth.setup().thenCompose(value -> auth.generateQRCode()
-      .thenApply(Base64::encodeBase64String)
+      .thenApply(Base64.getEncoder()::encodeToString)
       .thenCompose(qrCodeEncoded -> multiFactorAuthDatabaseTable.findAuth(userId)
         .thenApply(authUser -> Map.of("qrCode", qrCodeEncoded, "secret",
           authUser.secret(), "recoveryCodes", authUser.recoveryCodes()))));

@@ -1,7 +1,7 @@
 plugins {
   id("java")
   id("maven-publish")
-  id("io.freefair.lombok") version "9.8.0"
+  id("io.freefair.lombok") version "9.8.2"
 }
 
 group = "net.taskwolf"
@@ -57,7 +57,7 @@ dependencies {
 
   compileOnly("com.maxmind.geoip2:geoip2:5.2.0")
 
-  compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20260924.2")
+  compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20261011.1")
 }
 
 tasks.test {

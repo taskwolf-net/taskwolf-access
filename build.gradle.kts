@@ -47,7 +47,7 @@ dependencies {
   compileOnly("org.json:json:20260814")
   compileOnly("commons-io:commons-io:2.22.0")
 
-  compileOnly("org.springframework.boot:spring-boot-starter-web:4.1.1")
+  compileOnly("org.springframework.boot:spring-boot-starter-web:4.1.2")
 
   compileOnly("io.jsonwebtoken:jjwt:0.13.0")
 
